@@ -56,8 +56,8 @@ def xtile(x, n=5, rev=False):
     rev	Reverse the order of the bin numbers
 
     Examples:
-    xtile(np.array(range(10), 5)
-    xtile(np.array(range(10), 5, rev=True)
+    xtile(np.array(range(10)), 5)
+    xtile(np.array(range(10)), 5, rev=True)
     """
     x = np.array(x)
     breaks = np.quantile(x[np.isnan(x) == False], np.array(range(0, n + 1)) / n)
