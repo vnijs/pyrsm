@@ -2,8 +2,9 @@ from setuptools import setup, find_packages
 
 setup(
     name="pyrsm",
-    version="0.1",
-    description="Functions for Customer Analytics at the Rady School of Management (RSM)",
+    version="0.1.0",
+    description="Python functions for Customer Analytics at the Rady School of Management (RSM)",
+    long_description="Python functions for Customer Analytics at the Rady School of Management (RSM)",
     long_description_content_type="text/markdown",
     license="AGPL",
     author="Vincent Nijs",
