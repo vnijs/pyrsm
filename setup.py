@@ -10,6 +10,7 @@ setup(
     author="Vincent Nijs",
     author_email="vnijs@ucsd.edu",
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
+    install_requires=["numpy>=1.17.3"],
     project_urls={
         "Bug Reports": "https://github.com/vnijs/pyrsm/issues",
         "Source": "https://github.com/vnijs/pyrsm",
