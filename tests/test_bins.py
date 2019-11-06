@@ -1,5 +1,6 @@
-from pyrsm import xtile, seprop
+import pandas as pd
 import numpy as np
+from pyrsm import xtile, bincode
 
 
 def test_xtile():
@@ -22,11 +23,17 @@ def test_xtile_nan():
     x = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, np.NaN])
     bins = xtile(x, 5)
     assert all(
-        bins == np.array([1, 1, 2, 2, 3, 4, 4, 5, 5, -999])
+        bins[:9] == np.array([1, 1, 2, 2, 3, 4, 4, 5, 5])
     ), "Incorrect bins with NaN returned"
+    assert np.isnan(bins[-1]), "No missing value returned"
 
 
-def test_seprop():
-    assert (
-        seprop([1, 1, 1, 0, 0, 0]) == 0.2041241452319315
-    ), "Proportion standard error incorrect"
+def test_bincode_nan():
+    x = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, np.NaN])
+    breaks = np.quantile(x[np.isnan(x) == False], np.array(range(0, 6)) / 5)
+    bins = bincode(x, breaks, rev=False)
+    assert all(
+        bins[:9] == np.array([1, 1, 2, 2, 3, 4, 4, 5, 5])
+    ), "Incorrect bins with NaN returned"
+    assert np.isnan(bins[-1]), "No missing value returned"
+

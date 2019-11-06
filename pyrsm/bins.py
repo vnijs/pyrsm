@@ -1,11 +1,15 @@
 import numpy as np
+import pandas as pd
 import sys
 
 
-def bincode(x, breaks, rev, right=True, include_lowest=True):
+def bincode(x, breaks, rev=False, right=True, include_lowest=True):
     """Port of R's .bincode function"""
     n = len(x)
-    code = np.array([0] * n)
+    if any(np.isnan(x)):
+        code = np.array([0.0] * n)
+    else:
+        code = np.array([0] * n)
     nb = len(breaks)
     nb1 = nb - 1
     lft = right is False
@@ -20,8 +24,8 @@ def bincode(x, breaks, rev, right=True, include_lowest=True):
 
     for i in range(n):
         if np.isnan(x[i]):
-            code[i] = np.where(rev, 999 + nb, -999)
-            print("One or more entries contain missing values. Code set to -999")
+            code[i] = np.NaN
+            print(f"Entry {i} is a missing value")
         else:
             lo = 0
             hi = nb1
@@ -61,7 +65,11 @@ def xtile(x, n=5, rev=False):
     """
     x = np.array(x)
     breaks = np.quantile(x[np.isnan(x) == False], np.array(range(0, n + 1)) / n)
-    bins = bincode(x, breaks, rev)
+    if len(np.unique(breaks)) == len(breaks):
+        bins = np.array(pd.cut(x, breaks, include_lowest=True, labels=False)) + 1
+    else:
+        bins = bincode(x, breaks, rev)
+
     if rev is True:
         bins = (n + 1) - bins
 
