@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from pyrsm import calc, gains, lift
+from pyrsm.perf import calc, gains, lift
 
 np.random.seed(1234)
 nr = 100
@@ -30,7 +30,7 @@ def test_gains():
     ret = gains(df, "response", "yes", "x1", qnt=10)
     assert all(
         ret["cum_gains"].values.round(3)
-        == np.array([0.2, 0.467, 0.667, 0.9, 0.967, 1.0, 1.0, 1.0, 1.0, 1.0])
+        == np.array([0.0, 0.2, 0.467, 0.667, 0.9, 0.967, 1.0, 1.0, 1.0, 1.0, 1.0])
     ), "Incorrect calculation of cum_gains"
 
 
@@ -40,20 +40,3 @@ def test_lift():
         ret["cum_lift"].values.round(3)
         == np.array([2.0, 2.333, 2.222, 2.25, 1.933, 1.667, 1.429, 1.25, 1.111, 1.0])
     ), "Incorrect calculation of cum_lift"
-
-
-# for manual testing
-# from pyrsm import *
-
-# bbb = pd.read_pickle("~/Dropbox/MGTA455-2020/data/bbb.pkl")
-# df, rvar, lev, pred, qnt, cost, margin = bbb, "buyer", "yes", "last", 10, 1, 10
-# calc(df, rvar, lev, pred, qnt=qnt)
-# gains(df, rvar, lev, pred, qnt=qnt)
-# gains_plot(df, rvar, lev, pred, qnt=qnt)
-# lift(df, rvar, lev, pred, qnt=qnt)
-# lift_plot(df, rvar, lev, pred, qnt=qnt)
-# profit_max(df, rvar, lev, pred, cost=cost, margin=margin)
-# ROME(df, pred, rvar, lev, cost=cost, margin=margin)
-# confusion(df, rvar, lev, pred, cost=cost, margin=margin)
-# profit(df, rvar, lev, pred, qnt=qnt, cost=cost, margin=margin)
-# profit_plot(df, rvar, lev, pred, qnt=qnt, cost=cost, margin=margin)

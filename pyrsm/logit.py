@@ -19,7 +19,7 @@ def or_conf_int(fitted, alpha=0.05, intercept=False, dec=3):
     """
     df = pd.DataFrame(np.exp(fitted.params), columns=["OR"])
     low, high = [100 * alpha / 2, 100 * (1 - (alpha / 2))]
-    df[[f"{low}%", f"{high}%"]] = np.exp(fitted.conf_int())
+    df[[f"{low}%", f"{high}%"]] = np.exp(fitted.conf_int(alpha=alpha))
 
     if dec is not None:
         df = df.round(dec)
@@ -46,7 +46,6 @@ def or_plot(fitted, alpha=0.05, intercept=False):
     low, high = [100 * alpha / 2, 100 * (1 - (alpha / 2))]
     err = [df["OR"] - df[f"{low}%"], df[f"{high}%"] - df["OR"]]
 
-    plt.clf()
     fig, ax = plt.subplots()
     ax.axvline(1, ls="dashdot")
     ax.errorbar(x="OR", y="index", data=df, xerr=err, fmt="none")
@@ -56,13 +55,15 @@ def or_plot(fitted, alpha=0.05, intercept=False):
     ax.xaxis.set_major_locator(ticker.LogLocator(subs=[0.1, 0.2, 0.5, 1, 2, 5, 10]))
     ax.xaxis.set_major_formatter(ticker.StrMethodFormatter("{x:.1f}"))
     ax.set(xlabel="Odds-ratio")
-    plt.show()
+    return ax
 
 
 def vif(model, dec=3):
     """
-    Calculate the Variance Inflation Factor (VIF) associated with each 
+    Calculate the Variance Inflation Factor (VIF) associated with each
     exogenous variable
+
+    WIP port the VIF calculation from R's car:::vif.default to Python
 
     Arguments:
     model   A specified model that has not yet been fit

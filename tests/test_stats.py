@@ -1,4 +1,4 @@
-from pyrsm import seprop
+from pyrsm.stats import seprop
 
 
 def test_seprop():

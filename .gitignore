@@ -142,3 +142,5 @@ Training
 Blog
 About
 
+.vscode/launch.json
+tests/manual_test_perf.py

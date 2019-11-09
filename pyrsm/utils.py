@@ -30,3 +30,11 @@ def describe(df):
     else:
         print("No description attribute available")
         return df.describe()
+
+
+def ifelse(cond, if_true, if_false):
+    """Oneline if-else like R"""
+    if cond:
+        return if_true
+    else:
+        return if_false
