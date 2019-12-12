@@ -18,7 +18,6 @@ def calc(df, rvar, lev, pred, qnt=10):
     if perf_df["nr_resp"].iloc[1] < perf_df["nr_resp"].iloc[-1]:
         perf_df = perf_df.sort_values("bins", ascending=False)
 
-    # resp_rate = perf_df.nr_resp / perf_df.nr_obs
     perf_df["cum_obs"] = np.cumsum(perf_df["nr_obs"])
     perf_df["cum_prop"] = perf_df["cum_obs"] / perf_df["cum_obs"].iloc[-1]
     perf_df["cum_resp"] = np.cumsum(perf_df["nr_resp"])

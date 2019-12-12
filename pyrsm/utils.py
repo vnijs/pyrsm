@@ -1,3 +1,6 @@
+import numpy as np
+
+
 def add_description(df, md="", path=""):
     """
     Add a description to a pandas data frame
@@ -34,7 +37,11 @@ def describe(df):
 
 def ifelse(cond, if_true, if_false):
     """Oneline if-else like R"""
-    if cond:
-        return if_true
-    else:
-        return if_false
+    try:
+        len(cond) > 1  # catching "TypeError: object of type 'bool' has no len()"
+        return np.where(cond, if_true, if_false)
+    except TypeError:
+        if cond:
+            return if_true
+        else:
+            return if_false

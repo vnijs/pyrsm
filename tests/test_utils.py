@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from pyrsm.utils import add_description, ifelse
 
 
@@ -27,3 +28,8 @@ def test_ifelse_false():
         ifelse(2 > 3, "greater", "smaller") == "smaller"
     ), "Logical comparison in ifelse incorrect"
 
+
+def test_ifelse_array():
+    assert all(
+        ifelse(np.array([2, 3, 4]) > 2, 1, 0) == np.array([0, 1, 1])
+    ), "Logical comparison of np.array in ifelse incorrect"
