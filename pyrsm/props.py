@@ -37,7 +37,7 @@ def prop_plot(df, group, rvar, lev, breakeven=None):
     """
     dfp = prop_calc(df, group, rvar, lev)
     cn = dfp.columns
-    fig = sns.barplot(x=cn[0], y=cn[1], color="blue", data=dfp)
+    fig = sns.barplot(x=cn[0], y=cn[1], color="slateblue", data=dfp)
     fig.set(ylabel=f"Proportion of {cn[1]} = '{lev}'")
     if breakeven is not None:
         fig.axhline(breakeven, linestyle="dashed", linewidth=0.5)
