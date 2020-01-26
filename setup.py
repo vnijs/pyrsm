@@ -16,6 +16,7 @@ setup(
         "seaborn>=0.9.0",
         "matplotlib>=3.1.1",
         "statsmodels>=0.10.1",
+        "scipy>=1.4.1"
     ],
     project_urls={
         "Bug Reports": "https://github.com/vnijs/pyrsm/issues",

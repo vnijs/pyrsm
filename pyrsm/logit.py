@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from statsmodels.stats.outliers_influence import variance_inflation_factor
-
+from scipy.stats import norm
 
 def or_conf_int(fitted, alpha=0.05, intercept=False, dec=3):
     """
@@ -85,5 +85,36 @@ def vif(model, dec=3):
 
     if dec is not None:
         df = df.round(dec)
+
+    return df
+
+def predict_conf_int(fitted, X, alpha=0.05):
+    """
+    Compute predictions from a logistic regression with confidence intervals
+
+    Arguments:
+    fitted  A fitted logistic regression fitted
+    X       A matrix for which predictions will be generated
+    alpha   Significance level (between 0 and 1). Default is 0.05.
+
+    Returns:
+    -------
+    Return a dataframe with the logistic regression prediction and two-sided (1 - alpha)% confidence intervals
+    """
+    if 0 < alpha < 1:
+        pass
+    else:
+        raise ValueError('alpha must be a numeric value between 0 and 1')
+
+    low, high = [100 * alpha / 2, 100 * (1 - (alpha / 2))]
+
+    Xb = np.dot(X, fitted.params)
+    se = np.sqrt(np.diag(X.dot(fitted.cov_params()).dot(np.transpose(X))))
+    lb = Xb - norm.ppf(1 - (alpha / 2)) * se
+    ub = Xb + norm.ppf(1 - (alpha / 2)) * se
+
+    df = pd.DataFrame({'prediction': fitted.predict(X),
+                       f"{low}%": np.exp(lb) / (1 + np.exp(lb)),
+                       f"{high}%": np.exp(ub) / (1 + np.exp(ub))})
 
     return df
