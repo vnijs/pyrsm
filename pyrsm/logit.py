@@ -5,17 +5,20 @@ import matplotlib.ticker as ticker
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from scipy.stats import norm
 
+
 def or_conf_int(fitted, alpha=0.05, intercept=False, dec=3):
     """
     Confidence interval for Odds ratios
 
-    Arguments:
-    fitted   A fitted logistic regression model
+    Parameters
+    ----------
+    fitted  A fitted logistic regression model
     alpha   Significance level
     dec     Number of decimal places
 
-    Return:
-    A dataframe with the Odd-ratios and confidence interval
+    Return
+    ------
+    A dataframe with Odd-ratios and confidence interval
     """
     df = pd.DataFrame(np.exp(fitted.params), columns=["OR"])
     low, high = [100 * alpha / 2, 100 * (1 - (alpha / 2))]
@@ -36,10 +39,11 @@ def or_plot(fitted, alpha=0.05, intercept=False):
     """
     Odds ratio plot
 
-    Arguments:
-    fitted       A fitted logistic regression fitted
+    Parameters
+    ----------
+    fitted      A fitted logistic regression model
     alpha       Significance level
-    intercept   Include intercept in plot True or False
+    intercept   Include intercept in plot (True or False)
     """
     df = or_conf_int(fitted, alpha=alpha, intercept=intercept, dec=None).iloc[::-1]
 
@@ -65,11 +69,13 @@ def vif(model, dec=3):
 
     WIP port the VIF calculation from R's car:::vif.default to Python
 
-    Arguments:
-    model   A specified model that has not yet been fit
+    Parameters
+    ----------
+    model   A specified model that has not yet been fitted
     dec     Decimal places to use in rounding
 
-    Return:
+    Return
+    ------
     A dataframe sorted by VIF score
     """
     vif = [variance_inflation_factor(model.exog, i) for i in range(model.exog.shape[1])]
@@ -88,33 +94,55 @@ def vif(model, dec=3):
 
     return df
 
+
 def predict_conf_int(fitted, X, alpha=0.05):
     """
-    Compute predictions from a logistic regression with confidence intervals
+    Compute predicted probabilities with confidence intervals based on a
+    logistic regression model
 
-    Arguments:
-    fitted  A fitted logistic regression fitted
-    X       A matrix for which predictions will be generated
-    alpha   Significance level (between 0 and 1). Default is 0.05.
+    Parameters
+    ----------
+    fitted  A fitted logistic regression model
+    X       A matrix input data for prediction
+    alpha   Significance level (0-1). Default is 0.05
 
-    Returns:
+    Returns
     -------
-    Return a dataframe with the logistic regression prediction and two-sided (1 - alpha)% confidence intervals
+    A dataframe with probability predictions and lower and upper confidence bounds
+
+    Example
+    -------
+    # generate data
+    np.random.seed(1)
+    x = np.arange(100)
+    y = (x * 0.5 + np.random.normal(size=100,scale=10)>30)
+
+    # estimate the model
+    X = sm.add_constant(x)
+    model = sm.Logit(y, X).fit()
+    model.summary()
+    df = predict_conf_int(model, X)
+
+    plt.clf()
+    plt.plot(x, df["prediction"])
+    plt.plot(x, df["2.5%"], color='black', linestyle="--", linewidth=0.5)
+    plt.plot(x, df["97.5%"], color='black', linestyle="--", linewidth=0.5)
+    plt.show()
     """
-    if 0 < alpha < 1:
-        pass
-    else:
-        raise ValueError('alpha must be a numeric value between 0 and 1')
+    if alpha < 0 or alpha > 1:
+        raise ValueError("alpha must be a numeric value between 0 and 1")
 
-    low, high = [100 * alpha / 2, 100 * (1 - (alpha / 2))]
-
+    low, high = [alpha / 2, 1 - (alpha / 2)]
     Xb = np.dot(X, fitted.params)
     se = np.sqrt(np.diag(X.dot(fitted.cov_params()).dot(np.transpose(X))))
-    lb = Xb - norm.ppf(1 - (alpha / 2)) * se
-    ub = Xb + norm.ppf(1 - (alpha / 2)) * se
+    me = norm.ppf(high) * se
+    lb = np.exp(Xb - me)
+    ub = np.exp(Xb + me)
 
-    df = pd.DataFrame({'prediction': fitted.predict(X),
-                       f"{low}%": np.exp(lb) / (1 + np.exp(lb)),
-                       f"{high}%": np.exp(ub) / (1 + np.exp(ub))})
-
-    return df
+    return pd.DataFrame(
+        {
+            "prediction": fitted.predict(X),
+            f"{low*100}%": lb / (1 + lb),
+            f"{high*100}%": ub / (1 + ub),
+        }
+    )
