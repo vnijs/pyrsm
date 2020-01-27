@@ -103,7 +103,7 @@ def predict_conf_int(fitted, X, alpha=0.05):
     Parameters
     ----------
     fitted  A fitted logistic regression model
-    X       A matrix input data for prediction
+    X       A matrix with input data for prediction 
     alpha   Significance level (0-1). Default is 0.05
 
     Returns
