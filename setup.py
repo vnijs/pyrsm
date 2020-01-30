@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="pyrsm",
-    version="0.1.4",
+    version="0.1.7",
     description="Python functions for Customer Analytics at the Rady School of Management (RSM)",
     long_description="Python functions for Customer Analytics at the Rady School of Management (RSM)",
     long_description_content_type="text/markdown",
@@ -16,7 +16,7 @@ setup(
         "seaborn>=0.9.0",
         "matplotlib>=3.1.1",
         "statsmodels>=0.10.1",
-        "scipy>=1.4.1"
+        "scipy>=1.4.1",
     ],
     project_urls={
         "Bug Reports": "https://github.com/vnijs/pyrsm/issues",

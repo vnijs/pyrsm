@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from statsmodels.stats.outliers_influence import variance_inflation_factor
+import statsmodels.formula.api as smf
 from scipy.stats import norm
 
 
@@ -95,15 +96,15 @@ def vif(model, dec=3):
     return df
 
 
-def predict_conf_int(fitted, X, alpha=0.05):
+def predict_conf_int(fitted, df, alpha=0.05):
     """
     Compute predicted probabilities with confidence intervals based on a
     logistic regression model
 
     Parameters
     ----------
-    fitted  A fitted logistic regression model
-    X       A matrix with input data for prediction 
+    fitted  A logistic regression model fitted using the statsmodels formula interface
+    df      A pandas dataframe with input data for prediction
     alpha   Significance level (0-1). Default is 0.05
 
     Returns
@@ -112,36 +113,50 @@ def predict_conf_int(fitted, X, alpha=0.05):
 
     Example
     -------
-    # generate data
+    import numpy as np
+    import statsmodels.formula.api as smf
+    import pandas as pd
+
+    # simulate data
     np.random.seed(1)
-    x = np.arange(100)
-    y = (x * 0.5 + np.random.normal(size=100,scale=10)>30)
+    x1 = np.arange(100)
+    x2 = pd.Series(["a", "b", "c", "a"], dtype="category").sample(100, replace=True)
+    y = (x1 * 0.5 + np.random.normal(size=100, scale=10) > 30).astype(int)
+    df = pd.DataFrame({"y": y, "x1": x1, "x2": x2})
 
     # estimate the model
-    X = sm.add_constant(x)
-    model = sm.Logit(y, X).fit()
+    model = smf.logit(formula="y ~ x1 + x2", data=df).fit()
     model.summary()
-    df = predict_conf_int(model, X)
+    pred = predict_conf_int(model, df)
 
     plt.clf()
-    plt.plot(x, df["prediction"])
-    plt.plot(x, df["2.5%"], color='black', linestyle="--", linewidth=0.5)
-    plt.plot(x, df["97.5%"], color='black', linestyle="--", linewidth=0.5)
+    plt.plot(x1, pred["prediction"])
+    plt.plot(x1, pred["2.5%"], color='black', linestyle="--", linewidth=0.5)
+    plt.plot(x1, pred["97.5%"], color='black', linestyle="--", linewidth=0.5)
     plt.show()
     """
     if alpha < 0 or alpha > 1:
         raise ValueError("alpha must be a numeric value between 0 and 1")
 
+    # generate prediction
+    prediction = fitted.predict(df)
+
+    # adding a fake endogenous variable
+    df = df.copy()  # making a full copy
+    df["__endog__"] = 1
+    form = "__endog__ ~ " + fitted.model.formula.split("~", 1)[1]
+    df = smf.logit(formula=form, data=df).exog
+
     low, high = [alpha / 2, 1 - (alpha / 2)]
-    Xb = np.dot(X, fitted.params)
-    se = np.sqrt(np.diag(X.dot(fitted.cov_params()).dot(np.transpose(X))))
+    Xb = np.dot(df, fitted.params)
+    se = np.sqrt(np.diag(df.dot(fitted.cov_params()).dot(np.transpose(df))))
     me = norm.ppf(high) * se
     lb = np.exp(Xb - me)
     ub = np.exp(Xb + me)
 
     return pd.DataFrame(
         {
-            "prediction": fitted.predict(X),
+            "prediction": prediction,
             f"{low*100}%": lb / (1 + lb),
             f"{high*100}%": ub / (1 + ub),
         }
