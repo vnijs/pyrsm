@@ -1,8 +1,9 @@
 from setuptools import setup, find_packages
+from pyrsm import __version__
 
 setup(
     name="pyrsm",
-    version="0.1.7",
+    version=__version__,
     description="Python functions for Customer Analytics at the Rady School of Management (RSM)",
     long_description="Python functions for Customer Analytics at the Rady School of Management (RSM)",
     long_description_content_type="text/markdown",
