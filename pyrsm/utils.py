@@ -45,3 +45,37 @@ def ifelse(cond, if_true, if_false):
             return if_true
         else:
             return if_false
+
+
+def format_nr(x, sym="", dec=2, perc=False):
+    """
+    Format a number or numeric vector with a specified number of decimal places, thousand sep,
+    and a symbol
+
+    Parameters
+    ----------
+    x : numeric (vector)
+        Number or vector to format
+    sym : str
+        Symbol to use
+    dec : int
+        Number of decimals to show
+    perc : boolean
+        Display numbers as a percentage
+
+    Return
+    ------
+    str
+        Number(s) in the desired format
+    """
+    try:
+        len(x) > 1  # catching "TypeError: object of type 'bool' has no len()"
+        return [format_nr(i, sym, dec, perc) for i in x]
+    except TypeError:
+        if dec == 0:
+            x = int(x)
+
+        if perc:
+            return sym + "{:,}".format(round((100.0 * x), dec)) + "%"
+        else:
+            return sym + "{:,}".format(round((x), dec))
