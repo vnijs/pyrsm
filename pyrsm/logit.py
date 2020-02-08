@@ -149,7 +149,7 @@ def predict_conf_int(fitted, df, alpha=0.05):
 
     low, high = [alpha / 2, 1 - (alpha / 2)]
     Xb = np.dot(df, fitted.params)
-    se = np.sqrt(np.diag(df.dot(fitted.cov_params()).dot(np.transpose(df))))
+    se = np.sqrt((df.dot(fitted.cov_params()) * df).sum(-1))
     me = norm.ppf(high) * se
     lb = np.exp(Xb - me)
     ub = np.exp(Xb + me)
