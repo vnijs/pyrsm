@@ -8,6 +8,7 @@ from pyrsm.utils import ifelse
 
 def calc(df, rvar, lev, pred, qnt=10):
     """Create deciles and calculate input to use for lift and gains charts"""
+    df = df.loc[:, (rvar, pred)]
     df["bins"] = xtile(df[pred], qnt)
     df["rvar_int"] = np.where(df[rvar] == lev, 1, 0)
     perf_df = (
@@ -46,10 +47,10 @@ def lift(df, rvar, lev, pred, qnt=10):
 
 def confusion(df, rvar, lev, pred, cost=1, margin=2):
     """Calculate TP, FP, TN, FN, and contact"""
-    df["rvar_int"] = np.where(df[rvar] == lev, 1, 0)
+    rvar_int = np.where(df[rvar] == lev, 1, 0)
     break_even = cost / margin
     gtbe = df[pred] > break_even
-    pos = df["rvar_int"] == 1
+    pos = rvar_int == 1
     TP = np.where(gtbe & pos, 1, 0).sum()
     FP = np.where((gtbe == True) & (pos == False), 1, 0).sum()
     TN = np.where((gtbe == False) & (pos == False), 1, 0).sum()

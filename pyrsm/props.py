@@ -16,6 +16,7 @@ def prop_calc(df, group, rvar, lev):
     A data frame with the grouping variable and the proportion of level
         "lev" in "rvar" for each value of the grouping variable
     """
+    df = df.loc[:, (group, rvar)]
     df["rvar_int"] = np.where(df[rvar] == lev, 1, 0)
     df = df.groupby(group)
     return (
