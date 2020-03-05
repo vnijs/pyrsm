@@ -1,4 +1,6 @@
 import numpy as np
+import pandas as pd
+from itertools import product
 
 
 def add_description(df, md="", path=""):
@@ -49,8 +51,8 @@ def ifelse(cond, if_true, if_false):
 
 def format_nr(x, sym="", dec=2, perc=False):
     """
-    Format a number or numeric vector with a specified number of decimal places, thousand sep,
-    and a symbol
+    Format a number or numeric vector with a specified number of decimal places,
+    thousand sep, and a symbol
 
     Parameters
     ----------
@@ -79,3 +81,38 @@ def format_nr(x, sym="", dec=2, perc=False):
             return sym + "{:,}".format(round((100.0 * x), dec)) + "%"
         else:
             return sym + "{:,}".format(round((x), dec))
+
+
+def levels_list(df):
+    """
+    Provide a pandas dataframe and get a dictionary back with the unique values for
+    each column
+
+    Parameters
+    ----------
+    df: Pandas dataframe
+
+    Return
+    ------
+    dict
+        Dictionary with unique values (levels) for each column
+    """
+    return {str(col): list(df[col].unique()) for col in df.columns}
+
+
+def expand_grid(dct):
+    """
+    Provide a dictionary and get a pandas dataframe back with all possible
+    value combinations
+
+    Parameters
+    ----------
+    dict
+        Dictionary with value combinations to expand
+
+    Return
+    ------
+    DataFrame
+        Pandas dataframe with all possible value combination
+    """
+    return pd.DataFrame([val for val in product(*dct.values())], columns=dct.keys())
