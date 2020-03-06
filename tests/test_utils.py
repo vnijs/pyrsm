@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from pyrsm.utils import add_description, ifelse
+from pyrsm.utils import add_description, ifelse, levels_list, expand_grid, table2data
 
 
 md = """# Data Description
@@ -33,3 +33,25 @@ def test_ifelse_array():
     assert all(
         ifelse(np.array([2, 3, 4]) > 2, 1, 0) == np.array([0, 1, 1])
     ), "Logical comparison of np.array in ifelse incorrect"
+
+
+df = pd.DataFrame({"var1": ["a", "b", "a"], "var2": [1, 2, 1]})
+dct = {"var1": ["a", "b"], "var2": [1, 2]}
+
+
+def test_level_list():
+    assert all(levels_list(df) == dct), "Levels list created incorrect dictionary"
+
+
+def test_expand_grid():
+    edf = expand_grid(dct)
+    assert all(list(edf.loc[1].values) == ["a", 2]), "Expand grid row 1 incorrect"
+    assert all(list(edf.loc[2].values) == ["b", 1]), "Expand grid row 3 incorrect"
+
+
+def test_table2data():
+    t2d = table2data(df.assign(freq=[3, 4, 5]), "freq")
+    assert all(t2d.size == 36), "Number of rows from table2data is incorrect"
+    assert all(
+        (t2d["var1"] == "a").sum() == 8
+    ), "Number of 'a' values incorrect in table2data"

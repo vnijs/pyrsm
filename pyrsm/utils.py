@@ -96,6 +96,14 @@ def levels_list(df):
     ------
     dict
         Dictionary with unique values (levels) for each column
+    
+    Example
+    -------
+    df = pd.DataFrame({
+        "var1": ["a", "b", "a"],
+        "var2": [1, 2, 1]
+    })
+    levels_list(df)
     """
     return {str(col): list(df[col].unique()) for col in df.columns}
 
@@ -116,3 +124,24 @@ def expand_grid(dct):
         Pandas dataframe with all possible value combination
     """
     return pd.DataFrame([val for val in product(*dct.values())], columns=dct.keys())
+
+
+def table2data(df, freq):
+    """
+    Provide a pandas dataframe and get dataframe back with all
+    the total number of rows equal to the sum of the frequency
+    variable
+
+    Parameters
+    ----------
+    df: Pandas dataframe
+    freq: String with the variable name of the frequency column
+        in df
+
+    Return
+    ------
+    DataFrame
+        Pandas dataframe expanded in size based on the frequencies
+        in selected column
+    """
+    return df.loc[df.index.repeat(df[freq])]
