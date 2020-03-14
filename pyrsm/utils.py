@@ -122,6 +122,10 @@ def expand_grid(dct):
     ------
     DataFrame
         Pandas dataframe with all possible value combination
+
+    Example
+    -------
+    expand_grid({"var1": ["a", "b"], "var2": [1, 2]})
     """
     return pd.DataFrame([val for val in product(*dct.values())], columns=dct.keys())
 
@@ -143,5 +147,57 @@ def table2data(df, freq):
     DataFrame
         Pandas dataframe expanded in size based on the frequencies
         in selected column
+
+    Example
+    -------
+    df = pd.DataFrame({"var1": ["a", "b", "a"], "freq": [5, 2, 3]})
+    table2data(df, "freq")
     """
     return df.loc[df.index.repeat(df[freq])]
+
+
+def setdiff(x, y):
+    """
+    Returns a numpy array elements in x that are not in y
+
+    x and y: Inputs of a list type or that can be converted to a list
+
+    Example
+    -------
+    setdiff(["a", "b", "c"], ["b", "x"])
+    """
+    x = np.unique(np.array(x))
+    y = np.unique(np.array(y))
+    return list(np.setdiff1d(x, y, assume_unique=True))
+
+
+def union(x, y):
+    """
+    Return the unique, sorted array of values that are in either of the two input
+        arrays
+
+    x and y: Inputs of a list type or that can be converted to a list
+
+    Example
+    -------
+    union(["a", "b", "c"], ["b", "x"])
+    """
+    x = np.array(x)
+    y = np.array(y)
+    return list(np.union1d(x, y))
+
+
+def intersect(x, y):
+    """
+    Return the unique, sorted array of values that are in both input arrays
+
+    x and y: Inputs of a list type or that can be converted to a list
+
+    Example
+    -------
+    intersect(["a", "b", "c"], ["b", "x"])
+    """
+    x = np.array(x)
+    y = np.array(y)
+    return list(np.intersect1d(x, y))
+

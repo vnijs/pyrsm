@@ -93,12 +93,30 @@ def ROME(df, rvar, lev, pred, qnt=10, cost=1, margin=2):
 
 
 def profit_plot(df, rvar, lev, pred, qnt=10, cost=1, margin=2):
-    """Plot a profit chart"""
+    """
+    Plot a profit chart
+    df: A pandas dataframe of a dictionary of dataframes with keys
+
+    Examples
+    --------
+    profit_plot(df, "buyer", "yes", "pred_a", cost=0.5, margin=6)
+    profit_plot(df, "buyer", "yes", ["pred_a", "pred_b"], cost=0.5, margin=6)
+    dct = {"Training": df.query("training == 1"), "Test": df.query("training == 0")}
+    profit_plot(dct, "buyer", "yes", "pred_a", cost=0.5, margin=6)
+    """
+    dct = ifelse(type(df) is dict, df, {"": df})
     pred = ifelse(type(pred) is list, pred, [pred])
-    group = ifelse(len(pred) > 1, "predictor", None)
-    cnf = [confusion(df, rvar, lev, p, cost=cost, margin=margin)[-1] for p in pred]
+    group = ifelse(len(pred) > 1 or len(dct.keys()) > 1, "predictor", None)
+    cnf = [
+        confusion(dct[k], rvar, lev, p, cost=cost, margin=margin)[-1]
+        for k in dct.keys()
+        for p in pred
+    ]
     df = [
-        profit(df, rvar, lev, p, qnt=qnt, cost=cost, margin=margin).assign(predictor=p)
+        profit(dct[k], rvar, lev, p, qnt=qnt, cost=cost, margin=margin).assign(
+            predictor=p + ifelse(k == "", k, f" ({k})")
+        )
+        for k in dct.keys()
         for p in pred
     ]
     df = pd.concat(df)
@@ -110,15 +128,29 @@ def profit_plot(df, rvar, lev, pred, qnt=10, cost=1, margin=2):
 
 
 def ROME_plot(df, rvar, lev, pred, qnt=10, cost=1, margin=2):
-    """Plot a ROME chart"""
+    """
+    Plot a ROME chart
+    df: A pandas dataframe of a dictionary of dataframes with keys
+
+    Examples
+    --------
+    ROME_plot(df, "buyer", "yes", "pred_a", cost=0.5, margin=6)
+    ROME_plot(df, "buyer", "yes", ["pred_a", "pred_b"], cost=0.5, margin=6)
+    dct = {"Training": df.query("training == 1"), "Test": df.query("training == 0")}
+    ROME_plot(dct, "buyer", "yes", "pred_a", cost=0.5, margin=6)
+    """
+    dct = ifelse(type(df) is dict, df, {"": df})
     pred = ifelse(type(pred) is list, pred, [pred])
-    group = ifelse(len(pred) > 1, "predictor", None)
-    df = [
-        ROME(df, rvar, lev, p, qnt=qnt, cost=cost, margin=margin).assign(predictor=p)
+    group = ifelse(len(pred) > 1 or len(dct.keys()) > 1, "predictor", None)
+    rd = [
+        ROME(dct[k], rvar, lev, p, qnt=qnt, cost=cost, margin=margin).assign(
+            predictor=p + ifelse(k == "", k, f" ({k})")
+        )
+        for k in dct.keys()
         for p in pred
     ]
-    df = pd.concat(df)
-    fig = sns.lineplot(x="cum_prop", y="ROME", data=df, hue=group, marker="o")
+    rd = pd.concat(rd)
+    fig = sns.lineplot(x="cum_prop", y="ROME", data=rd, hue=group, marker="o")
     fig.set(
         ylabel="Return on Marketing Expenditures (ROME)",
         xlabel="Proportion of customers",
@@ -128,24 +160,58 @@ def ROME_plot(df, rvar, lev, pred, qnt=10, cost=1, margin=2):
 
 
 def gains_plot(df, rvar, lev, pred, qnt=10):
-    """Plot a cumulative gains chart"""
+    """
+    Plot a cumulative gains chart
+    df: A pandas dataframe of a dictionary of dataframes with keys
+
+    Examples
+    --------
+    gains_plot(df, "buyer", "yes", "pred_a")
+    gains_plot(df, "buyer", "yes", ["pred_a", "pred_b"], qnt=20)
+    dct = {"Training": df.query("training == 1"), "Test": df.query("training == 0")}
+    gains_plot(dct, "buyer", "yes", "pred_a")
+    """
+    dct = ifelse(type(df) is dict, df, {"": df})
     pred = ifelse(type(pred) is list, pred, [pred])
-    group = ifelse(len(pred) > 1, "predictor", None)
-    df = [gains(df, rvar, lev, p, qnt=qnt).assign(predictor=p) for p in pred]
-    df = pd.concat(df)
-    fig = sns.lineplot(x="cum_prop", y="cum_gains", data=df, hue=group, marker="o")
+    group = ifelse(len(pred) > 1 or len(dct.keys()) > 1, "predictor", None)
+    rd = [
+        gains(dct[k], rvar, lev, p, qnt=qnt).assign(
+            predictor=p + ifelse(k == "", k, f" ({k})")
+        )
+        for k in dct.keys()
+        for p in pred
+    ]
+    rd = pd.concat(rd)
+    fig = sns.lineplot(x="cum_prop", y="cum_gains", data=rd, hue=group, marker="o")
     fig.set(ylabel="Cumulative gains", xlabel="Proportion of customers")
     plt.plot([0, 1], [0, 1], linestyle="--", linewidth=1)
     return fig
 
 
 def lift_plot(df, rvar, lev, pred, qnt=10):
-    """Plot a cumulative lift chart"""
+    """
+    Plot a cumulative lift chart
+    df: A pandas dataframe of a dictionary of dataframes with keys
+
+    Examples
+    --------
+    lift_plot(df, "buyer", "yes", "pred_a")
+    lift_plot(df, "buyer", "yes", ["pred_a", "pred_b"], qnt=20)
+    lift = {"Training": df.query("training == 1"), "Test": df.query("training == 0")}
+    lift_plot(dct, "buyer", "yes", "pred_a")
+    """
+    dct = ifelse(type(df) is dict, df, {"": df})
     pred = ifelse(type(pred) is list, pred, [pred])
-    group = ifelse(len(pred) > 1, "predictor", None)
-    df = [lift(df, rvar, lev, p, qnt=qnt).assign(predictor=p) for p in pred]
-    df = pd.concat(df)
-    fig = sns.lineplot(x="cum_prop", y="cum_lift", data=df, hue=group, marker="o")
+    group = ifelse(len(pred) > 1 or len(dct.keys()) > 1, "predictor", None)
+    rd = [
+        lift(dct[k], rvar, lev, p, qnt=qnt).assign(
+            predictor=p + ifelse(k == "", k, f" ({k})")
+        )
+        for k in dct.keys()
+        for p in pred
+    ]
+    rd = pd.concat(rd)
+    fig = sns.lineplot(x="cum_prop", y="cum_lift", data=rd, hue=group, marker="o")
     fig.axhline(1, linestyle="--", linewidth=1)
     fig.set(ylabel="Cumulative lift", xlabel="Proportion of customers")
     return fig

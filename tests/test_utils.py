@@ -1,6 +1,15 @@
 import pandas as pd
 import numpy as np
-from pyrsm.utils import add_description, ifelse, levels_list, expand_grid, table2data
+from pyrsm.utils import (
+    add_description,
+    ifelse,
+    levels_list,
+    expand_grid,
+    table2data,
+    setdiff,
+    union,
+    intersect,
+)
 
 
 md = """# Data Description
@@ -40,18 +49,33 @@ dct = {"var1": ["a", "b"], "var2": [1, 2]}
 
 
 def test_level_list():
-    assert all(levels_list(df) == dct), "Levels list created incorrect dictionary"
+    assert levels_list(df) == dct, "Levels list created incorrect dictionary"
 
 
 def test_expand_grid():
     edf = expand_grid(dct)
-    assert all(list(edf.loc[1].values) == ["a", 2]), "Expand grid row 1 incorrect"
-    assert all(list(edf.loc[2].values) == ["b", 1]), "Expand grid row 3 incorrect"
+    assert list(edf.loc[1].values) == ["a", 2], "Expand grid row 1 incorrect"
+    assert list(edf.loc[2].values) == ["b", 1], "Expand grid row 3 incorrect"
 
 
 def test_table2data():
     t2d = table2data(df.assign(freq=[3, 4, 5]), "freq")
-    assert all(t2d.size == 36), "Number of rows from table2data is incorrect"
-    assert all(
-        (t2d["var1"] == "a").sum() == 8
-    ), "Number of 'a' values incorrect in table2data"
+    assert t2d.size == 36, "Number of rows from table2data is incorrect"
+    assert (
+        t2d["var1"] == "a"
+    ).sum() == 8, "Number of 'a' values incorrect in table2data"
+
+
+def test_setdiff():
+    assert setdiff(["a", "b", "c"], ["b", "x"]) == [
+        "a",
+        "c",
+    ], "Set difference incorrect"
+
+
+def test_union():
+    assert union(["a", "b", "c"], ["b", "x"]) == ["a", "b", "c", "x"], "Union incorrect"
+
+
+def test_intersect():
+    assert intersect(["a", "b", "c"], ["b", "x"]) == ["b"], "Union incorrect"

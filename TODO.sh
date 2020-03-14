@@ -7,7 +7,7 @@ sudo python3 setup.py install
 
 # from https://github.com/vnijs/pypi-howto
 # pip3 install --user twine
-sudo pip3 install twine
+sudo pip3 install --upgrade twine keyring
 
 # first upload to pypitest
 rm dist/*
