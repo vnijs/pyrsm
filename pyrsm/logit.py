@@ -5,9 +5,10 @@ import matplotlib.ticker as ticker
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 import statsmodels.formula.api as smf
 from scipy.stats import norm
+from pyrsm.utils import ifelse
 
 
-def or_conf_int(fitted, alpha=0.05, intercept=False, dec=3):
+def or_ci(fitted, alpha=0.05, intercept=False, dec=3):
     """
     Confidence interval for Odds ratios
 
@@ -22,18 +23,26 @@ def or_conf_int(fitted, alpha=0.05, intercept=False, dec=3):
     A dataframe with Odd-ratios and confidence interval
     """
     df = pd.DataFrame(np.exp(fitted.params), columns=["OR"])
+    df["OR%"] = 100 * ifelse(df["OR"] < 1, -(1 - df["OR"]), df["OR"] - 1)
+
     low, high = [100 * alpha / 2, 100 * (1 - (alpha / 2))]
     df[[f"{low}%", f"{high}%"]] = np.exp(fitted.conf_int(alpha=alpha))
 
     if dec is not None:
         df = df.round(dec)
 
+    df["OR%"] = [f"{OR}%" for OR in df["OR%"]]
     df = df.reset_index()
 
     if intercept is False:
         df = df.loc[df["index"] != "Intercept"]
 
     return df
+
+
+def or_conf_int(fitted, alpha=0.05, intercept=False, dec=3):
+    """ Shortcut to or_ci """
+    return or_ci(fitted, alpha=0.05, intercept=False, dec=3)
 
 
 def or_plot(fitted, alpha=0.05, intercept=False):
@@ -96,7 +105,7 @@ def vif(model, dec=3):
     return df
 
 
-def predict_conf_int(fitted, df, alpha=0.05):
+def predict_ci(fitted, df, alpha=0.05):
     """
     Compute predicted probabilities with confidence intervals based on a
     logistic regression model
@@ -127,7 +136,7 @@ def predict_conf_int(fitted, df, alpha=0.05):
     # estimate the model
     model = smf.logit(formula="y ~ x1 + x2", data=df).fit()
     model.summary()
-    pred = predict_conf_int(model, df)
+    pred = predict_ci(model, df)
 
     plt.clf()
     plt.plot(x1, pred["prediction"])
@@ -161,3 +170,9 @@ def predict_conf_int(fitted, df, alpha=0.05):
             f"{high*100}%": ub / (1 + ub),
         }
     )
+
+
+def predict_conf_int(fitted, df, alpha=0.05):
+    """ Shortcut to predict_ci """
+    return predict_ci(fitted, df, alpha=0.05)
+
