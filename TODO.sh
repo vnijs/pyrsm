@@ -9,13 +9,12 @@ sudo python3 setup.py install
 # pip3 install --user twine
 sudo pip3 install --upgrade twine keyring
 
-# first upload to pypitest
-rm dist/*
-python3 setup.py sdist
-python3 -m twine upload dist/* -r pypitest
-# sudo pip3 install --upgrade --force-reinstall --index-url https://test.pypi.org/simple/ pyrsm
+# https://kynan.github.io/blog/2020/05/23/how-to-upload-your-package-to-the-python-package-index-pypi-test-server
+# tokens are in ~/.pypirc
 
-# then upload to pypi
-rm dist/*; python3 setup.py sdist
-python3 -m twine upload dist/* -r pypi
-# sudo pip3 install --upgrade --force-reinstall pyrsm==0.1.3
+sudo python3 setup.py sdist bdist_wheel
+twine check dist/*
+twine upload --repository testpypi dist/*
+
+# if all goes well
+twine upload dist/*
