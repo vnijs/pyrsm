@@ -3,8 +3,31 @@ import pandas as pd
 import sys
 
 
-def bincode(x, breaks, rev=False, right=True, include_lowest=True):
-    """Port of R's .bincode function"""
+def bincode(x, breaks, right=True, include_lowest=True):
+    """
+    Split a numeric series into a number of bins and return a series of bin numbers
+
+    Port of R's .bincode function
+
+    Parameters
+    ----------
+    x : List, pandas series, or numpy array
+        Numeric variable to bin
+    breaks : int
+        Numpy array of two or more cut points, sorted in increasing order
+    right: bool
+        Should intervals be closed on the right (and open on the left) or vice versa
+    include_lowest : bool
+        Should an ‘x[i]’ equal to the lowest (or highest, for right = FALSE) ‘breaks’ value be included in the first (or last) bin
+    
+    Returns
+    -------
+    Numpy array with bin numbers for each numeric value in x
+
+    Examples
+    --------
+    bincode(np.arange(10), np.array([3, 5, 8]))
+    """
     n = len(x)
     if any(np.isnan(x)):
         code = np.array([0.0] * n)
@@ -51,15 +74,21 @@ def xtile(x, n=5, rev=False):
     """
     Split a numeric series into a number of bins and return a series of bin numbers
 
-    Usage:
-    xtile(x, n = 5, rev = FALSE, type = 7)
+    Parameters
+    ----------
+    x : List, pandas series, or numpy array
+        Numeric variable to bin
+    n :	int
+        Number of bins to create
+    rev	: bool
+        Reverse the order of the bin numbers (False or True)
 
-    Arguments:
-    x	Numeric variable
-    n	number of bins to create
-    rev	Reverse the order of the bin numbers
+    Returns
+    -------
+    Numpy array with bin numbers for each numeric value in x
 
-    Examples:
+    Examples
+    --------
     xtile(np.array(range(10)), 5)
     xtile(np.array(range(10)), 5, rev=True)
     """
@@ -68,7 +97,7 @@ def xtile(x, n=5, rev=False):
     if len(np.unique(breaks)) == len(breaks):
         bins = np.array(pd.cut(x, breaks, include_lowest=True, labels=False)) + 1
     else:
-        bins = bincode(x, breaks, rev)
+        bins = bincode(x, breaks)
 
     if rev is True:
         bins = (n + 1) - bins

@@ -14,14 +14,17 @@ def or_ci(fitted, alpha=0.05, intercept=False, dec=3):
 
     Parameters
     ----------
-    fitted  A fitted logistic regression model
-    alpha   Significance level
-    dec     Number of decimal places
+    fitted : A fitted logistic regression model
+    alpha : float
+        Significance level
+    dec : int
+        Number of decimal places
 
-    Return
-    ------
-    A dataframe with Odd-ratios and confidence interval
+    Returns
+    -------
+    Pandas dataframe with Odd-ratios and confidence intervals
     """
+
     df = pd.DataFrame(np.exp(fitted.params), columns=["OR"])
     df["OR%"] = 100 * ifelse(df["OR"] < 1, -(1 - df["OR"]), df["OR"] - 1)
 
@@ -51,10 +54,18 @@ def or_plot(fitted, alpha=0.05, intercept=False):
 
     Parameters
     ----------
-    fitted      A fitted logistic regression model
-    alpha       Significance level
-    intercept   Include intercept in plot (True or False)
+    fitted : A fitted logistic regression model
+    alpha : float
+        Significance level
+    intercept : bool
+        Include intercept in plot (True or False)
+
+    Returns
+    -------
+    Matplotlit object
+        Plot of Odds ratios
     """
+
     df = or_conf_int(fitted, alpha=alpha, intercept=intercept, dec=None).iloc[::-1]
 
     low, high = [100 * alpha / 2, 100 * (1 - (alpha / 2))]
@@ -77,17 +88,21 @@ def vif(model, dec=3):
     Calculate the Variance Inflation Factor (VIF) associated with each
     exogenous variable
 
+    Status
+    ------
     WIP port the VIF calculation from R's car:::vif.default to Python
 
     Parameters
     ----------
-    model   A specified model that has not yet been fitted
-    dec     Decimal places to use in rounding
+    model :  A specified model that has not yet been fitted
+    dec : int
+        Number of decimal places to use in rounding
 
-    Return
-    ------
-    A dataframe sorted by VIF score
+    Returns
+    -------
+    Pandas dataframe sorted by VIF score
     """
+
     vif = [variance_inflation_factor(model.exog, i) for i in range(model.exog.shape[1])]
     df = pd.DataFrame(model.exog_names, columns=["variable"])
     df["vif"] = vif
@@ -112,13 +127,14 @@ def predict_ci(fitted, df, alpha=0.05):
 
     Parameters
     ----------
-    fitted  A logistic regression model fitted using the statsmodels formula interface
-    df      A pandas dataframe with input data for prediction
-    alpha   Significance level (0-1). Default is 0.05
+    fitted : Logistic regression model fitted using the statsmodels formula interface
+    df : Pandas dataframe with input data for prediction
+    alpha : float
+        Significance level (0-1). Default is 0.05
 
     Returns
     -------
-    A dataframe with probability predictions and lower and upper confidence bounds
+    Pandas dataframe with probability predictions and lower and upper confidence bounds
 
     Example
     -------
@@ -144,6 +160,7 @@ def predict_ci(fitted, df, alpha=0.05):
     plt.plot(x1, pred["97.5%"], color='black', linestyle="--", linewidth=0.5)
     plt.show()
     """
+
     if alpha < 0 or alpha > 1:
         raise ValueError("alpha must be a numeric value between 0 and 1")
 
@@ -170,9 +187,3 @@ def predict_ci(fitted, df, alpha=0.05):
             f"{high*100}%": ub / (1 + ub),
         }
     )
-
-
-def predict_conf_int(fitted, df, alpha=0.05):
-    """ Shortcut to predict_ci """
-    return predict_ci(fitted, df, alpha=0.05)
-

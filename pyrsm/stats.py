@@ -9,14 +9,20 @@ def varprop(x, na=True):
     """
     Calculate the variance for a proportion
 
-    Usage:
-    varprop(x)
+    Parameters
+    ----------
+    x : List, numpy array, or pandas series
+        Numeric variable with only values 0 and 1
+    na : bool
+        Drop missing values before calculating (True or False)
 
-    Arguments:
-    x   Numeric variable with only values 0 and 1
-    na  Drop missing values before calculating (True or False)
+    Returns
+    -------
+    float
+        Calculated variance for a proportion based on a vector of 0 and 1 values
 
-    Examples:
+    Examples
+    --------
     varprop([0, 1, 1, 1, 0, 0, 0])
     """
 
@@ -28,14 +34,20 @@ def seprop(x, na=True):
     """
     Calculate the standard error for a proportion
 
-    Usage:
-    seprop(x)
+    Parameters
+    ----------
+    x : List, numpy array, or pandas series
+        Numeric variable with only values 0 and 1
+    na : bool
+        Drop missing values before calculating (True or False)
 
-    Arguments:
-    x   Numeric variable with only values 0 and 1
-    na  Drop missing values before calculating (True or False)
+    Returns
+    -------
+    float
+        Calculated variance for a proportion based on a vector of 0 and 1 values
 
-    Examples:
+    Examples
+    --------
     seprop([0, 1, 1, 1, 0, 0, 0])
     """
     x = np.array(x)
@@ -46,16 +58,22 @@ def seprop(x, na=True):
 
 def weighted_sd(df, wt):
     """
-    Calculate the weighted standard deviation for a pandas data frame
+    Calculate the weighted standard deviation for a Pandas dataframe
 
-    Usage:
-    weighted_sd(df, wt)
+    Parameters
+    ----------
+    df : Pandas dataframe
+        All columns in the dataframe are expected to be numeric
+    wt : List, pandas series, or numpy array
+        Weights to use during calculation. The length of the vector should be the same as the number of rows in the df
 
-    Arguments:
-    df  A pandas data frame with numeric variables
-    wt  Weights
+    Returns
+    -------
+    Numpy array
+        Array of weighted standard deviations for each column in df
 
-    Examples:
+    Examples
+    --------
     df = pd.DataFrame({"x": [0, 1, 1, 1, 0, 0, 0]})
     wt = [1, 10, 1, 10, 1, 10, 1]
     weighted_sd(df, wt)
@@ -72,16 +90,22 @@ def weighted_sd(df, wt):
 
 def weighted_mean(df, wt):
     """
-    Calculate the weighted mean for a pandas data frame
+    Calculate the weighted mean for a Pandas dataframe
 
-    Usage:
-    weighted_mean(df, wt)
+    Parameters
+    ----------
+    df : Pandas dataframe
+        All columns in the dataframe are expectd to be numeric
+    wt : List, pandas series, or numpy array
+        Weights to use during calculation. The length of the vector should be the same as the number of rows in the df
 
-    Arguments:
-    df  A pandas data frame with numeric variables
-    wt  Weights
+    Returns
+    -------
+    Numpy array
+        Array of weighted means for each column in df
 
-    Examples:
+    Examples
+    --------
     df = pd.DataFrame({"x": [0, 1, 1, 1, 0, 0, 0]})
     wt = [1, 10, 1, 10, 1, 10, 1]
     weighted_mean(df, wt)
@@ -91,17 +115,22 @@ def weighted_mean(df, wt):
 
 def scale_df(df, wt=None, sf=2):
     """
-    Scale the numeric variables in a pandas data frame
+    Scale the numeric variables in a Pandas dataframe
 
-    Usage:
-    scale_df(df)
+    Parameters
+    ----------
+    df : Pandas dataframe with numeric variables
+    wt : Pandas series or None
+        Weights to use during scaling. The length of the vector should be the same as the number of rows in the df
+    sf : float
+        Scale factor to use (default is 2)
 
-    Arguments:
-    df  A pandas data frame with numeric variables
-    wt  Weights
-    sf  Scale factor to use (2 is the default)
+    Returns
+    -------
+    Pandas dataframe with all numeric variables standardized
 
-    Examples:
+    Examples
+    --------
     df = pd.DataFrame({"x": [0, 1, 1, 1, 0, 0, 0]})
     wt = [1, 10, 1, 10, 1, 10, 1]
     weighted_mean(df, wt)

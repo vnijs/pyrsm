@@ -6,8 +6,28 @@ from pyrsm import xtile
 from pyrsm.utils import ifelse
 
 
-def calc(df, rvar, lev, pred, qnt=10):
-    """Create deciles and calculate input to use for lift and gains charts"""
+def calc_dec(df, rvar, lev, pred, qnt=10):
+    """
+    Create quantiles and calculate input to use for lift and gains charts
+
+    Parameters
+    ----------
+    df : Pandas dataframe
+    rvar : str
+        Name of the response variable column in df
+    lev : str
+        Name of the 'success' level in rvar
+    pred : str
+        Name of the column in df with model predictions
+    qnt : int
+        Number of quantiles to create
+
+    Returns
+    -------
+    Pandas dataframe
+        Response metrics per quantile. Used as input for lift and gains charts
+    """
+
     df = df.loc[:, (rvar, pred)]
     df["bins"] = xtile(df[pred], qnt)
     df["rvar_int"] = np.where(df[rvar] == lev, 1, 0)
@@ -25,9 +45,35 @@ def calc(df, rvar, lev, pred, qnt=10):
     return perf_df
 
 
-def gains(df, rvar, lev, pred, qnt=10):
-    """Calculate cumulative gains using the cum_resp column"""
-    df = calc(df, rvar, lev, pred, qnt=qnt)
+def calc(df, rvar, lev, pred, qnt=10):
+    """Deprecated function. Use calc_dec instead"""
+    print("The 'calc' function is deprecated. Use 'calc_dec' instead")
+    return None
+
+
+def gains_tab(df, rvar, lev, pred, qnt=10):
+    """
+    Calculate cumulative gains using the cum_resp column
+
+    Parameters
+    ----------
+    df : Pandas dataframe
+    rvar : str
+        Name of the response variable column in df
+    lev : str
+        Name of the 'success' level in rvar
+    pred : str
+        Name of the column in df with model predictions
+    qnt : int
+        Number of quantiles to create
+
+    Returns
+    -------
+    Pandas dataframe
+        Gains measures per quantile. Input for gains chart
+    """
+
+    df = calc_dec(df, rvar, lev, pred, qnt=qnt)
     df["cum_gains"] = df["cum_resp"] / df["cum_resp"].iloc[-1]
     df0 = pd.DataFrame({"cum_prop": [0], "cum_gains": [0]})
     df = pd.concat([df0, df], sort=False)
@@ -35,10 +81,29 @@ def gains(df, rvar, lev, pred, qnt=10):
     return df[["cum_prop", "cum_gains"]]
 
 
-def lift(df, rvar, lev, pred, qnt=10):
-    # need cum_resp and cum_obs
-    """Calculate cumulative lift using the cum_resp and the cum_obs column"""
-    df = calc(df, rvar, lev, pred, qnt=qnt)
+def lift_tab(df, rvar, lev, pred, qnt=10):
+    """
+    Calculate cumulative lift using the cum_resp and the cum_obs column
+
+    Parameters
+    ----------
+    df : Pandas dataframe
+    rvar : str
+        Name of the response variable column in df
+    lev : str
+        Name of the 'success' level in rvar
+    pred : str
+        Name of the column in df with model predictions
+    qnt : int
+        Number of quantiles to create
+
+    Returns
+    -------
+    Pandas dataframe
+        Lift measures per quantile. Input for lift chart
+    """
+
+    df = calc_dec(df, rvar, lev, pred, qnt=qnt)
     df["cum_resp_rate"] = df["cum_resp"] / df["cum_obs"]
     df["cum_lift"] = df["cum_resp_rate"] / df["cum_resp_rate"].iloc[-1]
     df.index = range(df.shape[0])
@@ -46,11 +111,40 @@ def lift(df, rvar, lev, pred, qnt=10):
 
 
 def confusion(df, rvar, lev, pred, cost=1, margin=2):
-    """Calculate TP, FP, TN, FN, and contact"""
-    rvar_int = np.where(df[rvar] == lev, 1, 0)
+    """
+    Calculate TP, FP, TN, FN, and contact
+
+    Parameters
+    ----------
+    df : Pandas dataframe
+    rvar : str
+        Name of the response variable column in df
+    lev : str
+        Name of the 'success' level in rvar
+    pred : str
+        Name of the column in df with model predictions
+    cost : int
+        Cost of an action
+    margin : int
+        Benefit of an action if a successful outcome results from the action
+
+    Returns
+    -------
+    TP : int
+        Number of True Positive predictions
+    FP : int
+        Number of False Positive predictions
+    TN : int
+        Number of True Negative predictions
+    FN : int
+        Number of False Negative predictions
+    contact: float
+        Proportion of cases to act on based on the cost/margin ratio
+    """
+
     break_even = cost / margin
     gtbe = df[pred] > break_even
-    pos = rvar_int == 1
+    pos = df[rvar] == lev
     TP = np.where(gtbe & pos, 1, 0).sum()
     FP = np.where((gtbe == True) & (pos == False), 1, 0).sum()
     TN = np.where((gtbe == False) & (pos == False), 1, 0).sum()
@@ -60,21 +154,152 @@ def confusion(df, rvar, lev, pred, cost=1, margin=2):
 
 
 def profit_max(df, rvar, lev, pred, cost=1, margin=2):
-    """Calculate the maximum profit"""
+    """
+    Calculate the maximum profit using a dataframe as input
+
+    Parameters
+    ----------
+    df : Pandas dataframe
+    rvar : str
+        Name of the response variable column in df
+    lev : str
+        Name of the 'success' level in rvar
+    pred : str
+        Name of the column in df with model predictions
+    cost : int
+        Cost of an action
+    margin : int
+        Benefit of an action if a successful outcome results from the action
+
+    Returns
+    -------
+    float
+        Measure of optimal performace (e.g., profit) based on the specified cost and margin information
+    """
+
     TP, FP, TN, FN, contact = confusion(df, rvar, lev, pred, cost=cost, margin=margin)
     return margin * TP - cost * (TP + FP)
 
 
+def profit(pred, rvar, lev, cost=1, margin=2):
+    """
+    Calculate the maximum profit using series as input. Provides the same results as profit_max
+
+    Parameters
+    ----------
+    pred : Pandas series
+        Column from a Pandas dataframe with model predictions
+    rvar : str
+        Name of the response variable column in df
+    lev : str
+        Name of the 'success' level in rvar
+    pred : str
+        Name of the column in df with model prediction
+    cost : int
+        Cost of an action
+    margin : int
+        Benefit of an action if a successful outcome results from the action
+
+    Returns
+    -------
+    float
+        Measure of optimal performace (e.g., profit) based on the specified cost and margin information
+    """
+
+    break_even = cost / margin
+    TP = ((rvar == lev) & (pred > break_even)).sum()
+    FP = ((rvar != lev) & (pred > break_even)).sum()
+    return margin * TP - cost * (TP + FP)
+
+
 def ROME_max(df, rvar, lev, pred, cost=1, margin=2):
-    """Calculate the maximum Return on Marketing Expenditures"""
+    """
+    Calculate the maximum Return on Marketing Expenditures
+
+    Parameters
+    ----------
+    df : Pandas dataframe
+    rvar : str
+        Name of the response variable column in df
+    lev : str
+        Name of the 'success' level in rvar
+    pred : str
+        Name of the column in df with model predictions
+    cost : int
+        Cost of an action
+    margin : int
+        Benefit of an action if a successful outcome results from the action
+
+    Returns
+    -------
+    float
+        Measure of optimal performace based on the specified cost and margin information
+    """
+
     TP, FP, TN, FN, contact = confusion(df, rvar, lev, pred, cost=cost, margin=margin)
     profit = margin * TP - cost * (TP + FP)
     return profit / (cost * (TP + FP))
 
 
-def profit(df, rvar, lev, pred, qnt=10, cost=1, margin=2):
-    """Calculate profits"""
-    df = calc(df, rvar, lev, pred, qnt=qnt)
+def ROME(pred, rvar, lev, cost=1, margin=2):
+    """
+    Calculate the maximum Return on Marketing Expenditures using series as input. Provides the same results as ROME_max
+
+    Parameters
+    ----------
+    pred : Pandas series
+        Column from a Pandas dataframe with model predictions
+    rvar : str
+        Name of the response variable column in df
+    lev : str
+        Name of the 'success' level in rvar
+    pred : str
+        Name of the column in df with model prediction
+    cost : int
+        Cost of an action
+    margin : int
+        Benefit of an action if a successful outcome results from the action
+
+    Returns
+    -------
+    float
+        Measure of optimal performace (e.g., profit) based on the specified cost and margin information
+    """
+
+    break_even = cost / margin
+    TP = ((rvar == lev) & (pred > break_even)).sum()
+    FP = ((rvar != lev) & (pred > break_even)).sum()
+    profit = margin * TP - cost * (TP + FP)
+    return profit / (cost * (TP + FP))
+
+
+def profit_tab(df, rvar, lev, pred, qnt=10, cost=1, margin=2):
+    """
+    Calculate table with profit per quantile
+
+    Parameters
+    ----------
+    df : Pandas dataframe
+    rvar : str
+        Name of the response variable column in df
+    lev : str
+        Name of the 'success' level in rvar
+    pred : str
+        Name of the column in df with model predictions
+    qnt : int
+        Number of quantiles to create
+    cost : int
+        Cost of an action
+    margin : int
+        Benefit of an action if a successful outcome results from the action
+
+    Returns
+    -------
+    Pandas dataframe
+        Profit per quantile. Input for profit chart
+    """
+
+    df = calc_dec(df, rvar, lev, pred, qnt=qnt)
     df["cum_profit"] = margin * df["cum_resp"] - cost * df["cum_obs"]
     df0 = pd.DataFrame({"cum_prop": [0], "cum_profit": [0]})
     df = pd.concat([df0, df], sort=False)
@@ -82,9 +307,33 @@ def profit(df, rvar, lev, pred, qnt=10, cost=1, margin=2):
     return df[["cum_prop", "cum_profit"]]
 
 
-def ROME(df, rvar, lev, pred, qnt=10, cost=1, margin=2):
-    """Calculate the Return on Marketing Expenditures"""
-    df = calc(df, rvar, lev, pred, qnt=qnt)
+def ROME_tab(df, rvar, lev, pred, qnt=10, cost=1, margin=2):
+    """
+    Calculate table with Return on Marketing Expenditures per quantile
+
+    Parameters
+    ----------
+    df : Pandas dataframe
+    rvar : str
+        Name of the response variable column in df
+    lev : str
+        Name of the 'success' level in rvar
+    pred : str
+        Name of the column in df with model predictions
+    qnt : int
+        Number of quantiles to create
+    cost : int
+        Cost of an action
+    margin : int
+        Benefit of an action if a successful outcome results from the action
+
+    Returns
+    -------
+    Pandas dataframe
+        ROME quantile. Input for ROME chart
+    """
+
+    df = calc_dec(df, rvar, lev, pred, qnt=qnt)
     df["cum_profit"] = margin * df["cum_resp"] - cost * df["cum_obs"]
     cum_cost = cost * df["cum_obs"]
     df["ROME"] = (margin * df["cum_resp"] - cum_cost) / cum_cost
@@ -94,8 +343,28 @@ def ROME(df, rvar, lev, pred, qnt=10, cost=1, margin=2):
 
 def profit_plot(df, rvar, lev, pred, qnt=10, cost=1, margin=2):
     """
-    Plot a profit chart
-    df: A pandas dataframe of a dictionary of dataframes with keys
+    Plot a profit curve
+
+    Parameters
+    ----------
+    df : Pandas dataframe or a dictionary of dataframes with keys to show multiple curves for different models or data samples
+    rvar : str
+        Name of the response variable column in df
+    lev : str
+        Name of the 'success' level in rvar
+    pred : str
+        Name of the column in df with model predictions
+    qnt : int
+        Number of quantiles to create
+    cost : int
+        Cost of an action
+    margin : int
+        Benefit of an action if a successful outcome results from the action
+
+    Returns
+    -------
+    Seaborn object
+        Plot of profits per quantile
 
     Examples
     --------
@@ -104,6 +373,7 @@ def profit_plot(df, rvar, lev, pred, qnt=10, cost=1, margin=2):
     dct = {"Training": df.query("training == 1"), "Test": df.query("training == 0")}
     profit_plot(dct, "buyer", "yes", "pred_a", cost=0.5, margin=6)
     """
+
     dct = ifelse(type(df) is dict, df, {"": df})
     pred = ifelse(type(pred) is list, pred, [pred])
     group = ifelse(len(pred) > 1 or len(dct.keys()) > 1, "predictor", None)
@@ -113,7 +383,7 @@ def profit_plot(df, rvar, lev, pred, qnt=10, cost=1, margin=2):
         for p in pred
     ]
     df = [
-        profit(dct[k], rvar, lev, p, qnt=qnt, cost=cost, margin=margin).assign(
+        profit_tab(dct[k], rvar, lev, p, qnt=qnt, cost=cost, margin=margin).assign(
             predictor=p + ifelse(k == "", k, f" ({k})")
         )
         for k in dct.keys()
@@ -129,8 +399,28 @@ def profit_plot(df, rvar, lev, pred, qnt=10, cost=1, margin=2):
 
 def ROME_plot(df, rvar, lev, pred, qnt=10, cost=1, margin=2):
     """
-    Plot a ROME chart
-    df: A pandas dataframe of a dictionary of dataframes with keys
+    Plot a ROME curve
+
+    Parameters
+    ----------
+    df : Pandas dataframe or a dictionary of dataframes with keys to show multiple curves for different models or data samples
+    rvar : str
+        Name of the response variable column in df
+    lev : str
+        Name of the 'success' level in rvar
+    pred : str
+        Name of the column in df with model predictions
+    qnt : int
+        Number of quantiles to create
+    cost : int
+        Cost of an action
+    margin : int
+        Benefit of an action if a successful outcome results from the action
+
+    Returns
+    -------
+    Seaborn object
+        Plot of ROME per quantile
 
     Examples
     --------
@@ -143,7 +433,7 @@ def ROME_plot(df, rvar, lev, pred, qnt=10, cost=1, margin=2):
     pred = ifelse(type(pred) is list, pred, [pred])
     group = ifelse(len(pred) > 1 or len(dct.keys()) > 1, "predictor", None)
     rd = [
-        ROME(dct[k], rvar, lev, p, qnt=qnt, cost=cost, margin=margin).assign(
+        ROME_tab(dct[k], rvar, lev, p, qnt=qnt, cost=cost, margin=margin).assign(
             predictor=p + ifelse(k == "", k, f" ({k})")
         )
         for k in dct.keys()
@@ -161,8 +451,28 @@ def ROME_plot(df, rvar, lev, pred, qnt=10, cost=1, margin=2):
 
 def gains_plot(df, rvar, lev, pred, qnt=10):
     """
-    Plot a cumulative gains chart
-    df: A pandas dataframe of a dictionary of dataframes with keys
+    Plot a cumulative gains curve
+
+    Parameters
+    ----------
+    df : Pandas dataframe or a dictionary of dataframes with keys to show multiple curves for different models or data samples
+    rvar : str
+        Name of the response variable column in df
+    lev : str
+        Name of the 'success' level in rvar
+    pred : str
+        Name of the column in df with model predictions
+    qnt : int
+        Number of quantiles to create
+    cost : int
+        Cost of an action
+    margin : int
+        Benefit of an action if a successful outcome results from the action
+
+    Returns
+    -------
+    Seaborn object
+        Plot of gaines per quantile
 
     Examples
     --------
@@ -175,7 +485,7 @@ def gains_plot(df, rvar, lev, pred, qnt=10):
     pred = ifelse(type(pred) is list, pred, [pred])
     group = ifelse(len(pred) > 1 or len(dct.keys()) > 1, "predictor", None)
     rd = [
-        gains(dct[k], rvar, lev, p, qnt=qnt).assign(
+        gains_tab(dct[k], rvar, lev, p, qnt=qnt).assign(
             predictor=p + ifelse(k == "", k, f" ({k})")
         )
         for k in dct.keys()
@@ -191,7 +501,27 @@ def gains_plot(df, rvar, lev, pred, qnt=10):
 def lift_plot(df, rvar, lev, pred, qnt=10):
     """
     Plot a cumulative lift chart
-    df: A pandas dataframe of a dictionary of dataframes with keys
+
+    Parameters
+    ----------
+    df : Pandas dataframe or a dictionary of dataframes with keys to show multiple curves for different models or data samples
+    rvar : str
+        Name of the response variable column in df
+    lev : str
+        Name of the 'success' level in rvar
+    pred : str
+        Name of the column in df with model predictions
+    qnt : int
+        Number of quantiles to create
+    cost : int
+        Cost of an action
+    margin : int
+        Benefit of an action if a successful outcome results from the action
+
+    Returns
+    -------
+    Seaborn object
+        Plot of lift per quantile
 
     Examples
     --------
@@ -204,7 +534,7 @@ def lift_plot(df, rvar, lev, pred, qnt=10):
     pred = ifelse(type(pred) is list, pred, [pred])
     group = ifelse(len(pred) > 1 or len(dct.keys()) > 1, "predictor", None)
     rd = [
-        lift(dct[k], rvar, lev, p, qnt=qnt).assign(
+        lift_tab(dct[k], rvar, lev, p, qnt=qnt).assign(
             predictor=p + ifelse(k == "", k, f" ({k})")
         )
         for k in dct.keys()
