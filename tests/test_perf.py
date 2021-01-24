@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from pyrsm.perf import calc_dec, gains_tab, lift_tab
+from pyrsm.perf import calc_qnt, gains_tab, lift_tab
 
 np.random.seed(1234)
 nr = 100
@@ -12,15 +12,15 @@ df["response"] = np.where((df["x1"] > 0.5) & (df["response_prob"] > 0.5), "yes",
 # df["response"] = np.random.choice(["yes", "no"], nr)
 
 
-def test_calc_dec():
-    ret = calc_dec(df, "response", "yes", "x1", qnt=10)
+def test_calc_qnt():
+    ret = calc_qnt(df, "response", "yes", "x1", qnt=10)
     assert all(
         ret["cum_resp"] == np.array([6, 14, 20, 27, 29, 30, 30, 30, 30, 30])
     ), "Incorrect calculation of cum_resp with x1"
 
 
-def test_calc_dec_rev():
-    ret = calc_dec(df, "response", "yes", "x2", qnt=10)
+def test_calc_qnt_rev():
+    ret = calc_qnt(df, "response", "yes", "x2", qnt=10)
     assert all(
         ret["cum_resp"] == np.array([6, 14, 20, 27, 29, 30, 30, 30, 30, 30])
     ), "Incorrect calculation of cum_resp with x2"

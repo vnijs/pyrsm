@@ -6,7 +6,7 @@ from pyrsm import xtile
 from pyrsm.utils import ifelse
 
 
-def calc_dec(df, rvar, lev, pred, qnt=10):
+def calc_qnt(df, rvar, lev, pred, qnt=10):
     """
     Create quantiles and calculate input to use for lift and gains charts
 
@@ -45,9 +45,15 @@ def calc_dec(df, rvar, lev, pred, qnt=10):
     return perf_df
 
 
+def calc_dec(df, rvar, lev, pred, qnt=10):
+    """Deprecated function. Use calc_qnt instead"""
+    print("The 'calc_dec' function is deprecated. Use 'calc_qnt' instead")
+    return calc_dec(df, rvar, lev, pred, qnt=10)
+
+
 def calc(df, rvar, lev, pred, qnt=10):
-    """Deprecated function. Use calc_dec instead"""
-    print("The 'calc' function is deprecated. Use 'calc_dec' instead")
+    """Deprecated function. Use calc_qnt instead"""
+    print("The 'calc' function is deprecated. Use 'calc_qnt' instead")
     return None
 
 
@@ -73,7 +79,7 @@ def gains_tab(df, rvar, lev, pred, qnt=10):
         Gains measures per quantile. Input for gains chart
     """
 
-    df = calc_dec(df, rvar, lev, pred, qnt=qnt)
+    df = calc_qnt(df, rvar, lev, pred, qnt=qnt)
     df["cum_gains"] = df["cum_resp"] / df["cum_resp"].iloc[-1]
     df0 = pd.DataFrame({"cum_prop": [0], "cum_gains": [0]})
     df = pd.concat([df0, df], sort=False)
@@ -103,7 +109,7 @@ def lift_tab(df, rvar, lev, pred, qnt=10):
         Lift measures per quantile. Input for lift chart
     """
 
-    df = calc_dec(df, rvar, lev, pred, qnt=qnt)
+    df = calc_qnt(df, rvar, lev, pred, qnt=qnt)
     df["cum_resp_rate"] = df["cum_resp"] / df["cum_obs"]
     df["cum_lift"] = df["cum_resp_rate"] / df["cum_resp_rate"].iloc[-1]
     df.index = range(df.shape[0])
@@ -299,7 +305,7 @@ def profit_tab(df, rvar, lev, pred, qnt=10, cost=1, margin=2):
         Profit per quantile. Input for profit chart
     """
 
-    df = calc_dec(df, rvar, lev, pred, qnt=qnt)
+    df = calc_qnt(df, rvar, lev, pred, qnt=qnt)
     df["cum_profit"] = margin * df["cum_resp"] - cost * df["cum_obs"]
     df0 = pd.DataFrame({"cum_prop": [0], "cum_profit": [0]})
     df = pd.concat([df0, df], sort=False)
@@ -333,7 +339,7 @@ def ROME_tab(df, rvar, lev, pred, qnt=10, cost=1, margin=2):
         ROME quantile. Input for ROME chart
     """
 
-    df = calc_dec(df, rvar, lev, pred, qnt=qnt)
+    df = calc_qnt(df, rvar, lev, pred, qnt=qnt)
     df["cum_profit"] = margin * df["cum_resp"] - cost * df["cum_obs"]
     cum_cost = cost * df["cum_obs"]
     df["ROME"] = (margin * df["cum_resp"] - cum_cost) / cum_cost

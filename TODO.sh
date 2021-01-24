@@ -2,6 +2,7 @@
 # to install locally
 sudo pip3 uninstall pyrsm
 # doesn't work with testing for some reason
+
 # sudo pip3 install --user -e .
 sudo python3 setup.py install
 

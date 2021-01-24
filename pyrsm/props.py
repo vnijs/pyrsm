@@ -30,7 +30,7 @@ def prop_calc(df, group, rvar, lev):
     )
 
 
-def prop_plot(df, group, rvar, lev, breakeven=None):
+def prop_plot(df, group, rvar, lev, breakeven=None, linewidth=1):
     """
     Plot proportions by a grouping variable
 
@@ -45,6 +45,8 @@ def prop_plot(df, group, rvar, lev, breakeven=None):
         Name of the 'success' level in rvar
     breakeven : float or None
         If numeric a horizontal line will be added at the specified breakeven point
+    linewidth : float
+        Width to use for the breakeven line in the plot
     """
 
     dfp = prop_calc(df, group, rvar, lev)
@@ -52,5 +54,5 @@ def prop_plot(df, group, rvar, lev, breakeven=None):
     fig = sns.barplot(x=cn[0], y=cn[1], color="slateblue", data=dfp)
     fig.set(ylabel=f"Proportion of {cn[1]} equal to '{lev}'")
     if breakeven is not None:
-        fig.axhline(breakeven, linestyle="dashed", linewidth=0.5)
+        fig.axhline(breakeven, linestyle="dashed", linewidth=linewidth)
     return fig

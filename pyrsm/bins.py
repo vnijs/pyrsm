@@ -89,13 +89,13 @@ def xtile(x, n=5, rev=False):
 
     Examples
     --------
-    xtile(np.array(range(10)), 5)
-    xtile(np.array(range(10)), 5, rev=True)
+    xtile(np.arange(10), 5)
+    xtile(np.arange(10), 5, rev=True)
     """
     x = np.array(x)
-    breaks = np.quantile(x[np.isnan(x) == False], np.array(range(0, n + 1)) / n)
+    breaks = np.quantile(x[np.isnan(x) == False], np.arange(0, n + 1) / n)
     if len(np.unique(breaks)) == len(breaks):
-        bins = np.array(pd.cut(x, breaks, include_lowest=True, labels=False)) + 1
+        bins = pd.cut(x, breaks, include_lowest=True, labels=False) + 1
     else:
         bins = bincode(x, breaks)
 
