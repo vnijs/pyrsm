@@ -30,7 +30,9 @@ def prop_calc(df, group, rvar, lev):
     )
 
 
-def prop_plot(df, group, rvar, lev, breakeven=None, linewidth=1):
+def prop_plot(
+    df, group, rvar, lev, breakeven=None, linewidth=1, color="slateblue", **kwargs
+):
     """
     Plot proportions by a grouping variable
 
@@ -47,11 +49,13 @@ def prop_plot(df, group, rvar, lev, breakeven=None, linewidth=1):
         If numeric a horizontal line will be added at the specified breakeven point
     linewidth : float
         Width to use for the breakeven line in the plot
+    color : str
+        Color to use for bars
+    **kwargs : Named arguments to be passed to the seaborn barplot function
     """
-
     dfp = prop_calc(df, group, rvar, lev)
     cn = dfp.columns
-    fig = sns.barplot(x=cn[0], y=cn[1], color="slateblue", data=dfp)
+    fig = sns.barplot(x=cn[0], y=cn[1], color=color, data=dfp, **kwargs)
     fig.set(ylabel=f"Proportion of {cn[1]} equal to '{lev}'")
     if breakeven is not None:
         fig.axhline(breakeven, linestyle="dashed", linewidth=linewidth)

@@ -17,5 +17,5 @@ sudo python3 setup.py sdist bdist_wheel
 twine check dist/*
 twine upload --repository testpypi dist/*
 
-# if all goes well
+# if all goes well push to main pypi
 twine upload dist/*

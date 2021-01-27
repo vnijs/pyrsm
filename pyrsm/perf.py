@@ -347,7 +347,9 @@ def ROME_tab(df, rvar, lev, pred, qnt=10, cost=1, margin=2):
     return df[["cum_prop", "ROME"]]
 
 
-def profit_plot(df, rvar, lev, pred, qnt=10, cost=1, margin=2):
+def profit_plot(
+    df, rvar, lev, pred, qnt=10, cost=1, margin=2, contact=False, marker="o", **kwargs
+):
     """
     Plot a profit curve
 
@@ -366,6 +368,13 @@ def profit_plot(df, rvar, lev, pred, qnt=10, cost=1, margin=2):
         Cost of an action
     margin : int
         Benefit of an action if a successful outcome results from the action
+    contact : bool
+        Plot a vertical line that shows the optimal contact level. Requires
+        that `pred` is a series of probabilities. Values equal to 1 (100% contact)
+        will not be plotted
+    marker : str
+        Marker to use for line plot
+    **kwargs : Named arguments to be passed to the seaborn lineplot function
 
     Returns
     -------
@@ -379,15 +388,9 @@ def profit_plot(df, rvar, lev, pred, qnt=10, cost=1, margin=2):
     dct = {"Training": df.query("training == 1"), "Test": df.query("training == 0")}
     profit_plot(dct, "buyer", "yes", "pred_a", cost=0.5, margin=6)
     """
-
     dct = ifelse(type(df) is dict, df, {"": df})
     pred = ifelse(type(pred) is list, pred, [pred])
     group = ifelse(len(pred) > 1 or len(dct.keys()) > 1, "predictor", None)
-    cnf = [
-        confusion(dct[k], rvar, lev, p, cost=cost, margin=margin)[-1]
-        for k in dct.keys()
-        for p in pred
-    ]
     df = [
         profit_tab(dct[k], rvar, lev, p, qnt=qnt, cost=cost, margin=margin).assign(
             predictor=p + ifelse(k == "", k, f" ({k})")
@@ -396,14 +399,25 @@ def profit_plot(df, rvar, lev, pred, qnt=10, cost=1, margin=2):
         for p in pred
     ]
     df = pd.concat(df)
-    fig = sns.lineplot(x="cum_prop", y="cum_profit", data=df, hue=group, marker="o")
+    fig = sns.lineplot(
+        x="cum_prop", y="cum_profit", data=df, hue=group, marker=marker, **kwargs
+    )
     fig.set(ylabel="Profit", xlabel="Proportion of customers")
     fig.axhline(1, linestyle="--", linewidth=1)
-    [fig.axvline(l, linestyle="--", linewidth=1) for l in cnf]
+    if contact:
+        cnf = [
+            confusion(dct[k], rvar, lev, p, cost=cost, margin=margin)[-1]
+            for k in dct.keys()
+            for p in pred
+        ]
+        [
+            fig.axvline(l, linestyle="--", linewidth=1)
+            for l in filter(lambda x: x < 1, cnf)
+        ]
     return fig
 
 
-def ROME_plot(df, rvar, lev, pred, qnt=10, cost=1, margin=2):
+def ROME_plot(df, rvar, lev, pred, qnt=10, cost=1, margin=2, marker="o", **kwargs):
     """
     Plot a ROME curve
 
@@ -422,6 +436,9 @@ def ROME_plot(df, rvar, lev, pred, qnt=10, cost=1, margin=2):
         Cost of an action
     margin : int
         Benefit of an action if a successful outcome results from the action
+    marker : str
+        Marker to use for line plot
+    **kwargs : Named arguments to be passed to the seaborn lineplot function
 
     Returns
     -------
@@ -446,7 +463,9 @@ def ROME_plot(df, rvar, lev, pred, qnt=10, cost=1, margin=2):
         for p in pred
     ]
     rd = pd.concat(rd)
-    fig = sns.lineplot(x="cum_prop", y="ROME", data=rd, hue=group, marker="o")
+    fig = sns.lineplot(
+        x="cum_prop", y="ROME", data=rd, hue=group, marker=marker, **kwargs
+    )
     fig.set(
         ylabel="Return on Marketing Expenditures (ROME)",
         xlabel="Proportion of customers",
@@ -455,7 +474,7 @@ def ROME_plot(df, rvar, lev, pred, qnt=10, cost=1, margin=2):
     return fig
 
 
-def gains_plot(df, rvar, lev, pred, qnt=10):
+def gains_plot(df, rvar, lev, pred, qnt=10, marker="o", **kwargs):
     """
     Plot a cumulative gains curve
 
@@ -474,6 +493,9 @@ def gains_plot(df, rvar, lev, pred, qnt=10):
         Cost of an action
     margin : int
         Benefit of an action if a successful outcome results from the action
+    marker : str
+        Marker to use for line plot
+    **kwargs : Named arguments to be passed to the seaborn lineplot function
 
     Returns
     -------
@@ -498,13 +520,15 @@ def gains_plot(df, rvar, lev, pred, qnt=10):
         for p in pred
     ]
     rd = pd.concat(rd)
-    fig = sns.lineplot(x="cum_prop", y="cum_gains", data=rd, hue=group, marker="o")
+    fig = sns.lineplot(
+        x="cum_prop", y="cum_gains", data=rd, hue=group, marker=marker, **kwargs
+    )
     fig.set(ylabel="Cumulative gains", xlabel="Proportion of customers")
     plt.plot([0, 1], [0, 1], linestyle="--", linewidth=1)
     return fig
 
 
-def lift_plot(df, rvar, lev, pred, qnt=10):
+def lift_plot(df, rvar, lev, pred, qnt=10, marker="o", **kwargs):
     """
     Plot a cumulative lift chart
 
@@ -523,6 +547,9 @@ def lift_plot(df, rvar, lev, pred, qnt=10):
         Cost of an action
     margin : int
         Benefit of an action if a successful outcome results from the action
+    marker : str
+        Marker to use for line plot
+    **kwargs : Named arguments to be passed to the seaborn lineplot function
 
     Returns
     -------
@@ -547,7 +574,9 @@ def lift_plot(df, rvar, lev, pred, qnt=10):
         for p in pred
     ]
     rd = pd.concat(rd)
-    fig = sns.lineplot(x="cum_prop", y="cum_lift", data=rd, hue=group, marker="o")
+    fig = sns.lineplot(
+        x="cum_prop", y="cum_lift", data=rd, hue=group, marker=marker, **kwargs
+    )
     fig.axhline(1, linestyle="--", linewidth=1)
     fig.set(ylabel="Cumulative lift", xlabel="Proportion of customers")
     return fig

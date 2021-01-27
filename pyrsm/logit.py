@@ -48,7 +48,7 @@ def or_conf_int(fitted, alpha=0.05, intercept=False, dec=3):
     return or_ci(fitted, alpha=0.05, intercept=False, dec=3)
 
 
-def or_plot(fitted, alpha=0.05, intercept=False):
+def or_plot(fitted, alpha=0.05, intercept=False, figsize=None):
     """
     Odds ratio plot
 
@@ -71,7 +71,8 @@ def or_plot(fitted, alpha=0.05, intercept=False):
     low, high = [100 * alpha / 2, 100 * (1 - (alpha / 2))]
     err = [df["OR"] - df[f"{low}%"], df[f"{high}%"] - df["OR"]]
 
-    fig, ax = plt.subplots()
+    fig = plt.figure(figsize=figsize)
+    ax = fig.add_subplot()
     ax.axvline(1, ls="dashdot")
     ax.errorbar(x="OR", y="index", data=df, xerr=err, fmt="none")
     ax.scatter(x="OR", y="index", data=df)
