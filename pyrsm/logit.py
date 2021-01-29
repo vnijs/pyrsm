@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 import statsmodels.formula.api as smf
-from scipy.stats import norm
+from scipy import stats
 from scipy.special import expit
 from pyrsm.utils import ifelse
 
@@ -178,7 +178,7 @@ def predict_ci(fitted, df, alpha=0.05):
     low, high = [alpha / 2, 1 - (alpha / 2)]
     Xb = np.dot(df, fitted.params)
     se = np.sqrt((df.dot(fitted.cov_params()) * df).sum(-1))
-    me = norm.ppf(high) * se
+    me = stats.norm.ppf(high) * se
 
     return pd.DataFrame(
         {
@@ -187,3 +187,49 @@ def predict_ci(fitted, df, alpha=0.05):
             f"{high*100}%": expit(Xb + me),
         }
     )
+
+
+def model_fit(fitted, dec=3, prn=True):
+    """
+    Compute various model fit statistics for a fitted logistic regression model
+
+    Parameters
+    ----------
+    fitted : statmodels glm object
+        Logistic regression model fitted using statsmodels
+    dec : int
+        Number of decimal places to show in the printed output
+    prn : bool
+        If True, print output, else return a Pandas dataframe with the results
+
+    Returns
+    -------
+        If prn is True, print output, else return a Pandas dataframe with the results
+    """
+
+    mfit = pd.DataFrame().assign(
+        pseudo_rsq_lr=[1 - fitted.llf / fitted.llnull],
+        pseudo_rsq_mcf=[
+            (fitted.null_deviance - fitted.deviance) / fitted.null_deviance
+        ],
+        log_likelihood=fitted.llf,
+        BIC=[fitted.bic_llf],
+        AIC=[fitted.aic],
+        chisq=[fitted.pearson_chi2],
+        chisq_df=[fitted.df_model],
+        chisq_pval=[1 - stats.chi2.cdf(fitted.pearson_chi2, fitted.df_model)],
+        nobs=[fitted.nobs],
+    )
+
+    output = f"""
+Pseudo R-squared (LR): {mfit["pseudo_rsq_lr"].values[0].round(dec).astype(str)}
+Pseudo R-squared (McFadden): {mfit["pseudo_rsq_mcf"].values[0].round(dec)}
+Log-likelihood: {mfit["log_likelihood"].values[0].round(dec)}, AIC: {mfit["AIC"].values[0].round(dec)}, BIC: {mfit["BIC"].values[0].round(dec)}
+Chi-squared: {mfit["chisq"].values[0].round(dec)} df({mfit["chisq_df"].values[0]}), p.value {np.where(mfit["chisq_pval"].values[0] < .001, "< 0.001", mfit["chisq_pval"].values[0].round(dec))} 
+Nr obs: {mfit["nobs"].values[0]:,}
+"""
+
+    if prn:
+        print(output)
+    else:
+        return mfit
