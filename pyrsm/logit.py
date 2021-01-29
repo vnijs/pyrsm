@@ -5,6 +5,7 @@ import matplotlib.ticker as ticker
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 import statsmodels.formula.api as smf
 from scipy.stats import norm
+from scipy.special import expit
 from pyrsm.utils import ifelse
 
 
@@ -178,13 +179,11 @@ def predict_ci(fitted, df, alpha=0.05):
     Xb = np.dot(df, fitted.params)
     se = np.sqrt((df.dot(fitted.cov_params()) * df).sum(-1))
     me = norm.ppf(high) * se
-    lb = np.exp(Xb - me)
-    ub = np.exp(Xb + me)
 
     return pd.DataFrame(
         {
             "prediction": prediction,
-            f"{low*100}%": lb / (1 + lb),
-            f"{high*100}%": ub / (1 + ub),
+            f"{low*100}%": expit(Xb - me),
+            f"{high*100}%": expit(Xb + me),
         }
     )
