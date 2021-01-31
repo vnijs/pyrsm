@@ -49,7 +49,7 @@ def or_conf_int(fitted, alpha=0.05, intercept=False, dec=3):
     return or_ci(fitted, alpha=0.05, intercept=False, dec=3)
 
 
-def or_plot(fitted, alpha=0.05, intercept=False, figsize=None):
+def or_plot(fitted, alpha=0.05, intercept=False, incl=None, excl=None, figsize=None):
     """
     Odds ratio plot
 
@@ -59,7 +59,11 @@ def or_plot(fitted, alpha=0.05, intercept=False, figsize=None):
     alpha : float
         Significance level
     intercept : bool
-        Include intercept in plot (True or False)
+        Include intercept in odds-ratio plot (True or False)
+    incl : str or list of strings
+        Variables to include in the odds-ratio plot. All will be included by default
+    excl : str or list of strings
+        Variables to exclude from the odds-ratio plot. None are excluded by default
 
     Returns
     -------
@@ -67,7 +71,17 @@ def or_plot(fitted, alpha=0.05, intercept=False, figsize=None):
         Plot of Odds ratios
     """
 
-    df = or_conf_int(fitted, alpha=alpha, intercept=intercept, dec=None).iloc[::-1]
+    df = or_ci(fitted, alpha=alpha, intercept=intercept, dec=None).iloc[::-1]
+
+    if incl is not None:
+        incl = ifelse(isinstance(incl, list), incl, [incl])
+        rx = "(" + "|".join([f"^\b{v}|^{v}\\[" for v in incl]) + ")"
+        df = df[df["index"].str.match(fr"{rx}")]
+
+    if excl is not None:
+        excl = ifelse(isinstance(excl, list), excl, [excl])
+        rx = "(" + "|".join([f"^\b{v}|^{v}\\[" for v in excl]) + ")"
+        df = df[~df["index"].str.match(fr"{rx}")]
 
     low, high = [100 * alpha / 2, 100 * (1 - (alpha / 2))]
     err = [df["OR"] - df[f"{low}%"], df[f"{high}%"] - df["OR"]]
@@ -208,10 +222,8 @@ def model_fit(fitted, dec=3, prn=True):
     """
 
     mfit = pd.DataFrame().assign(
-        pseudo_rsq_lr=[1 - fitted.llf / fitted.llnull],
-        pseudo_rsq_mcf=[
-            (fitted.null_deviance - fitted.deviance) / fitted.null_deviance
-        ],
+        pseudo_rsq_mcf=[1 - fitted.llf / fitted.llnull],
+        pseudo_rsq_mcf_adj=[1 - (fitted.llf - fitted.df_model) / fitted.llnull],
         log_likelihood=fitted.llf,
         BIC=[fitted.bic_llf],
         AIC=[fitted.aic],
@@ -222,8 +234,8 @@ def model_fit(fitted, dec=3, prn=True):
     )
 
     output = f"""
-Pseudo R-squared (LR): {mfit["pseudo_rsq_lr"].values[0].round(dec).astype(str)}
 Pseudo R-squared (McFadden): {mfit["pseudo_rsq_mcf"].values[0].round(dec)}
+Pseudo R-squared (McFadden adjusted): {mfit["pseudo_rsq_mcf_adj"].values[0].round(dec)}
 Log-likelihood: {mfit["log_likelihood"].values[0].round(dec)}, AIC: {mfit["AIC"].values[0].round(dec)}, BIC: {mfit["BIC"].values[0].round(dec)}
 Chi-squared: {mfit["chisq"].values[0].round(dec)} df({mfit["chisq_df"].values[0]}), p.value {np.where(mfit["chisq_pval"].values[0] < .001, "< 0.001", mfit["chisq_pval"].values[0].round(dec))} 
 Nr obs: {mfit["nobs"].values[0]:,}
