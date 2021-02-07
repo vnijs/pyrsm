@@ -6,5 +6,5 @@ from .utils import *
 from .props import *
 from .logit import *
 from .regression import *
-from .basic import *
+from .basics import *
 from .visualize import *
