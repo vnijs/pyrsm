@@ -76,12 +76,18 @@ def or_plot(fitted, alpha=0.05, intercept=False, incl=None, excl=None, figsize=N
     if incl is not None:
         incl = ifelse(isinstance(incl, list), incl, [incl])
         rx = "(" + "|".join([f"^\b{v}|^{v}\\[" for v in incl]) + ")"
-        df = df[df["index"].str.match(fr"{rx}")]
+        incl = df["index"].str.match(fr"{rx}")
+        if intercept:
+            incl[0] = True
+        df = df[incl]
 
     if excl is not None:
         excl = ifelse(isinstance(excl, list), excl, [excl])
         rx = "(" + "|".join([f"^\b{v}|^{v}\\[" for v in excl]) + ")"
-        df = df[~df["index"].str.match(fr"{rx}")]
+        excl = df["index"].str.match(fr"{rx}")
+        if intercept:
+            excl[0] = False
+        df = df[~excl]
 
     low, high = [100 * alpha / 2, 100 * (1 - (alpha / 2))]
     err = [df["OR"] - df[f"{low}%"], df[f"{high}%"] - df["OR"]]
