@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import statsmodels.formula.api as smf
 from scipy import stats
 from pyrsm.utils import ifelse
+from pyrsm.logit import sig_stars
 
 
 def coef_plot(fitted, alpha=0.05, intercept=False, incl=None, excl=None, figsize=None):
@@ -60,6 +61,47 @@ def coef_plot(fitted, alpha=0.05, intercept=False, incl=None, excl=None, figsize
     ax.scatter(x="coefficient", y="index", data=df)
     ax.set(xlabel="Coefficient")
     return ax
+
+
+def coef_ci(fitted, alpha=0.05, intercept=False, dec=3):
+    """
+    Confidence interval for coefficient from linear regression
+
+    Parameters
+    ----------
+    fitted : A fitted linear regression model
+    alpha : float
+        Significance level
+    intercept : bool
+        Include intercept in the output (True or False)
+    dec : int
+        Number of decimal places
+
+    Returns
+    -------
+    Pandas dataframe with regression coefficients and confidence intervals
+    """
+
+    df = pd.DataFrame({"coefficient": fitted.params})
+
+    low, high = [100 * alpha / 2, 100 * (1 - (alpha / 2))]
+    df[[f"{low}%", f"{high}%"]] = fitted.conf_int(alpha=alpha)
+
+    if dec is None:
+        df["p.values"] = ifelse(fitted.pvalues < 0.001, "< .001", fitted.pvalues)
+    else:
+        df = df.round(dec)
+        df["p.values"] = ifelse(
+            fitted.pvalues < 0.001, "< .001", fitted.pvalues.round(dec)
+        )
+
+    df["  "] = sig_stars(fitted.pvalues)
+    df = df.reset_index()
+
+    if intercept is False:
+        df = df.loc[df["index"] != "Intercept"]
+
+    return df
 
 
 # def predict_ci(fitted, df, alpha=0.05):

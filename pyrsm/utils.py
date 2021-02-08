@@ -320,4 +320,4 @@ def months_abb(start=1, nr=12, year=datetime.today().year):
         for m in range(1, 13)
     ]
     start -= 1
-    return mnths[start : (nr + start)]
+    return mnths[start:(nr + start)]

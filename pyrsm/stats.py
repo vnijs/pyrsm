@@ -2,8 +2,6 @@ import numpy as np
 import pandas as pd
 from math import sqrt
 from pyrsm import ifelse
-from itertools import compress
-from scipy import stats
 
 
 def varprop(x, na=True):
@@ -137,8 +135,7 @@ def scale_df(df, wt=None, sf=2):
     weighted_mean(df, wt)
     """
     df = df.copy()
-    isNum = [pd.api.types.is_numeric_dtype(df[col]) for col in df.columns]
-    isNum = list(compress(df.columns, isNum))
+    isNum = [col for col in df.columns if pd.api.types.is_numeric_dtype(df[col].dtype)]
     dfs = df[isNum]
     if wt is None:
         df[isNum] = (dfs - dfs.mean().values) / (sf * dfs.std().values)

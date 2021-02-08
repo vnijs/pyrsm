@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 from scipy import stats
 
@@ -103,9 +104,9 @@ Chi-squared: {round(self.chisq[0], dec)} df({round(self.chisq[2], dec)}), p.valu
         print(prn)
 
     # Another instance method
-    def plot(self, output="perc_col"):
+    def plot(self, output="perc_col", **kwargs):
         pdf = getattr(self, output).drop(columns="Total").drop("Total", axis=0)
-        fig = pdf.plot.bar()
+        fig = pdf.plot.bar(**kwargs)
 
 
 def correlation(df, dec=3, prn=True):
@@ -130,8 +131,7 @@ def correlation(df, dec=3, prn=True):
     correlation(df)
     """
     df = df.copy()
-    isNum = [pd.api.types.is_numeric_dtype(df[col]) for col in df.columns]
-    isNum = list(compress(df.columns, isNum))
+    isNum = [col for col in df.columns if pd.api.types.is_numeric_dtype(df[col].dtype)]
     df = df[isNum]
 
     ncol = df.shape[1]

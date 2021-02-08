@@ -9,6 +9,12 @@ from scipy.special import expit
 from pyrsm.utils import ifelse
 
 
+def sig_stars(pval):
+    cutpoints = np.array([0.001, 0.01, 0.05, 0.1, 1])
+    symbols = np.array(["***", "**", "*", ".", " "])
+    return [symbols[p < cutpoints][0] for p in pval]
+
+
 def or_ci(fitted, alpha=0.05, intercept=False, dec=3):
     """
     Confidence interval for Odds ratios
@@ -18,6 +24,8 @@ def or_ci(fitted, alpha=0.05, intercept=False, dec=3):
     fitted : A fitted logistic regression model
     alpha : float
         Significance level
+    intercept : bool
+        Include intercept in output (True or False)
     dec : int
         Number of decimal places
 
@@ -32,9 +40,15 @@ def or_ci(fitted, alpha=0.05, intercept=False, dec=3):
     low, high = [100 * alpha / 2, 100 * (1 - (alpha / 2))]
     df[[f"{low}%", f"{high}%"]] = np.exp(fitted.conf_int(alpha=alpha))
 
-    if dec is not None:
+    if dec is None:
+        df["p.values"] = ifelse(fitted.pvalues < 0.001, "< .001", fitted.pvalues)
+    else:
         df = df.round(dec)
+        df["p.values"] = ifelse(
+            fitted.pvalues < 0.001, "< .001", fitted.pvalues.round(dec)
+        )
 
+    df["  "] = sig_stars(fitted.pvalues)
     df["OR%"] = [f"{OR}%" for OR in df["OR%"]]
     df = df.reset_index()
 
@@ -46,7 +60,7 @@ def or_ci(fitted, alpha=0.05, intercept=False, dec=3):
 
 def or_conf_int(fitted, alpha=0.05, intercept=False, dec=3):
     """ Shortcut to or_ci """
-    return or_ci(fitted, alpha=0.05, intercept=False, dec=3)
+    return or_ci(fitted, alpha=0.05, intercept=False, dec=dec)
 
 
 def or_plot(fitted, alpha=0.05, intercept=False, incl=None, excl=None, figsize=None):
