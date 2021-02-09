@@ -36,8 +36,7 @@ class cross_tabs:
     def summary(self, output=["observed", "expected"], dec=2):
         prn = f"""
 Cross-tabs
-Data : titanic
-Variables: survived, sex
+Variables: {self.var1}, {self.var2}
 Null hyp: there is no association between {self.var1} and {self.var2}
 Alt. hyp: there is an association between {self.var1} and {self.var2}
 """
@@ -183,7 +182,6 @@ class correlation:
     def summary(self, dec=2):
 
         s='Correlation\n'
-        #s+='Data'.ljust(20)+': Titanic\n'
         s+='Variables'.ljust(20)+': '+ ', '.join(list(self.df.columns))+'\n'
         s+='Null hyp.'.ljust(20)+': '+'variables x and y are not correlated\n'
         s+='Alt. hyp.'.ljust(20)+': '+'variables x and y are correlated\n'
