@@ -1,7 +1,9 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy import stats
-
+import seaborn as sns
+from pyrsm.logit import sig_stars
 
 class cross_tabs:
     def __init__(self, df, var1, var2):
@@ -109,67 +111,170 @@ Chi-squared: {round(self.chisq[0], dec)} df({round(self.chisq[2], dec)}), p.valu
         fig = pdf.plot.bar(**kwargs)
 
 
-def correlation(df, dec=3, prn=True):
-    """
-    Calculate correlations between the numeric variables in a Pandas dataframe
+class correlation:
+    def __init__(self, df):
+        self.df = df
+        
+    def calculate_correlation(self, dec=3, prn=True):
+        """
+        Calculate correlations between the numeric variables in a Pandas dataframe
 
-    Parameters
-    ----------
-    df : Pandas dataframe with numeric variables
-    dec : int
-        Number of decimal places to use in rounding
-    prn : bool
-        Print or return the correlation matrix
+        Parameters
+        ----------
+        df : Pandas dataframe with numeric variables
+        dec : int
+            Number of decimal places to use in rounding
+        prn : bool
+            Print or return the correlation matrix
 
-    Returns
-    -------
-    Pandas dataframe with all numeric variables standardized
+        Returns
+        -------
+        Pandas dataframe with all numeric variables standardized
 
-    Examples
-    --------
-    df = pd.DataFrame({"x": [0, 1, 1, 1, 0], "y": [1, 0, 0, 0, np.NaN]})
-    correlation(df)
-    """
-    df = df.copy()
-    isNum = [col for col in df.columns if pd.api.types.is_numeric_dtype(df[col].dtype)]
-    df = df[isNum]
+        Examples
+        --------
+        df = pd.DataFrame({"x": [0, 1, 1, 1, 0], "y": [1, 0, 0, 0, np.NaN]})
+        correlation(df)
+        """
+        df = self.df.copy()
+        isNum = [col for col in df.columns if pd.api.types.is_numeric_dtype(df[col].dtype)]
+        df = df[isNum]
 
-    ncol = df.shape[1]
-    cr = np.zeros([ncol, ncol])
-    cp = cr.copy()
-    for i in range(ncol - 1):
-        for j in range(i + 1, ncol):
-            cdf = df.iloc[:, [i, j]]
-            # pairwise deletion
-            cdf = cdf[~np.any(np.isnan(cdf), axis=1)]
-            c = stats.pearsonr(cdf.iloc[:, 0], cdf.iloc[:, 1])
-            cr[j, i] = c[0]
-            cp[j, i] = c[1]
+        ncol = df.shape[1]
+        cr = np.zeros([ncol, ncol])
+        cp = cr.copy()
+        for i in range(ncol - 1):
+            for j in range(i + 1, ncol):
+                cdf = df.iloc[:, [i, j]]
+                # pairwise deletion
+                cdf = cdf[~np.any(np.isnan(cdf), axis=1)]
+                c = stats.pearsonr(cdf.iloc[:, 0], cdf.iloc[:, 1])
+                cr[j, i] = c[0]
+                cp[j, i] = c[1]
 
-    ind = np.triu_indices(ncol)
+        ind = np.triu_indices(ncol)
 
-    # correlation matrix
-    crs = cr.round(ncol).astype(str)
-    crs[ind] = ""
-    crs = pd.DataFrame(
-        np.delete(np.delete(crs, 0, axis=0), crs.shape[1] - 1, axis=1),
-        columns=df.columns[:-1],
-        index=df.columns[1:],
-    )
+        # correlation matrix
+        crs = cr.round(ncol).astype(str)
+        crs[ind] = ""
+        crs = pd.DataFrame(
+            np.delete(np.delete(crs, 0, axis=0), crs.shape[1] - 1, axis=1),
+            columns=df.columns[:-1],
+            index=df.columns[1:],
+        )
 
-    # pvalues
-    cps = cp.round(ncol).astype(str)
-    cps[ind] = ""
-    cps = pd.DataFrame(
-        np.delete(np.delete(cps, 0, axis=0), cps.shape[1] - 1, axis=1),
-        columns=df.columns[:-1],
-        index=df.columns[1:],
-    )
+        # pvalues
+        cps = cp.round(ncol).astype(str)
+        cps[ind] = ""
+        cps = pd.DataFrame(
+            np.delete(np.delete(cps, 0, axis=0), cps.shape[1] - 1, axis=1),
+            columns=df.columns[:-1],
+            index=df.columns[1:],
+        )
 
-    if prn:
-        print("Correlation matrix:")
-        print(crs)
-        print("\np.values:")
-        print(cps)
-    else:
-        return cr, cp
+        if prn:
+            print("Correlation matrix:")
+            print(crs)
+            print("\np.values:")
+            print(cps)
+        else:
+            return cr, cp
+    
+    def summary(self, dec=2):
+
+        s='Correlation\n'
+        #s+='Data'.ljust(20)+': Titanic\n'
+        s+='Variables'.ljust(20)+': '+ ', '.join(list(self.df.columns))+'\n'
+        s+='Null hyp.'.ljust(20)+': '+'variables x and y are not correlated\n'
+        s+='Alt. hyp.'.ljust(20)+': '+'variables x and y are correlated\n'
+        print(s)
+        self.calculate_correlation()
+    
+    def plot(self, nrobs=1000, dec=2):
+    
+        def cor_label(label, longest, ax1):
+            ax1.axes.xaxis.set_visible(False)
+            ax1.axes.yaxis.set_visible(False)
+            # minimum 3 char of longest, otherwise text goes outside
+            font = 30 * (10 / len(longest))
+            ax1.text(
+                0.5,
+                0.5,
+                label,
+                horizontalalignment="center",
+                verticalalignment="center",
+                fontsize=font,
+            )
+
+        def cor_text(r, p, ax1, dec=2):
+            if np.isnan(p):
+                p = 1
+
+            p = round(p, dec)
+            rt = round(r, dec)
+            p1=sig_stars([p])[0]
+
+            font = 40 * (4 / len(str(rt)))
+
+            ax1.axes.xaxis.set_visible(False)
+            ax1.axes.yaxis.set_visible(False)
+            ax1.text(
+                0.5,
+                0.5,
+                rt,
+                horizontalalignment="center",
+                verticalalignment="center",
+                fontsize=font * abs(r),
+            )
+            ax1.text(
+                0.8,
+                0.8,
+                p1,
+                horizontalalignment="center",
+                verticalalignment="center",
+                fontsize=30,
+                color="blue",
+            )
+
+        def cor_plot(x_data, y_data, ax1, nobs=1000):
+            if nobs != float("inf") and nobs != -1:
+
+                x_type = str(x_data.dtype)
+                y_type = str(y_data.dtype)
+
+                x_data = np.random.choice(x_data,nobs)
+                y_data = np.random.choice(y_data,nobs)
+
+                if x_type == "category" and y_type == "category":
+                    pass
+                elif x_type == "category" or y_type == "category":
+                    sns.boxplot(x=x_data, y=y_data, ax=ax1)
+                else:
+                    sns.scatterplot(x=x_data, y=y_data, ax=ax1)
+
+                ax1.axes.xaxis.set_visible(False)
+                ax1.axes.yaxis.set_visible(False)
+
+        def cor_mat(dataset, cmat, pmat=None, dec=2, nobs=1000):
+
+            cn = dataset.columns
+            ncol = len(cn)
+            longest = max(cn, key=len)
+
+            fig, axes = plt.subplots(ncol, ncol, figsize=(10, 10))
+
+            for i in range(ncol):
+                for j in range(ncol):
+
+                    if i == j:
+                        cor_label(cn[i], longest, axes[i, j])
+                    elif i > j:
+                        cor_plot(dataset[cn[i]], dataset[cn[j]], axes[i, j], nobs=nobs)
+                    else:
+                        cor_text(cmat[j, i], pmat[j, i], axes[i, j], dec=2)
+
+            plt.subplots_adjust(wspace=0.02, hspace=0.02)
+            plt.show()
+
+        cr, pr = self.calculate_correlation(prn=False)
+        cor_mat(self.df, cr, pr)
