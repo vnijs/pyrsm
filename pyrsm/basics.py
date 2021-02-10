@@ -170,6 +170,7 @@ class correlation:
         """
         ind = np.triu_indices(self.cr.shape[0])
         cn = self.df.columns[:-1]
+        indn = self.df.columns[1:]
 
         # correlations
         crs = self.cr.round(dec).astype(str)
@@ -177,7 +178,7 @@ class correlation:
         crs = pd.DataFrame(
             np.delete(np.delete(crs, 0, axis=0), crs.shape[1] - 1, axis=1),
             columns=cn,
-            index=cn,
+            index=indn,
         )
 
         # pvalues
@@ -186,7 +187,7 @@ class correlation:
         cps = pd.DataFrame(
             np.delete(np.delete(cps, 0, axis=0), cps.shape[1] - 1, axis=1),
             columns=cn,
-            index=cn,
+            index=indn,
         )
 
         cn = self.df.columns
