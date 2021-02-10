@@ -5,6 +5,7 @@ from scipy import stats
 import seaborn as sns
 from pyrsm.logit import sig_stars
 
+
 class cross_tabs:
     def __init__(self, df, var1, var2):
         self.df = df
@@ -112,31 +113,29 @@ Chi-squared: {round(self.chisq[0], dec)} df({round(self.chisq[2], dec)}), p.valu
 
 class correlation:
     def __init__(self, df):
-        self.df = df
-        
-    def calculate_correlation(self, dec=3, prn=True):
         """
-        Calculate correlations between the numeric variables in a Pandas dataframe
+        Calculate correlations between numeric variables in a Pandas dataframe
 
         Parameters
         ----------
         df : Pandas dataframe with numeric variables
-        dec : int
-            Number of decimal places to use in rounding
-        prn : bool
-            Print or return the correlation matrix
 
         Returns
         -------
-        Pandas dataframe with all numeric variables standardized
+        Correlation object with two key attributes
+        cr: Correlation matrix
+        cp: p.value matrix
 
         Examples
         --------
         df = pd.DataFrame({"x": [0, 1, 1, 1, 0], "y": [1, 0, 0, 0, np.NaN]})
-        correlation(df)
+        c = correlation(df)
+        c.cr
         """
-        df = self.df.copy()
-        isNum = [col for col in df.columns if pd.api.types.is_numeric_dtype(df[col].dtype)]
+        df = df.copy()
+        isNum = [
+            col for col in df.columns if pd.api.types.is_numeric_dtype(df[col].dtype)
+        ]
         df = df[isNum]
 
         ncol = df.shape[1]
@@ -151,45 +150,84 @@ class correlation:
                 cr[j, i] = c[0]
                 cp[j, i] = c[1]
 
-        ind = np.triu_indices(ncol)
+        self.df = df
+        self.cr = cr
+        self.cp = cp
 
-        # correlation matrix
-        crs = cr.round(ncol).astype(str)
+    def summary(self, dec=2):
+        """
+        Print correlations between numeric variables in a Pandas dataframe
+
+        Parameters
+        ----------
+        dec : int
+            Number of decimal places to use in rounding
+
+        Examples
+        --------
+        df = pd.DataFrame({"x": [0, 1, 1, 1, 0], "y": [1, 0, 0, 0, np.NaN]})
+        correlation(df).summary()
+        """
+        ind = np.triu_indices(self.cr.shape[0])
+        cn = self.df.columns[:-1]
+
+        # correlations
+        crs = self.cr.round(dec).astype(str)
         crs[ind] = ""
         crs = pd.DataFrame(
             np.delete(np.delete(crs, 0, axis=0), crs.shape[1] - 1, axis=1),
-            columns=df.columns[:-1],
-            index=df.columns[1:],
+            columns=cn,
+            index=cn,
         )
 
         # pvalues
-        cps = cp.round(ncol).astype(str)
+        cps = self.cp.round(dec).astype(str)
         cps[ind] = ""
         cps = pd.DataFrame(
             np.delete(np.delete(cps, 0, axis=0), cps.shape[1] - 1, axis=1),
-            columns=df.columns[:-1],
-            index=df.columns[1:],
+            columns=cn,
+            index=cn,
         )
 
-        if prn:
-            print("Correlation matrix:")
-            print(crs)
-            print("\np.values:")
-            print(cps)
+        cn = self.df.columns
+        if len(cn) > 2:
+            x = "x"
+            y = "y"
         else:
-            return cr, cp
-    
-    def summary(self, dec=2):
+            x = cn[0]
+            y = cn[1]
 
-        s='Correlation\n'
-        s+='Variables'.ljust(20)+': '+ ', '.join(list(self.df.columns))+'\n'
-        s+='Null hyp.'.ljust(20)+': '+'variables x and y are not correlated\n'
-        s+='Alt. hyp.'.ljust(20)+': '+'variables x and y are correlated\n'
+        s = "Correlation\n"
+        s += "Variables: " + ", ".join(list(self.df.columns)) + "\n"
+        s += "Null hyp.: " + f"variables {x} and {y} are not correlated\n"
+        s += "Alt. hyp.: " + f"variables {x} and {y} are correlated\n"
         print(s)
-        self.calculate_correlation()
-    
-    def plot(self, nrobs=1000, dec=2):
-    
+        print("Correlation matrix:")
+        print(crs)
+        print("\np.values:")
+        print(cps)
+
+    def plot(self, nobs=1000, dec=2, figsize=None):
+        """
+        Plot of correlations between numeric variables in a Pandas dataframe
+
+        Parameters
+        ----------
+        nobs : int
+            Number of observations to use for the scatter plots
+        dec : int
+            Number of decimal places to use in rounding
+        figsize : tuple
+            A tuple that determines the figure size. If None, size is
+            determined based on the number of numeric variables in the
+            data
+
+        Examples
+        --------
+        df = pd.DataFrame({"x": [0, 1, 1, 1, 0], "y": [1, 0, 0, 0, np.NaN]})
+        correlation(df).plot()
+        """
+
         def cor_label(label, longest, ax1):
             ax1.axes.xaxis.set_visible(False)
             ax1.axes.yaxis.set_visible(False)
@@ -210,7 +248,7 @@ class correlation:
 
             p = round(p, dec)
             rt = round(r, dec)
-            p1=sig_stars([p])[0]
+            p1 = sig_stars([p])[0]
 
             font = 40 * (4 / len(str(rt)))
 
@@ -237,27 +275,21 @@ class correlation:
         def cor_plot(x_data, y_data, ax1, nobs=1000):
             if nobs != float("inf") and nobs != -1:
 
-                x_type = str(x_data.dtype)
-                y_type = str(y_data.dtype)
+                x_data = np.random.choice(x_data, nobs)
+                y_data = np.random.choice(y_data, nobs)
 
-                x_data = np.random.choice(x_data,nobs)
-                y_data = np.random.choice(y_data,nobs)
-
-                if x_type == "category" and y_type == "category":
-                    pass
-                elif x_type == "category" or y_type == "category":
-                    sns.boxplot(x=x_data, y=y_data, ax=ax1)
-                else:
-                    sns.scatterplot(x=x_data, y=y_data, ax=ax1)
-
+                sns.scatterplot(x=x_data, y=y_data, ax=ax1)
                 ax1.axes.xaxis.set_visible(False)
                 ax1.axes.yaxis.set_visible(False)
 
-        def cor_mat(dataset, cmat, pmat=None, dec=2, nobs=1000):
+        def cor_mat(df, cmat, pmat, dec=2, nobs=1000, figsize=None):
 
-            cn = dataset.columns
+            cn = df.columns
             ncol = len(cn)
             longest = max(cn, key=len)
+
+            if figsize is None:
+                figsize = (cmat.shape[0], cmat.shape[0])
 
             fig, axes = plt.subplots(ncol, ncol, figsize=(10, 10))
 
@@ -267,12 +299,11 @@ class correlation:
                     if i == j:
                         cor_label(cn[i], longest, axes[i, j])
                     elif i > j:
-                        cor_plot(dataset[cn[i]], dataset[cn[j]], axes[i, j], nobs=nobs)
+                        cor_plot(df[cn[i]], df[cn[j]], axes[i, j], nobs=nobs)
                     else:
                         cor_text(cmat[j, i], pmat[j, i], axes[i, j], dec=2)
 
             plt.subplots_adjust(wspace=0.02, hspace=0.02)
             plt.show()
 
-        cr, pr = self.calculate_correlation(prn=False)
-        cor_mat(self.df, cr, pr)
+        cor_mat(self.df, self.cr, self.cp, dec=dec, nobs=nobs, figsize=figsize)

@@ -187,20 +187,18 @@ def profit_max(df, rvar, lev, pred, cost=1, margin=2):
     return margin * TP - cost * (TP + FP)
 
 
-def profit(pred, rvar, lev, cost=1, margin=2):
+def profit(rvar, pred, lev=1, cost=1, margin=2):
     """
     Calculate the maximum profit using series as input. Provides the same results as profit_max
 
     Parameters
     ----------
+    rvar : Pandas series
+        Column from a Pandas dataframe with the response variable
     pred : Pandas series
         Column from a Pandas dataframe with model predictions
-    rvar : str
-        Name of the response variable column in df
     lev : str
         Name of the 'success' level in rvar
-    pred : str
-        Name of the column in df with model prediction
     cost : int
         Cost of an action
     margin : int
