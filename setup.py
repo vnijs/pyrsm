@@ -8,7 +8,7 @@ setup(
     long_description="Python functions for Customer Analytics at the Rady School of Management (RSM)",
     long_description_content_type="text/markdown",
     license="AGPL",
-    author="Vincent Nijs <vnijs@ucsd.edu>, Vikram Jambulapati <vikjam@ucsd.edu>",
+    author="Vincent Nijs <vnijs@ucsd.edu>, Vikram Jambulapati <vikjam@ucsd.edu>, Suhas Goutham <sgoutham@ucsd.edu>",
     author_email="vnijs@ucsd.edu",
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     install_requires=[
