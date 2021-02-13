@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from pyrsm import xtile
 from pyrsm.utils import ifelse
-
+from sklearn import metrics
 
 def calc_qnt(df, rvar, lev, pred, qnt=10):
     """
@@ -578,3 +578,78 @@ def lift_plot(df, rvar, lev, pred, qnt=10, marker="o", **kwargs):
     fig.axhline(1, linestyle="--", linewidth=1)
     fig.set(ylabel="Cumulative lift", xlabel="Proportion of customers")
     return fig
+
+def all_metrics(df, rvar, lev, pred, cost=1, margin=2):
+    """
+    Calculate "Type", "predictor", TP, FP, TN, FN, contact, total, TPR, TNR, precision, Fscore, accuracy, profit, ROME, AUC, kappa, index
+
+    Parameters
+    ----------
+    df : Pandas dataframe or a dictionary of dataframes with keys to show multiple curves for different models or data samples
+    rvar : str
+        Name of the response variable column in df
+    lev : str
+        Name of the 'success' level in rvar
+    pred : str
+        Name of the column in df with model predictions
+    cost : int
+        Cost of an action
+    margin : int
+        Benefit of an action if a successful outcome results from the action
+        
+    Examples
+    --------
+    lift_plot(df, "buyer", "yes", "pred_a")
+    lift_plot(df, "buyer", "yes", ["pred_a", "pred_b"], cost=1, margin=6)
+    lift = {"Training": df.query("training == 1"), "Test": df.query("training == 0")}
+    lift_plot(lift, "buyer", "yes", "pred_a")
+    """
+    
+    dct = ifelse(type(df) is dict, df, {"Unknown type": df})
+    pred = ifelse(type(pred) is list, pred, [pred])
+    list1=[]
+
+    def calculate_metrics(df1,pred1):
+        TP, FP, TN, FN, contact = confusion(df1, rvar, lev, pred1, cost, margin)
+        total = TN + FN + FP + TP
+        TPR = TP / (TP + FN)
+        TNR = TN / (TN + FP)
+        precision = TP / (TP + FP)
+        Fscore = 2 * (precision * TPR) / (precision + TPR)
+        accuracy = (TP + TN) / total
+        profit = margin * TP - cost * (TP + FP)
+        ROME = profit / (cost * (TP + FP))
+        
+        predictor = pred1
+        
+        fpr, tpr, thresholds = metrics.roc_curve(df1[rvar], df1[pred1], pos_label=lev)
+        AUC = metrics.auc(fpr, tpr)
+        
+        break_even = cost / margin
+        gtbe = df1[pred1] > break_even
+        pos = df1[rvar] == lev
+        
+        kappa = metrics.cohen_kappa_score(pos, gtbe)
+        
+        list2=[predictor, TP, FP, TN, FN, round(contact,3), round(total,3), round(TPR,3), round(TNR,3),round(precision,3)] 
+        list2+=[round(Fscore,3), round(accuracy,3), round(profit,3), round(ROME,3), round(AUC,3), round(kappa,3)]
+        
+        return list2
+    
+    if len(dct.keys())!=len(pred):
+        if len(pred)==1:
+            for key,val in dct.items():
+                #key is type, ex: "Training", "Validation"
+                list1.append([key]+calculate_metrics(val,pred[0]))
+        elif(len(dct.keys())==1):
+            for p in pred:
+                list1.append([list(dct.keys())[0]]+calculate_metrics(list(dct.values())[0],p))
+    else:
+        for key,val in dct.items():
+            list1.append([key]+calculate_metrics(val,pred[0]))
+    
+    col = ["Type","predictor","TP","FP","TN","FN","contact","total","TPR","TNR","precision","Fscore","accuracy","profit","ROME","AUC","kappa"]
+    dfObj = pd.DataFrame(list1, columns = col)
+    dfObj.index = dfObj.index + 1
+    dfObj["index"] = [dfObj["profit"].idxmax() for i in range(len(dfObj))]
+    return dfObj
