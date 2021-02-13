@@ -88,7 +88,7 @@ def format_nr(x, sym="", dec=2, perc=False):
     sym : str
         Symbol to use
     dec : int
-        Number of decimals to show
+        Number of decimal places to use in rounding
     perc : boolean
         Display numbers as a percentage
 
@@ -320,4 +320,4 @@ def months_abb(start=1, nr=12, year=datetime.today().year):
         for m in range(1, 13)
     ]
     start -= 1
-    return mnths[start:(nr + start)]
+    return mnths[start : (nr + start)]

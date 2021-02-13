@@ -27,7 +27,7 @@ def or_ci(fitted, alpha=0.05, intercept=False, dec=3):
     intercept : bool
         Include intercept in output (True or False)
     dec : int
-        Number of decimal places
+        Number of decimal places to use in rounding
 
     Returns
     -------
@@ -232,7 +232,7 @@ def model_fit(fitted, dec=3, prn=True):
     fitted : statmodels glm object
         Logistic regression model fitted using statsmodels
     dec : int
-        Number of decimal places to show in the printed output
+        Number of decimal places to use in rounding
     prn : bool
         If True, print output, else return a Pandas dataframe with the results
 

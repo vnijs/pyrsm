@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from pyrsm import xtile
 from pyrsm.utils import ifelse
+from sklearn import metrics
 
 
 def calc_qnt(df, rvar, lev, pred, qnt=10):
@@ -247,7 +248,8 @@ def ROME_max(df, rvar, lev, pred, cost=1, margin=2):
 
 def ROME(pred, rvar, lev, cost=1, margin=2):
     """
-    Calculate the maximum Return on Marketing Expenditures using series as input. Provides the same results as ROME_max
+    Calculate the maximum Return on Marketing Expenditures using series as input.
+    Provides the same results as ROME_max
 
     Parameters
     ----------
@@ -578,3 +580,76 @@ def lift_plot(df, rvar, lev, pred, qnt=10, marker="o", **kwargs):
     fig.axhline(1, linestyle="--", linewidth=1)
     fig.set(ylabel="Cumulative lift", xlabel="Proportion of customers")
     return fig
+
+
+def evalbin(df, rvar, lev, pred, cost=1, margin=2, dec=3):
+    """
+    Evaluate binary classification models. Calculates TP, FP, TN, FN, contact, total,
+    TPR, TNR, precision, Fscore, accuracy, profit, ROME, AUC, kappa, and profit index
+
+    Parameters
+    ----------
+    df : Pandas dataframe or a dictionary of dataframes with keys to show results for
+        multiple model predictions and datasets (training and test)
+    rvar : str
+        Name of the response variable column in df
+    lev : str
+        Name of the 'success' level in rvar
+    pred : str
+        Name of the column, of list of column names, in df with model predictions
+    cost : int
+        Cost of an action
+    margin : int
+        Benefit of an action if a successful outcome results from the action
+    dec : int
+        Number of decimal places to use in rounding
+
+    Examples
+    --------
+    """
+
+    dct = ifelse(type(df) is dict, df, {"All": df})
+    pred = ifelse(type(pred) is list, pred, [pred])
+
+    def calculate_metrics(key, dfm, predm):
+        TP, FP, TN, FN, contact = confusion(dfm, rvar, lev, predm, cost, margin)
+        total = TN + FN + FP + TP
+        TPR = TP / (TP + FN)
+        TNR = TN / (TN + FP)
+        precision = TP / (TP + FP)
+        profit = margin * TP - cost * (TP + FP)
+
+        fpr, tpr, thresholds = metrics.roc_curve(dfm[rvar], dfm[predm], pos_label=lev)
+        break_even = cost / margin
+        gtbe = dfm[predm] > break_even
+        pos = dfm[rvar] == lev
+
+        return pd.DataFrame().assign(
+            Type=[key],
+            predictor=[predm],
+            TP=[TP],
+            FP=[FP],
+            TN=[TN],
+            FN=[FN],
+            total=[total],
+            TPR=[TPR],
+            TNR=[TNR],
+            precision=[precision],
+            Fscore=[2 * (precision * TPR) / (precision + TPR)],
+            accuracy=[(TP + TN) / total],
+            kappa=[metrics.cohen_kappa_score(pos, gtbe)],
+            profit=[profit],
+            index=[0],
+            ROME=[profit / (cost * (TP + FP))],
+            contact=[contact],
+            AUC=[metrics.auc(fpr, tpr)],
+        )
+
+    result = pd.DataFrame()
+    for key, val in dct.items():
+        for p in pred:
+            result = result.append(calculate_metrics(key, val, p))
+
+    result.index = range(result.shape[0])
+    result["index"] = result.groupby("Type")["profit"].transform(lambda x: x / x.max())
+    return result.round(dec)

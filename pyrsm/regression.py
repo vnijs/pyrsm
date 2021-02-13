@@ -75,7 +75,7 @@ def coef_ci(fitted, alpha=0.05, intercept=False, dec=3):
     intercept : bool
         Include intercept in the output (True or False)
     dec : int
-        Number of decimal places
+        Number of decimal places to use in rounding
 
     Returns
     -------
