@@ -611,22 +611,22 @@ def evalbin(df, rvar, lev, pred, cost=1, margin=2, dec=3):
     dct = ifelse(type(df) is dict, df, {"All": df})
     pred = ifelse(type(pred) is list, pred, [pred])
 
-    def calculate_metrics(key, dfm, predm):
-        TP, FP, TN, FN, contact = confusion(dfm, rvar, lev, predm, cost, margin)
+    def calculate_metrics(key, dfm, pm):
+        TP, FP, TN, FN, contact = confusion(dfm, rvar, lev, pm, cost, margin)
         total = TN + FN + FP + TP
         TPR = TP / (TP + FN)
         TNR = TN / (TN + FP)
         precision = TP / (TP + FP)
         profit = margin * TP - cost * (TP + FP)
 
-        fpr, tpr, thresholds = metrics.roc_curve(dfm[rvar], dfm[predm], pos_label=lev)
+        fpr, tpr, thresholds = metrics.roc_curve(dfm[rvar], dfm[pm], pos_label=lev)
         break_even = cost / margin
-        gtbe = dfm[predm] > break_even
+        gtbe = dfm[pm] > break_even
         pos = dfm[rvar] == lev
 
         return pd.DataFrame().assign(
             Type=[key],
-            predictor=[predm],
+            predictor=[pm],
             TP=[TP],
             FP=[FP],
             TN=[TN],

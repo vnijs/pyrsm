@@ -4,7 +4,6 @@ from pyrsm.stats import (
     weighted_mean,
     weighted_sd,
     scale_df,
-    correlation,
 )
 import numpy as np
 import pandas as pd
@@ -58,10 +57,10 @@ def test_weighted_scale_df():
     ), "Weighted scaled pandas dataframe incorrect"
 
 
-def test_correlation():
-    cr, cp = correlation(df, prn=False)
-    assert cr[1, 0].round(3) == -0.493, "Correlations incorrect"
-    df_nan = df.copy()
-    df_nan.loc[4, "x"] = np.NaN
-    cr, cp = correlation(df_nan, prn=False)
-    assert cr[1, 0].round(3) == -0.567, "Correlations with np.NaN incorrect"
+# def test_correlation():
+#     cr, cp = correlation(df, prn=False)
+#     assert cr[1, 0].round(3) == -0.493, "Correlations incorrect"
+#     df_nan = df.copy()
+#     df_nan.loc[4, "x"] = np.NaN
+#     cr, cp = correlation(df_nan, prn=False)
+#     assert cr[1, 0].round(3) == -0.567, "Correlations with np.NaN incorrect"
