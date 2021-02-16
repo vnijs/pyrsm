@@ -231,7 +231,6 @@ class correlation:
         def cor_label(label, longest, ax1):
             ax1.axes.xaxis.set_visible(False)
             ax1.axes.yaxis.set_visible(False)
-            # minimum 3 char of longest, otherwise text goes outside
             font = (900)/(len(longest)*len(self.df.columns))
             ax1.text(
                 0.5,
