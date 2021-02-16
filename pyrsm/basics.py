@@ -251,7 +251,7 @@ class correlation:
             rt = round(r, dec)
             p1 = sig_stars([p])[0]
 
-            font = 40 * (4 / len(str(rt)))
+            font = 400 / (len(str(rt)) * len(self.df.columns))
             font_star = 125 / len(self.df.columns)
 
             ax1.axes.xaxis.set_visible(False)
@@ -276,13 +276,19 @@ class correlation:
 
         def cor_plot(x_data, y_data, ax1, nobs=1000):
             if nobs != float("inf") and nobs != -1:
-
                 x_data = np.random.choice(x_data, nobs)
                 y_data = np.random.choice(y_data, nobs)
 
-                sns.scatterplot(x=x_data, y=y_data, ax=ax1)
-                ax1.axes.xaxis.set_visible(False)
-                ax1.axes.yaxis.set_visible(False)
+            # sns.scatterplot(x=x_data, y=y_data, ax=ax1)
+            sns.regplot(
+                x=x_data,
+                y=y_data,
+                ax=ax1,
+                scatter_kws={"alpha": 0.3},
+                line_kws={"color": "red"},
+            )
+            ax1.axes.xaxis.set_visible(False)
+            ax1.axes.yaxis.set_visible(False)
 
         def cor_mat(df, cmat, pmat, dec=2, nobs=1000, figsize=None):
 
