@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from math import sqrt
-from pyrsm import ifelse
+from pyrsm.utils import ifelse, setdiff
 
 
 def varprop(x, na=True):
@@ -55,7 +55,7 @@ def seprop(x, na=True):
     return sqrt(varprop(x, na=False) / len(x))
 
 
-def weighted_sd(df, wt):
+def weighted_sd(df, wt, ddof):
     """
     Calculate the weighted standard deviation for a Pandas dataframe
 
@@ -112,7 +112,7 @@ def weighted_mean(df, wt):
     return np.average(df.values, weights=np.array(wt), axis=0)
 
 
-def scale_df(df, wt=None, sf=2):
+def scale_df(df, wt=None, sf=2, excl=None, train=None, ddof=0):
     """
     Scale the numeric variables in a Pandas dataframe
 
@@ -120,9 +120,20 @@ def scale_df(df, wt=None, sf=2):
     ----------
     df : Pandas dataframe with numeric variables
     wt : Pandas series or None
-        Weights to use during scaling. The length of the vector should be the same as the number of rows in the df
+        Weights to use during scaling. The length of the vector should
+        be the same as the number of rows in the df
     sf : float
         Scale factor to use (default is 2)
+    excl : None or list
+        Provide list of column names to exclude when applying standardization
+    train : bool
+        A series of True and False values. Values that are True are
+        used to calculate the mean and standard deviation
+    ddof : int, default 0
+        Delta Degrees of Freedom. The divisor used in calculations is N - ddof,
+        where N represents the number of elements. The default value 0, is
+        the same as used by Numpy and sklearn for StandardScaler
+
 
     Returns
     -------
@@ -131,14 +142,22 @@ def scale_df(df, wt=None, sf=2):
     Examples
     --------
     df = pd.DataFrame({"x": [0, 1, 1, 1, 0, 0, 0]})
-    wt = [1, 10, 1, 10, 1, 10, 1]
-    weighted_mean(df, wt)
+    df = scale_df(df)
     """
     df = df.copy()
     isNum = [col for col in df.columns if pd.api.types.is_numeric_dtype(df[col].dtype)]
+    if excl is not None:
+        isNum = setdiff(isNum, excl)
     dfs = df[isNum]
+    if train is None:
+        train = np.array([True] * df.shape[0])
     if wt is None:
-        df[isNum] = (dfs - dfs.mean().values) / (sf * dfs.std().values)
+        df[isNum] = (dfs - dfs[train].mean().values) / (
+            sf * dfs[train].std(ddof=ddof).values
+        )
     else:
-        df[isNum] = (dfs - weighted_mean(dfs, wt)) / (sf * weighted_sd(dfs, wt))
+        # ddof option ignored for weighted sd
+        df[isNum] = (dfs - weighted_mean(dfs[train], wt[train])) / (
+            sf * weighted_sd(dfs[train], wt[train])
+        )
     return df
