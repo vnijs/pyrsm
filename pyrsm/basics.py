@@ -232,8 +232,8 @@ class correlation:
         def cor_label(label, longest, ax1):
             ax1.axes.xaxis.set_visible(False)
             ax1.axes.yaxis.set_visible(False)
-            # minimum 3 char of longest, otherwise text goes outside
-            font = 30 * (10 / len(longest))
+            # set font size to avoid exceeding boundaries
+            font = 900 / (len(longest) * len(self.df.columns))
             ax1.text(
                 0.5,
                 0.5,
@@ -252,6 +252,7 @@ class correlation:
             p1 = sig_stars([p])[0]
 
             font = 40 * (4 / len(str(rt)))
+            font_star = 125 / len(self.df.columns)
 
             ax1.axes.xaxis.set_visible(False)
             ax1.axes.yaxis.set_visible(False)
@@ -269,7 +270,7 @@ class correlation:
                 p1,
                 horizontalalignment="center",
                 verticalalignment="center",
-                fontsize=30,
+                fontsize=font_star,
                 color="blue",
             )
 
