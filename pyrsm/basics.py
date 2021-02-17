@@ -279,7 +279,6 @@ class correlation:
                 x_data = np.random.choice(x_data, nobs)
                 y_data = np.random.choice(y_data, nobs)
 
-            # sns.scatterplot(x=x_data, y=y_data, ax=ax1)
             sns.regplot(
                 x=x_data,
                 y=y_data,
