@@ -229,12 +229,12 @@ class correlation:
         correlation(df).plot()
         """
 
-        def cor_label(label, longest, ax1):
-            ax1.axes.xaxis.set_visible(False)
-            ax1.axes.yaxis.set_visible(False)
+        def cor_label(label, longest, ax_sub):
+            ax_sub.axes.xaxis.set_visible(False)
+            ax_sub.axes.yaxis.set_visible(False)
             # set font size to avoid exceeding boundaries
-            font = 900 / (len(longest) * len(self.df.columns))
-            ax1.text(
+            font = 800 / (len(longest) * len(self.df.columns))
+            ax_sub.text(
                 0.5,
                 0.5,
                 label,
@@ -243,20 +243,20 @@ class correlation:
                 fontsize=font,
             )
 
-        def cor_text(r, p, ax1, dec=2):
+        def cor_text(r, p, ax_sub, dec=2):
             if np.isnan(p):
                 p = 1
 
             p = round(p, dec)
             rt = round(r, dec)
-            p1 = sig_stars([p])[0]
+            p_star = sig_stars([p])[0]
 
-            font = 400 / (len(str(rt)) * len(self.df.columns))
+            font = 500 / (len(str(rt)) * len(self.df.columns))
             font_star = 125 / len(self.df.columns)
 
-            ax1.axes.xaxis.set_visible(False)
-            ax1.axes.yaxis.set_visible(False)
-            ax1.text(
+            ax_sub.axes.xaxis.set_visible(False)
+            ax_sub.axes.yaxis.set_visible(False)
+            ax_sub.text(
                 0.5,
                 0.5,
                 rt,
@@ -264,41 +264,42 @@ class correlation:
                 verticalalignment="center",
                 fontsize=font * abs(r),
             )
-            ax1.text(
+            ax_sub.text(
                 0.8,
                 0.8,
-                p1,
+                p_star,
                 horizontalalignment="center",
                 verticalalignment="center",
                 fontsize=font_star,
                 color="blue",
             )
 
-        def cor_plot(x_data, y_data, ax1, nobs=1000):
-            if nobs != float("inf") and nobs != -1:
-                x_data = np.random.choice(x_data, nobs)
-                y_data = np.random.choice(y_data, nobs)
-
+        def cor_plot(x_data, y_data, ax_sub, s_size):
             sns.regplot(
                 x=x_data,
                 y=y_data,
-                ax=ax1,
-                scatter_kws={"alpha": 0.3},
-                line_kws={"color": "red"},
+                ax=ax_sub,
+                scatter_kws={"alpha": 0.3, "color": "black", "s": s_size},
+                line_kws={"color": "blue"},
             )
-            ax1.axes.xaxis.set_visible(False)
-            ax1.axes.yaxis.set_visible(False)
+
+            ax_sub.axes.xaxis.set_visible(False)
+            ax_sub.axes.yaxis.set_visible(False)
 
         def cor_mat(df, cmat, pmat, dec=2, nobs=1000, figsize=None):
 
             cn = df.columns
             ncol = len(cn)
             longest = max(cn, key=len)
+            s_size = 50 / len(self.df.columns)
 
             if figsize is None:
                 figsize = (cmat.shape[0], cmat.shape[0])
 
             fig, axes = plt.subplots(ncol, ncol, figsize=(10, 10))
+
+            if nobs < df.shape[0] and nobs != np.Inf and nobs != -1:
+                df = df.copy().sample(nobs)
 
             for i in range(ncol):
                 for j in range(ncol):
@@ -306,11 +307,11 @@ class correlation:
                     if i == j:
                         cor_label(cn[i], longest, axes[i, j])
                     elif i > j:
-                        cor_plot(df[cn[i]], df[cn[j]], axes[i, j], nobs=nobs)
+                        cor_plot(df[cn[i]], df[cn[j]], axes[i, j], s_size)
                     else:
                         cor_text(cmat[j, i], pmat[j, i], axes[i, j], dec=2)
 
-            plt.subplots_adjust(wspace=0.02, hspace=0.02)
+            plt.subplots_adjust(wspace=0.04, hspace=0.04)
             plt.show()
 
         cor_mat(self.df, self.cr, self.cp, dec=dec, nobs=nobs, figsize=figsize)
