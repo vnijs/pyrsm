@@ -294,9 +294,9 @@ class correlation:
             s_size = 50 / len(self.df.columns)
 
             if figsize is None:
-                figsize = (cmat.shape[0], cmat.shape[0])
+                figsize = (max(5, cmat.shape[0]), max(cmat.shape[0], 5))
 
-            fig, axes = plt.subplots(ncol, ncol, figsize=(10, 10))
+            fig, axes = plt.subplots(ncol, ncol, figsize=figsize)
 
             if nobs < df.shape[0] and nobs != np.Inf and nobs != -1:
                 df = df.copy().sample(nobs)
