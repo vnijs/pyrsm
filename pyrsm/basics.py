@@ -233,7 +233,7 @@ class correlation:
             ax_sub.axes.xaxis.set_visible(False)
             ax_sub.axes.yaxis.set_visible(False)
             # set font size to avoid exceeding boundaries
-            font = 800 / (len(longest) * len(self.df.columns))
+            font = (80 * self.fig_size) / (len(longest) * len(self.df.columns))
             ax_sub.text(
                 0.5,
                 0.5,
@@ -251,8 +251,8 @@ class correlation:
             rt = round(r, dec)
             p_star = sig_stars([p])[0]
 
-            font = 500 / (len(str(rt)) * len(self.df.columns))
-            font_star = 125 / len(self.df.columns)
+            font = (50 * self.fig_size) / (len(str(rt)) * len(self.df.columns))
+            font_star = (12 * self.fig_size) / len(self.df.columns)
 
             ax_sub.axes.xaxis.set_visible(False)
             ax_sub.axes.yaxis.set_visible(False)
@@ -296,6 +296,9 @@ class correlation:
             if figsize is None:
                 figsize = (max(5, cmat.shape[0]), max(cmat.shape[0], 5))
 
+            self.fig_size = min(figsize[0], figsize[1])
+            s_size = (5 * self.fig_size) / len(self.df.columns)
+
             fig, axes = plt.subplots(ncol, ncol, figsize=figsize)
 
             if nobs < df.shape[0] and nobs != np.Inf and nobs != -1:
@@ -303,7 +306,6 @@ class correlation:
 
             for i in range(ncol):
                 for j in range(ncol):
-
                     if i == j:
                         cor_label(cn[i], longest, axes[i, j])
                     elif i > j:
