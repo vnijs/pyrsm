@@ -3,6 +3,8 @@ import pandas as pd
 from itertools import product
 from datetime import date, datetime
 from math import ceil
+from IPython.display import display, Markdown
+from sys import modules
 
 
 def add_description(df, md="", path=""):
@@ -38,7 +40,10 @@ def add_description(df, md="", path=""):
 def describe(df):
     """Print out Pandas dataframe description attribute if available. Else use Pandas' description method to provide summary statistics"""
     if hasattr(df, "description"):
-        print(df.description)
+        if 'ipykernel' in modules:
+            display(Markdown(df.description))
+        else:
+            print(df.description)
     else:
         print("No description attribute available")
         return df.describe()
