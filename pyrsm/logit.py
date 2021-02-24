@@ -7,6 +7,7 @@ import statsmodels.formula.api as smf
 from scipy import stats
 from scipy.special import expit
 from pyrsm.utils import ifelse
+from pyrsm.stats import weighted_mean, weighted_sd
 
 
 def sig_stars(pval):
@@ -15,7 +16,7 @@ def sig_stars(pval):
     return [symbols[p < cutpoints][0] for p in pval]
 
 
-def or_ci(fitted, alpha=0.05, intercept=False, dec=3):
+def or_ci(fitted, alpha=0.05, intercept=False, importance=False, data=None, dec=3):
     """
     Confidence interval for Odds ratios
 
@@ -26,6 +27,14 @@ def or_ci(fitted, alpha=0.05, intercept=False, dec=3):
         Significance level
     intercept : bool
         Include intercept in output (True or False)
+    importance : int
+        Calculate variable importance. Only meaningful if data
+        used in estimation was standardized prior to model
+        estimation
+    data : int
+        Calculate variable importance. Only meaningful if data
+        used in estimation was standardized prior to model
+        estimation
     dec : int
         Number of decimal places to use in rounding
 
@@ -39,23 +48,42 @@ def or_ci(fitted, alpha=0.05, intercept=False, dec=3):
 
     low, high = [100 * alpha / 2, 100 * (1 - (alpha / 2))]
     df[[f"{low}%", f"{high}%"]] = np.exp(fitted.conf_int(alpha=alpha))
+    df["p.values"] = ifelse(fitted.pvalues < 0.001, "< .001", fitted.pvalues.round(dec))
+    df["  "] = sig_stars(fitted.pvalues)
+    df["OR%"] = [f"{round(o, max(dec-2, 0))}%" for o in df["OR%"]]
+    df = df.reset_index()
 
-    if dec is None:
-        df["p.values"] = ifelse(fitted.pvalues < 0.001, "< .001", fitted.pvalues)
-    else:
-        df = df.round(dec)
-        df["p.values"] = ifelse(
-            fitted.pvalues < 0.001, "< .001", fitted.pvalues.round(dec)
+    if importance:
+        df["dummy"] = df["index"].str.contains("[T", regex=False)
+        df["importance"] = (
+            pd.DataFrame().assign(OR=df["OR"], ORinv=1 / df["OR"]).max(axis=1)
         )
 
-    df["  "] = sig_stars(fitted.pvalues)
-    df["OR%"] = [f"{OR}%" for OR in df["OR%"]]
-    df = df.reset_index()
+    if isinstance(data, pd.DataFrame):
+        # using a fake response variable variable
+        data = data.assign(__rvar__=1).copy()
+        form = "__rvar__ ~ " + fitted.model.formula.split("~", 1)[1]
+        exog = pd.DataFrame(smf.logit(formula=form, data=data).exog)
+        weights = fitted._freq_weights
+        if sum(weights) > len(weights):
+
+            def wmean(x):
+                return weighted_mean(x, weights)
+
+            def wstd(x):
+                return weighted_sd(pd.DataFrame(x), weights)[0]
+
+            df = pd.concat(
+                [df, exog.apply([wmean, wstd, "min", "max"]).T],
+                axis=1,
+            )
+        else:
+            df = pd.concat([df, exog.apply(["mean", "std", "min", "max"]).T], axis=1)
 
     if intercept is False:
         df = df.loc[df["index"] != "Intercept"]
 
-    return df
+    return df.round(dec)
 
 
 def or_conf_int(fitted, alpha=0.05, intercept=False, dec=3):
@@ -85,7 +113,7 @@ def or_plot(fitted, alpha=0.05, intercept=False, incl=None, excl=None, figsize=N
         Plot of Odds ratios
     """
 
-    df = or_ci(fitted, alpha=alpha, intercept=intercept, dec=None).iloc[::-1]
+    df = or_ci(fitted, alpha=alpha, intercept=intercept, dec=100).iloc[::-1]
 
     if incl is not None:
         incl = ifelse(isinstance(incl, list), incl, [incl])
@@ -130,7 +158,7 @@ def vif(model, dec=3):
 
     Parameters
     ----------
-    model :  A specified model that has not yet been fitted
+    model : A specified model that has not yet been fitted
     dec : int
         Number of decimal places to use in rounding
 
@@ -147,8 +175,7 @@ def vif(model, dec=3):
     if "Intercept" in model.exog_names:
         df = df.loc[df["variable"] != "Intercept"]
 
-    df = df.sort_values("vif", ascending=False)
-    df.index = range(df.shape[0])
+    df = df.sort_values("vif", ascending=False).reset_index(drop=True)
 
     if dec is not None:
         df = df.round(dec)
@@ -200,18 +227,17 @@ def predict_ci(fitted, df, alpha=0.05):
     if alpha < 0 or alpha > 1:
         raise ValueError("alpha must be a numeric value between 0 and 1")
 
-    # generate prediction
+    # generate predictions
     prediction = fitted.predict(df)
 
-    # adding a fake endogenous variable
-    df = df.copy()  # making a full copy
-    df["__endog__"] = 1
-    form = "__endog__ ~ " + fitted.model.formula.split("~", 1)[1]
-    df = smf.logit(formula=form, data=df).exog
+    # using a fake response variable variable
+    df = df.assign(__rvar__=1).copy()
+    form = "__rvar__ ~ " + fitted.model.formula.split("~", 1)[1]
+    exog = smf.logit(formula=form, data=df).exog
 
     low, high = [alpha / 2, 1 - (alpha / 2)]
-    Xb = np.dot(df, fitted.params)
-    se = np.sqrt((df.dot(fitted.cov_params()) * df).sum(-1))
+    Xb = np.dot(exog, fitted.params)
+    se = np.sqrt((exog.dot(fitted.cov_params()) * exog).sum(-1))
     me = stats.norm.ppf(high) * se
 
     return pd.DataFrame(
@@ -254,11 +280,11 @@ def model_fit(fitted, dec=3, prn=True):
     )
 
     output = f"""
-Pseudo R-squared (McFadden): {mfit["pseudo_rsq_mcf"].values[0].round(dec)}
-Pseudo R-squared (McFadden adjusted): {mfit["pseudo_rsq_mcf_adj"].values[0].round(dec)}
-Log-likelihood: {mfit["log_likelihood"].values[0].round(dec)}, AIC: {mfit["AIC"].values[0].round(dec)}, BIC: {mfit["BIC"].values[0].round(dec)}
-Chi-squared: {mfit["chisq"].values[0].round(dec)} df({mfit["chisq_df"].values[0]}), p.value {np.where(mfit["chisq_pval"].values[0] < .001, "< 0.001", mfit["chisq_pval"].values[0].round(dec))} 
-Nr obs: {mfit["nobs"].values[0]:,}
+Pseudo R-squared (McFadden): {mfit.pseudo_rsq_mcf.values[0].round(dec)}
+Pseudo R-squared (McFadden adjusted): {mfit.pseudo_rsq_mcf_adj.values[0].round(dec)}
+Log-likelihood: {mfit.log_likelihood.values[0].round(dec)}, AIC: {mfit.AIC.values[0].round(dec)}, BIC: {mfit.BIC.values[0].round(dec)}
+Chi-squared: {mfit.chisq.values[0].round(dec)} df({mfit.chisq_df.values[0]}), p.value {np.where(mfit.chisq_pval.values[0] < .001, "< 0.001", mfit.chisq_pval.values[0].round(dec))} 
+Nr obs: {mfit.nobs.values[0]:,}
 """
 
     if prn:
