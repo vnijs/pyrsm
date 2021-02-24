@@ -55,7 +55,7 @@ def seprop(x, na=True):
     return sqrt(varprop(x, na=False) / len(x))
 
 
-def weighted_sd(df, wt, ddof):
+def weighted_sd(df, wt, ddof=0):
     """
     Calculate the weighted standard deviation for a Pandas dataframe
 
@@ -65,6 +65,10 @@ def weighted_sd(df, wt, ddof):
         All columns in the dataframe are expected to be numeric
     wt : List, pandas series, or numpy array
         Weights to use during calculation. The length of the vector should be the same as the number of rows in the df
+    ddof : int, default 0
+        Delta Degrees of Freedom. The divisor used in calculations is N - ddof,
+        where N represents the number of elements. The default value 0, is
+        the same as used by Numpy and sklearn for StandardScaler
 
     Returns
     -------
@@ -79,9 +83,10 @@ def weighted_sd(df, wt, ddof):
     """
 
     def wsd(x, wt):
-        wt = wt / wt.sum()
-        wm = np.average(x, axis=0, weights=wt)
-        return sqrt((wt * (x - wm) ** 2).sum())
+        wtm = wt / wt.sum()
+        wm = np.average(x, axis=0, weights=wtm)
+        wts = wt / (wt.sum() - ddof)
+        return sqrt((wts * (x - wm) ** 2).sum())
 
     wt = np.array(wt)
     return df.apply(lambda col: wsd(col, wt), axis=0).values
@@ -134,7 +139,6 @@ def scale_df(df, wt=None, sf=2, excl=None, train=None, ddof=0):
         where N represents the number of elements. The default value 0, is
         the same as used by Numpy and sklearn for StandardScaler
 
-
     Returns
     -------
     Pandas dataframe with all numeric variables standardized
@@ -156,8 +160,7 @@ def scale_df(df, wt=None, sf=2, excl=None, train=None, ddof=0):
             sf * dfs[train].std(ddof=ddof).values
         )
     else:
-        # ddof option ignored for weighted sd
         df[isNum] = (dfs - weighted_mean(dfs[train], wt[train])) / (
-            sf * weighted_sd(dfs[train], wt[train])
+            sf * weighted_sd(dfs[train], wt[train], ddof=ddof)
         )
     return df
