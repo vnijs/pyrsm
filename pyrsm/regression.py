@@ -107,49 +107,6 @@ def coef_ci(fitted, alpha=0.05, intercept=False, dec=3):
     return df
 
 
-# def predict_ci(fitted, df, alpha=0.05):
-#     """
-#     Compute predicted probabilities with confidence intervals based on a
-#     linear regression model
-
-#     Parameters
-#     ----------
-#     fitted : Linear regression model fitted using the statsmodels formula interface
-#     df : Pandas dataframe with input data for prediction
-#     alpha : float
-#         Significance level (0-1). Default is 0.05
-
-#     Returns
-#     -------
-#     Pandas dataframe with predictions and lower and upper confidence bounds
-#     """
-
-#     if alpha < 0 or alpha > 1:
-#         raise ValueError("alpha must be a numeric value between 0 and 1")
-
-#     # generate prediction
-#     prediction = fitted.predict(df)
-
-#     # adding a fake endogenous variable
-#     df = df.copy()  # making a full copy
-#     df["__endog__"] = 1
-#     form = "__endog__ ~ " + fitted.model.formula.split("~", 1)[1]
-#     df = smf.ols(formula=form, data=df).exog
-
-#     low, high = [alpha / 2, 1 - (alpha / 2)]
-#     Xb = np.dot(df, fitted.params)
-#     se = np.sqrt((df.dot(fitted.cov_params()) * df).sum(-1))
-#     me = stats.norm.ppf(high) * se
-
-#     return pd.DataFrame(
-#         {
-#             "prediction": prediction,
-#             f"{low*100}%": Xb - me,
-#             f"{high*100}%": Xb + me,
-#         }
-#     )
-
-
 def evalreg(df, rvar, pred, dec=3):
     """
     Evaluate regression models. Calculates R-squared, MSE, and MAE
@@ -177,9 +134,9 @@ def evalreg(df, rvar, pred, dec=3):
             Type=[key],
             predictor=[pm],
             n=[dfm.shape[0]],
-            r2=[metrics.r2_score(dfm["rvar"], dfm["pm"])],
-            mse=[metrics.mean_squared_error(dfm["rvar"], dfm["pm"])],
-            mae=[metrics.mean_absolute_error(dfm["rvar"], dfm["pm"])],
+            r2=[metrics.r2_score(dfm[rvar], dfm[pm])],
+            mse=[metrics.mean_squared_error(dfm[rvar], dfm[pm])],
+            mae=[metrics.mean_absolute_error(dfm[rvar], dfm[pm])],
         )
 
     result = pd.DataFrame()
@@ -197,7 +154,7 @@ def reg_dashboard(reg, rvar, nobs=1000):
 
     Parameters
     ----------
-    reg : Fitted linear regression model
+    reg : Object with fittedvalues and residuals
     rvar : Model response variable as a pandas series
     nobs: int
         Number of observerations to use for plots.
@@ -207,10 +164,12 @@ def reg_dashboard(reg, rvar, nobs=1000):
     """
     fig, axes = plt.subplots(3, 2, figsize=(10, 10))
     plt.subplots_adjust(wspace=0.25, hspace=0.4)
+
     data = pd.DataFrame().assign(
         fitted=reg.fittedvalues,
         actual=rvar,
         resid=reg.resid,
+        std_resid=reg.resid / np.std(reg.resid),
         order=np.arange(len(rvar)),
     )
 
@@ -228,7 +187,6 @@ def reg_dashboard(reg, rvar, nobs=1000):
     )
     sm.qqplot(data.resid, line="s", ax=axes[1, 1])
     axes[1, 1].title.set_text("Normal Q-Q plot")
-    # from scipy.stats import probplot
     pdp = data.resid.plot.hist(
         ax=axes[2, 0],
         title="Histogram of residuals",
@@ -238,7 +196,7 @@ def reg_dashboard(reg, rvar, nobs=1000):
     )
     pdp.set_xlabel("Residuals")
     sns.kdeplot(
-        reg.resid_pearson, color="green", shade=True, ax=axes[2, 1], common_norm=True
+        data.std_resid, color="green", shade=True, ax=axes[2, 1], common_norm=True
     )
 
     # from https://stackoverflow.com/a/52925509/1974918
