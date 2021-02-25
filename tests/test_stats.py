@@ -21,7 +21,7 @@ def test_seprop():
 
 # create example df and wt vector for testing
 df = pd.DataFrame({"x": [0, 1, 1, 1, 0, 0, 0], "y": [2, 1, 1, 1, 2, 2, 10]})
-wt = [1, 10, 1, 10, 1, 10, 1]
+wt = np.array([1, 10, 1, 10, 1, 10, 1])
 
 
 def test_weighted_mean():
@@ -38,21 +38,22 @@ def test_weighted_sd():
 
 def test_scale_df():
     assert all(
-        scale_df(df).round(5).loc[0, ["x", "y"]].values
+        scale_df(df, ddof=1).round(5).loc[0, ["x", "y"]].values
         == np.array([-0.40089, -0.10984])
     ), "Scaled pandas dataframe incorrect"
     assert all(
-        scale_df(df).round(5).loc[1, ["x", "y"]].values == np.array([0.53452, -0.26362])
+        scale_df(df, ddof=1).round(5).loc[1, ["x", "y"]].values
+        == np.array([0.53452, -0.26362])
     ), "Scaled pandas dataframe incorrect"
 
 
 def test_weighted_scale_df():
     assert all(
-        scale_df(df, wt).round(5).loc[0, ["x", "y"]].values
+        scale_df(df, wt, ddof=0).round(5).loc[0, ["x", "y"]].values
         == np.array([-0.63549, 0.12461])
     ), "Weighted scaled pandas dataframe incorrect"
     assert all(
-        scale_df(df, wt).round(5).loc[1, ["x", "y"]].values
+        scale_df(df, wt, ddof=0).round(5).loc[1, ["x", "y"]].values
         == np.array([0.3934, -0.20129])
     ), "Weighted scaled pandas dataframe incorrect"
 

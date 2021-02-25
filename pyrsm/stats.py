@@ -160,6 +160,7 @@ def scale_df(df, wt=None, sf=2, excl=None, train=None, ddof=0):
             sf * dfs[train].std(ddof=ddof).values
         )
     else:
+        wt = np.array(wt)
         df[isNum] = (dfs - weighted_mean(dfs[train], wt[train])) / (
             sf * weighted_sd(dfs[train], wt[train], ddof=ddof)
         )

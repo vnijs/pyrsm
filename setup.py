@@ -18,6 +18,7 @@ setup(
         "matplotlib>=3.1.1",
         "statsmodels>=0.10.1",
         "scipy>=1.4.1",
+        "ipynbname>=2021.3.2",
     ],
     project_urls={
         "Bug Reports": "https://github.com/vnijs/pyrsm/issues",
