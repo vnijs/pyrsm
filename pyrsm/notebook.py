@@ -3,7 +3,7 @@ import ipynbname
 
 
 def save_state(path=None):
-    remove_keys = {
+    remove_keys = [
         "In",
         "Out",
         "get_ipython",
@@ -12,19 +12,18 @@ def save_state(path=None):
         "json",
         "sys",
         "NamespaceMagics",
-        "store",
+        "state",
         "remove_keys",
         "remove_types",
-    }
-    remove_types = {
+    ]
+    remove_types = [
         "<class 'module'>",
         "<class 'function'>",
         "<class 'builtin_function_or_method'>",
         "<class 'abc.ABCMeta'>",
         "<class 'type'>",
         "<class '_io.BufferedReader'>",
-    }
-
+    ]
     state = {
         key: val
         for key, val in globals().items()
