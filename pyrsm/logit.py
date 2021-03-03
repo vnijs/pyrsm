@@ -113,11 +113,12 @@ def or_plot(fitted, alpha=0.05, intercept=False, incl=None, excl=None, figsize=N
         Plot of Odds ratios
     """
 
+    # iloc to reverse order
     df = or_ci(fitted, alpha=alpha, intercept=intercept, dec=100).iloc[::-1]
 
     if incl is not None:
         incl = ifelse(isinstance(incl, list), incl, [incl])
-        rx = "(" + "|".join([f"^\b{v}|^{v}\\[" for v in incl]) + ")"
+        rx = "(" + "|".join([f"^{v}$|^{v}\\[" for v in incl]) + ")"
         incl = df["index"].str.match(fr"{rx}")
         if intercept:
             incl[0] = True
@@ -125,7 +126,7 @@ def or_plot(fitted, alpha=0.05, intercept=False, incl=None, excl=None, figsize=N
 
     if excl is not None:
         excl = ifelse(isinstance(excl, list), excl, [excl])
-        rx = "(" + "|".join([f"^\b{v}|^{v}\\[" for v in excl]) + ")"
+        rx = "(" + "|".join([f"^{v}$|^{v}\\[" for v in excl]) + ")"
         excl = df["index"].str.match(fr"{rx}")
         if intercept:
             excl[0] = False
