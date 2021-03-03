@@ -53,8 +53,9 @@ def save_state(dct, path=None):
     if path is None:
         try:
             path = ipynbname.name() + ".state.pkl"
-        except:
-            print("Could not determine the notebook name")
+        except Exception as err:
+            print(err)
+            print("\nCould not determine the notebook name")
             print("Using 'notebook.state.pkl' instead")
             path = "notebook.state.pkl"
 
@@ -88,15 +89,22 @@ def load_state(dct=None, path=None):
     if path is None:
         try:
             path = ipynbname.name() + ".state.pkl"
-        except:
+        except Exception as err:
+            print(err)
+            print("\nCould not determine the notebook name")
+            print("Loading 'notebook.state.pkl' if available")
             path = "notebook.state.pkl"
 
-    with open(path, "rb") as f:
-        g = pickle.load(f)
+    try:
+        with open(path, "rb") as f:
+            g = pickle.load(f)
 
-    if dct is None:
-        return g
-    else:
-        # using the mutability feature in python
-        for key, val in g.items():
-            dct[key] = val
+        if dct is None:
+            return g
+        else:
+            # using the mutability feature in python
+            for key, val in g.items():
+                dct[key] = val
+    except Exception as err:
+        print(err)
+        print("\nCould not load file: " + path)
