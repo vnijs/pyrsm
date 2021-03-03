@@ -39,6 +39,7 @@ def save_state(dct, path=None):
         "<class 'abc.ABCMeta'>",
         "<class 'type'>",
         "<class '_io.BufferedReader'>",
+        "<class 'weakref'>",
     ]
     state = {
         key: val
@@ -53,10 +54,18 @@ def save_state(dct, path=None):
         try:
             path = ipynbname.name() + ".state.pkl"
         except:
+            print("Could not determine the notebook name")
+            print("Using 'notebook.state.pkl' instead")
             path = "notebook.state.pkl"
 
-    with open(path, "wb") as f:
-        pickle.dump(state, f)
+    try:
+        with open(path, "wb") as f:
+            pickle.dump(state, f)
+    except Exception as err:
+        print(err)
+        print("\nSome objects in globals() could not be 'pickled'")
+        print("Either remove those objects or explicitly pass in")
+        print("a dictionary with the objects you want to store")
 
 
 def load_state(dct=None, path=None):
