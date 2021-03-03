@@ -207,7 +207,7 @@ def reg_dashboard(reg, rvar, nobs=1000):
     )
 
 
-def sim_prediction(df, vary=[]):
+def sim_prediction(df, vary=[], nnv=5):
     """
     Simulate data for prediction
 
@@ -215,6 +215,8 @@ def sim_prediction(df, vary=[]):
     ----------
     df : Pandas dataframe
     vary : List of column names of Dictionary with keys and values to use
+    nnv : int
+        Number of values to use to simulate the effect of a numeric variable
 
     Returns:
     ----------
@@ -228,19 +230,22 @@ def sim_prediction(df, vary=[]):
             return s.value_counts().idxmax()
 
     dct = {c: [fix_value(df[c])] for c in df.columns}
+    dtypes = df.dtypes
     if type(vary) is dict:
         # user provided values and ranges
         for key, val in vary.items():
             dct[key] = val
     else:
         # auto derived values and ranges
+        vary = ifelse(type(vary) is list, vary, [vary])
         for v in vary:
             if pd.api.types.is_numeric_dtype(df[v].dtype):
-                if df[v].nunique() > 2:
-                    dct[v] = np.linspace(df[v].min(), df[v].max(), 5)
+                nu = df[v].nunique()
+                if nu > 2:
+                    dct[v] = np.linspace(df[v].min(), df[v].max(), min([nu, nnv]))
                 else:
                     dct[v] = [df[v].min(), df[v].max()]
             else:
                 dct[v] = df[v].unique()
 
-    return expand_grid(dct)
+    return expand_grid(dct, dtypes)

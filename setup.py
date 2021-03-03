@@ -10,7 +10,7 @@ setup(
     license="AGPL",
     author="Vincent Nijs <vnijs@ucsd.edu>, Vikram Jambulapati <vikjam@ucsd.edu>, Suhas Goutham <sgoutham@ucsd.edu>",
     author_email="vnijs@ucsd.edu",
-    packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
+    packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests", "examples"]),
     install_requires=[
         "numpy>=1.17.3",
         "pandas>=0.25.2",

@@ -40,7 +40,7 @@ def add_description(df, md="", path=""):
 def describe(df):
     """Print out Pandas dataframe description attribute if available. Else use Pandas' description method to provide summary statistics"""
     if hasattr(df, "description"):
-        if 'ipykernel' in modules:
+        if "ipykernel" in modules:
             display(Markdown(df.description))
         else:
             print(df.description)
@@ -140,15 +140,16 @@ def levels_list(df):
     return {str(col): list(df[col].unique()) for col in df.columns}
 
 
-def expand_grid(dct):
+def expand_grid(dct, dtypes=None):
     """
     Provide a dictionary and get a pandas dataframe back with all possible
     value combinations
 
     Parameters
     ----------
-    dct
-        Dictionary with value combinations to expand
+    dct : Dictionary with value combinations to expand
+    dtypes : Pandas series
+        Pandas column types extracted from a dataframe using df.dtypes
 
     Returns
     -------
@@ -158,7 +159,11 @@ def expand_grid(dct):
     -------
     expand_grid({"var1": ["a", "b"], "var2": [1, 2]})
     """
-    return pd.DataFrame([val for val in product(*dct.values())], columns=dct.keys())
+    df = pd.DataFrame([val for val in product(*dct.values())], columns=dct.keys())
+    if dtypes is not None:
+        return df.astype(dtypes)
+    else:
+        return df
 
 
 def table2data(df, freq):
