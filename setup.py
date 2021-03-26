@@ -24,4 +24,11 @@ setup(
         "Bug Reports": "https://github.com/vnijs/pyrsm/issues",
         "Source": "https://github.com/vnijs/pyrsm",
     },
+    package_data={
+        "data/data": ["*.pkl"],
+        "data/design": ["*.pkl"],
+        "data/basics": ["*.pkl"],
+        "data/model": ["*.pkl"],
+        "data/multivariate": ["*.pkl"],
+    }
 )
