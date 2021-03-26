@@ -37,13 +37,18 @@ def add_description(df, md="", path=""):
     return df
 
 
-def describe(df):
-    """Print out Pandas dataframe description attribute if available. Else use Pandas' description method to provide summary statistics"""
+def describe(df, prn=True):
+    """
+    Print out Pandas dataframe description attribute if available. Else use Pandas'
+    description method to provide summary statistics
+    """
     if hasattr(df, "description"):
-        if "ipykernel" in modules:
+        if "ipykernel" in modules and prn:
             display(Markdown(df.description))
-        else:
+        elif prn:
             print(df.description)
+        else:
+            return df.description
     else:
         print("No description attribute available")
         return df.describe()

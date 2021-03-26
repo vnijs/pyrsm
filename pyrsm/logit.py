@@ -8,10 +8,12 @@ from scipy import stats
 from scipy.special import expit
 from pyrsm.utils import ifelse
 from pyrsm.stats import weighted_mean, weighted_sd
+from pyrsm.perf import auc
 
 
 def sig_stars(pval):
-    cutpoints = np.array([0.001, 0.01, 0.05, 0.1, 1])
+    pval = np.nan_to_num(pval, nan=1.0)
+    cutpoints = np.array([0.001, 0.01, 0.05, 0.1, np.Inf])
     symbols = np.array(["***", "**", "*", ".", " "])
     return [symbols[p < cutpoints][0] for p in pval]
 
@@ -31,10 +33,9 @@ def or_ci(fitted, alpha=0.05, intercept=False, importance=False, data=None, dec=
         Calculate variable importance. Only meaningful if data
         used in estimation was standardized prior to model
         estimation
-    data : int
-        Calculate variable importance. Only meaningful if data
-        used in estimation was standardized prior to model
-        estimation
+    data : Pandas dataframe
+        Unstandardized data used to calculate descriptive
+        statistics
     dec : int
         Number of decimal places to use in rounding
 
@@ -43,7 +44,7 @@ def or_ci(fitted, alpha=0.05, intercept=False, importance=False, data=None, dec=
     Pandas dataframe with Odd-ratios and confidence intervals
     """
 
-    df = pd.DataFrame(np.exp(fitted.params), columns=["OR"])
+    df = pd.DataFrame(np.exp(fitted.params), columns=["OR"]).dropna()
     df["OR%"] = 100 * ifelse(df["OR"] < 1, -(1 - df["OR"]), df["OR"] - 1)
 
     low, high = [100 * alpha / 2, 100 * (1 - (alpha / 2))]
@@ -114,7 +115,7 @@ def or_plot(fitted, alpha=0.05, intercept=False, incl=None, excl=None, figsize=N
     """
 
     # iloc to reverse order
-    df = or_ci(fitted, alpha=alpha, intercept=intercept, dec=100).iloc[::-1]
+    df = or_ci(fitted, alpha=alpha, intercept=intercept, dec=100).dropna().iloc[::-1]
 
     if incl is not None:
         incl = ifelse(isinstance(incl, list), incl, [incl])
@@ -148,18 +149,18 @@ def or_plot(fitted, alpha=0.05, intercept=False, incl=None, excl=None, figsize=N
     return ax
 
 
-def vif(model, dec=3):
+def vif(fitted, dec=3):
     """
     Calculate the Variance Inflation Factor (VIF) associated with each
     exogenous variable
 
     Status
     ------
-    WIP port the VIF calculation from R's car:::vif.default to Python
+    WIP port of VIF calculation from R's car:::vif.default to Python
 
     Parameters
     ----------
-    model : A specified model that has not yet been fitted
+    fitted : A fitted (logistic) regression model
     dec : int
         Number of decimal places to use in rounding
 
@@ -168,13 +169,19 @@ def vif(model, dec=3):
     Pandas dataframe sorted by VIF score
     """
 
+    if hasattr(fitted, "model"):
+        model = fitted.model
+    else:
+        # legacy for when only an un-fitted model was accepted
+        model = fitted
+
     vif = [variance_inflation_factor(model.exog, i) for i in range(model.exog.shape[1])]
     df = pd.DataFrame(model.exog_names, columns=["variable"])
     df["vif"] = vif
     df["Rsq"] = 1 - 1 / df["vif"]
 
     if "Intercept" in model.exog_names:
-        df = df.loc[df["variable"] != "Intercept"]
+        df = df[df["variable"] != "Intercept"]
 
     df = df.sort_values("vif", ascending=False).reset_index(drop=True)
 
@@ -235,6 +242,7 @@ def predict_ci(fitted, df, alpha=0.05):
     df = df.assign(__rvar__=1).copy()
     form = "__rvar__ ~ " + fitted.model.formula.split("~", 1)[1]
     exog = smf.logit(formula=form, data=df).exog
+    # exog = fitted.model.exog
 
     low, high = [alpha / 2, 1 - (alpha / 2)]
     Xb = np.dot(exog, fitted.params)
@@ -271,6 +279,7 @@ def model_fit(fitted, dec=3, prn=True):
     mfit = pd.DataFrame().assign(
         pseudo_rsq_mcf=[1 - fitted.llf / fitted.llnull],
         pseudo_rsq_mcf_adj=[1 - (fitted.llf - fitted.df_model) / fitted.llnull],
+        AUC=[auc(fitted.model.endog, fitted.fittedvalues)],
         log_likelihood=fitted.llf,
         BIC=[fitted.bic_llf],
         AIC=[fitted.aic],
@@ -283,6 +292,7 @@ def model_fit(fitted, dec=3, prn=True):
     output = f"""
 Pseudo R-squared (McFadden): {mfit.pseudo_rsq_mcf.values[0].round(dec)}
 Pseudo R-squared (McFadden adjusted): {mfit.pseudo_rsq_mcf_adj.values[0].round(dec)}
+Area under the RO Curve (AUC): {mfit.AUC.values[0].round(dec)}
 Log-likelihood: {mfit.log_likelihood.values[0].round(dec)}, AIC: {mfit.AIC.values[0].round(dec)}, BIC: {mfit.BIC.values[0].round(dec)}
 Chi-squared: {mfit.chisq.values[0].round(dec)} df({mfit.chisq_df.values[0]}), p.value {np.where(mfit.chisq_pval.values[0] < .001, "< 0.001", mfit.chisq_pval.values[0].round(dec))} 
 Nr obs: {mfit.nobs.values[0]:,}

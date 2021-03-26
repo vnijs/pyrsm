@@ -5,6 +5,7 @@ import seaborn as sns
 from pyrsm import xtile
 from pyrsm.utils import ifelse
 from sklearn import metrics
+from scipy.stats import rankdata
 
 
 def calc_qnt(df, rvar, lev, pred, qnt=10):
@@ -653,3 +654,39 @@ def evalbin(df, rvar, lev, pred, cost=1, margin=2, dec=3):
     result.index = range(result.shape[0])
     result["index"] = result.groupby("Type")["profit"].transform(lambda x: x / x.max())
     return result.round(dec)
+
+
+def auc(rvar, pred, lev=1):
+    """
+    Calculate area under the RO curve (AUC)
+
+    Calculation adapted from https://stackoverflow.com/a/50202118/1974918
+
+    Parameters
+    ----------
+    rvar : Pandas series or numpy vector
+        Vector with the response variable
+    pred : Pandas series or numpy vector
+        Vector with model predictions
+    lev : str
+        Name of the 'success' level in rvar
+
+    Returns
+    -------
+    float :
+        AUC metric
+
+    Examples
+    --------
+    auc(dvd.buy, np.random.uniform(size=20000), "yes")
+    auc(dvd.buy, rsm.ifelse(dvd.buy == "yes", 1, 0), "yes")
+    """
+    if type(rvar[0]) != bool or lev is not None:
+        rvar = rvar == lev
+
+    n1 = np.sum(rvar == False)
+    n2 = np.sum(rvar)
+
+    U = np.sum(rankdata(pred)[rvar == False]) - n1 * (n1 + 1) / 2
+    wt = U / n1 / n2
+    return ifelse(wt < 0.5, 1 - wt, wt)

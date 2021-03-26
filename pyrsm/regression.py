@@ -32,7 +32,7 @@ def coef_plot(fitted, alpha=0.05, intercept=False, incl=None, excl=None, figsize
         Plot of Odds ratios
     """
     df = fitted.conf_int(alpha=alpha).reset_index().iloc[::-1]
-    df["coefficient"] = fitted.params[df["index"]].values
+    df["coefficient"] = fitted.params[df["index"]].dropna().values
 
     if not intercept:
         df = df.query('index != "Intercept"')
@@ -148,14 +148,13 @@ def evalreg(df, rvar, pred, dec=3):
     return result.round(dec)
 
 
-def reg_dashboard(reg, rvar, nobs=1000):
+def reg_dashboard(fitted, nobs=1000):
     """
     Plot regression residual dashboard
 
     Parameters
     ----------
-    reg : Object with fittedvalues and residuals
-    rvar : Model response variable as a pandas series
+    fitted : Object with fittedvalues and residuals
     nobs: int
         Number of observerations to use for plots.
         Set to None or -1 to plot all values.
@@ -166,11 +165,11 @@ def reg_dashboard(reg, rvar, nobs=1000):
     plt.subplots_adjust(wspace=0.25, hspace=0.4)
 
     data = pd.DataFrame().assign(
-        fitted=reg.fittedvalues,
-        actual=rvar,
-        resid=reg.resid,
-        std_resid=reg.resid / np.std(reg.resid),
-        order=np.arange(len(rvar)),
+        fitted=fitted.fittedvalues,
+        actual=fitted.model.endog,
+        resid=fitted.resid,
+        std_resid=fitted.resid / np.std(fitted.resid),
+        order=np.arange(fitted.model.endog.shape[0]),
     )
 
     if (nobs != -1 and nobs is not None) and (nobs < data.shape[0]):
