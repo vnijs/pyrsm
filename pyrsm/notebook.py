@@ -108,10 +108,3 @@ def load_state(dct=None, path=None):
     except Exception as err:
         print(err)
         print("\nCould not load file: " + path)
-
-import importlib.resources
-from pyrsm.data import data
-
-def greet(recipient):
-    template = importlib.resources.read_text("data", "testing.txt")
-    return template.format(recipient=recipient)
