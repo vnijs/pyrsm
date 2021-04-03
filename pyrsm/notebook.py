@@ -108,3 +108,9 @@ def load_state(dct=None, path=None):
     except Exception as err:
         print(err)
         print("\nCould not load file: " + path)
+
+import importlib.resources
+
+def greet(recipient):
+    template = importlib.resources.read_text("data.data", "testing.txt")
+    return template.format(recipient=recipient)
