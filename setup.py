@@ -10,8 +10,9 @@ setup(
     license="AGPL",
     author="Vincent Nijs <vnijs@ucsd.edu>, Vikram Jambulapati <vikjam@ucsd.edu>, Suhas Goutham <sgoutham@ucsd.edu>",
     author_email="vnijs@ucsd.edu",
+    include_package_data=True,
     packages=find_packages(
-        exclude=["*.tests", "*.tests.*", "tests.*", "tests"]
+        exclude=["*.tests", "*.tests.*", "tests.*", "tests", "examples"]
     ),
     install_requires=[
         "numpy>=1.17.3",
@@ -25,13 +26,5 @@ setup(
     project_urls={
         "Bug Reports": "https://github.com/vnijs/pyrsm/issues",
         "Source": "https://github.com/vnijs/pyrsm",
-    },
-    include_package_data=True,
-    package_data={
-        "data/data": ["*.pkl"],
-        "data/design": ["*.pkl"],
-        "data/basics": ["*.pkl"],
-        "data/model": ["*.pkl"],
-        "data/multivariate": ["*.pkl"],
     },
 )

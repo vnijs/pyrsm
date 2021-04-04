@@ -1,0 +1,5 @@
+include pyrsm/data/basics/*.pkl
+include pyrsm/data/data/*.pkl
+include pyrsm/data/design/*.pkl
+include pyrsm/data/model/*.pkl
+include pyrsm/data/multivariate/*.pkl

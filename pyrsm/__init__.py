@@ -9,3 +9,4 @@ from .regression import *
 from .basics import *
 from .visualize import *
 from .notebook import *
+from .example_data import *
