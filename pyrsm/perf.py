@@ -47,18 +47,6 @@ def calc_qnt(df, rvar, lev, pred, qnt=10):
     return perf_df
 
 
-def calc_dec(df, rvar, lev, pred, qnt=10):
-    """Deprecated function. Use calc_qnt instead"""
-    print("The 'calc_dec' function is deprecated. Use 'calc_qnt' instead")
-    return calc_dec(df, rvar, lev, pred, qnt=10)
-
-
-def calc(df, rvar, lev, pred, qnt=10):
-    """Deprecated function. Use calc_qnt instead"""
-    print("The 'calc' function is deprecated. Use 'calc_qnt' instead")
-    return None
-
-
 def gains_tab(df, rvar, lev, pred, qnt=10):
     """
     Calculate cumulative gains using the cum_resp column

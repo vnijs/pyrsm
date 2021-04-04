@@ -87,11 +87,6 @@ def or_ci(fitted, alpha=0.05, intercept=False, importance=False, data=None, dec=
     return df.round(dec)
 
 
-def or_conf_int(fitted, alpha=0.05, intercept=False, dec=3):
-    """ Shortcut to or_ci """
-    return or_ci(fitted, alpha=0.05, intercept=False, dec=dec)
-
-
 def or_plot(fitted, alpha=0.05, intercept=False, incl=None, excl=None, figsize=None):
     """
     Odds ratio plot
@@ -238,11 +233,12 @@ def predict_ci(fitted, df, alpha=0.05):
     # generate predictions
     prediction = fitted.predict(df)
 
-    # using a fake response variable variable
+    # set up the data in df in the same was as the exog data
+    # that is part of fitted.model.exog
+    # use a fake response variable
     df = df.assign(__rvar__=1).copy()
     form = "__rvar__ ~ " + fitted.model.formula.split("~", 1)[1]
     exog = smf.logit(formula=form, data=df).exog
-    # exog = fitted.model.exog
 
     low, high = [alpha / 2, 1 - (alpha / 2)]
     Xb = np.dot(exog, fitted.params)
