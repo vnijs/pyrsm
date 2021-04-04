@@ -1,6 +1,32 @@
-## PYRSM
+# PYRSM
 
-Python functions for Customer Analytics at the Rady School of Management (RSM)
+Python functions and classes for Customer Analytics at the Rady School of Management (RSM), University of California, San Diego (UCSD)
+
+## Install instructions
+
+If you have pythong and pip3 install you can use the below to install the latest version of `pyrsm`:
+
+`pip3 install --user 'pyrsm>=0.5.0'`
+
+## Example notebooks
+
+### Data
+
+<!-- * [Load example datasets](https://github.com/vnijs/pyrsm/blob/master/examples/load-example-data.ipynb) -->
+
+* [Load example datasets](examples/load-example-data.ipynb)
+* [Save and load notebook state files](examples/save-load-state.ipynb)
+
+### Basics
+
+* [Cross-tabs](examples/basics-cross-tabs.ipynb)
+* [Correlation](examples/basics-correlation.ipynb)
+
+## Radiant
+
+The examples above are (mostly) connected to the example data and analyses initially created for the family of Radiant R packages. See  https://radiant-rstats.github.io/docs/index.html for more details
+
+&copy; Vincent Nijs (2021) <a rel="license" href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank"><img alt="Creative Commons License" style="border-width: 0" src="images/by-nc-sa.png"/></a>
 
 ## Links
 
@@ -14,21 +40,22 @@ Python functions for Customer Analytics at the Rady School of Management (RSM)
 * [Condition count](https://stackoverflow.com/a/45752640/1974918)
 * [`value_counts` in Pandas](https://appdividend.com/2019/01/24/pandas-series-value_counts-tutorial-with-example/)
 * Convert column to string or categorical:
-    - df['zipcode'] = df.zipcode.astype(str)
-    - df['zipcode'] = df.zipcode.astype('category')
+    - `df["zipcode"] = df.zipcode.astype(str)`
+    - `df["zipcode"] = df.zipcode.astype('category')`
 
-## General Python Learning Resources
+## Python Learning Resources
+
 * Python for everyone (https://www.py4e.com)
-* List object attributes: 
-    - dir(instance)
-    - instance.__dir__()
-    - instance.__dict__
-    - type
-    - dtype
+* Scientific computing with Python (https://www.freecodecamp.org/learn/scientific-computing-with-python/)
+* Data analysis with Python (https://www.freecodecamp.org/learn/data-analysis-with-python/)
 
 ## Python AND R
 
 * [Reticulate](https://rstudio.github.io/reticulate/articles/calling_python.html)
+* [rpy2](https://rpy2.github.io/doc/v3.3.x/html/notebooks.html)
 
+<!-- 
 ## Statistics
-* [Variance Inflation Factor](https://stackoverflow.com/questions/42658379/variance-inflation-factor-in-python)
+
+* [Variance Inflation Factor](https://stackoverflow.com/questions/42658379/variance-inflation-factor-in-python) 
+-->
