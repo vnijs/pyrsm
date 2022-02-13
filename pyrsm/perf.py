@@ -72,7 +72,7 @@ def gains_tab(df, rvar, lev, pred, qnt=10):
     df = calc_qnt(df, rvar, lev, pred, qnt=qnt)
     df["cum_gains"] = df["cum_resp"] / df["cum_resp"].iloc[-1]
     df0 = pd.DataFrame({"cum_prop": [0], "cum_gains": [0]})
-    df = pd.concat([df0, df], sort=False)
+    df = pd.concat([df0, df], sort=False).reset_index(drop=True)
     df.index = range(df.shape[0])
     return df[["cum_prop", "cum_gains"]]
 
@@ -387,7 +387,7 @@ def profit_plot(
         for k in dct.keys()
         for p in pred
     ]
-    df = pd.concat(df)
+    df = pd.concat(df).reset_index(drop=True)
     fig = sns.lineplot(
         x="cum_prop", y="cum_profit", data=df, hue=group, marker=marker, **kwargs
     )
@@ -451,7 +451,7 @@ def ROME_plot(df, rvar, lev, pred, qnt=10, cost=1, margin=2, marker="o", **kwarg
         for k in dct.keys()
         for p in pred
     ]
-    rd = pd.concat(rd)
+    rd = pd.concat(rd).reset_index(drop=True)
     fig = sns.lineplot(
         x="cum_prop", y="ROME", data=rd, hue=group, marker=marker, **kwargs
     )
@@ -508,7 +508,7 @@ def gains_plot(df, rvar, lev, pred, qnt=10, marker="o", **kwargs):
         for k in dct.keys()
         for p in pred
     ]
-    rd = pd.concat(rd)
+    rd = pd.concat(rd).reset_index(drop=True)
     fig = sns.lineplot(
         x="cum_prop", y="cum_gains", data=rd, hue=group, marker=marker, **kwargs
     )
@@ -562,7 +562,7 @@ def lift_plot(df, rvar, lev, pred, qnt=10, marker="o", **kwargs):
         for k in dct.keys()
         for p in pred
     ]
-    rd = pd.concat(rd)
+    rd = pd.concat(rd).reset_index(drop=True)
     fig = sns.lineplot(
         x="cum_prop", y="cum_lift", data=rd, hue=group, marker=marker, **kwargs
     )
@@ -672,9 +672,9 @@ def auc(rvar, pred, lev=1):
     if type(rvar[0]) != bool or lev is not None:
         rvar = rvar == lev
 
-    n1 = np.sum(rvar == False)
+    n1 = np.sum(np.logical_not(rvar))
     n2 = np.sum(rvar)
 
-    U = np.sum(rankdata(pred)[rvar == False]) - n1 * (n1 + 1) / 2
+    U = np.sum(rankdata(pred)[np.logical_not(rvar)]) - n1 * (n1 + 1) / 2
     wt = U / n1 / n2
     return ifelse(wt < 0.5, 1 - wt, wt)

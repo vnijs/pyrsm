@@ -11,8 +11,8 @@ sudo python3 setup.py install
 
 sudo rm -rf ~/gh/pyrsm/dist
 sudo python3 setup.py sdist bdist_wheel
-twine check dist/*
-twine upload --repository testpypi dist/*
+python3 -m twine check dist/*
+python3 -m twine upload --repository testpypi dist/*
 
 # if all goes well push to main pypi
-twine upload dist/*
+python3 -m twine upload dist/*
