@@ -1,4 +1,4 @@
-import importlib.resources as ir
+import importlib_resources as ir
 import pandas as pd
 
 
