@@ -1,7 +1,9 @@
-
-# to install locally
+# use build to install locally
 sudo pip3 uninstall -y pyrsm
-sudo python3 setup.py install
+sudo rm -rf ~/gh/pyrsm/dist
+pip3 install -q build
+sudo python3 -m build
+pip3 install dist/pyrsm-*.tar.gz
 
 # from https://github.com/vnijs/pypi-howto
 # sudo pip3 install --upgrade twine keyring
@@ -9,8 +11,7 @@ sudo python3 setup.py install
 # https://kynan.github.io/blog/2020/05/23/how-to-upload-your-package-to-the-python-package-index-pypi-test-server
 # tokens are in ~/.pypirc
 
-sudo rm -rf ~/gh/pyrsm/dist
-sudo python3 setup.py sdist bdist_wheel
+# try sending to pypi testing ground first
 python3 -m twine check dist/*
 python3 -m twine upload --repository testpypi dist/*
 

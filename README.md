@@ -6,13 +6,15 @@ Python functions and classes for Customer Analytics at the Rady School of Manage
 
 If you have pythong and pip3 install you can use the below to install the latest version of `pyrsm`:
 
-`pip3 install --user 'pyrsm>=0.5.0'`
+`pip3 install --user 'pyrsm>=0.5.2'`
+
+or 
+
+`conda install 'pyrsm>=0.5.2'`
 
 ## Example notebooks
 
 ### Data
-
-<!-- * [Load example datasets](https://github.com/vnijs/pyrsm/blob/master/examples/load-example-data.ipynb) -->
 
 * [Load example datasets](examples/load-example-data.ipynb)
 * [Save and load notebook state files](examples/save-load-state.ipynb)
@@ -26,7 +28,7 @@ If you have pythong and pip3 install you can use the below to install the latest
 
 The examples above are (mostly) connected to the example data and analyses initially created for the family of Radiant R packages. See  https://radiant-rstats.github.io/docs/index.html for more details
 
-&copy; Vincent Nijs (2021) <a rel="license" href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank"><img alt="Creative Commons License" style="border-width: 0" src="images/by-nc-sa.png"/></a>
+&copy; Vincent Nijs (2022) <a rel="license" href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank"><img alt="Creative Commons License" style="border-width: 0" src="images/by-nc-sa.png"/></a>
 
 ## Links
 
