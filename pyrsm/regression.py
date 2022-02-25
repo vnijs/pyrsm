@@ -40,7 +40,7 @@ def coef_plot(fitted, alpha=0.05, intercept=False, incl=None, excl=None, figsize
     if incl is not None:
         incl = ifelse(isinstance(incl, list), incl, [incl])
         rx = "(" + "|".join([f"^\b{v}|^{v}\\[" for v in incl]) + ")"
-        incl = df["index"].str.match(fr"{rx}")
+        incl = df["index"].str.match(rf"{rx}")
         if intercept:
             incl[0] = True
         df = df[incl]
@@ -48,7 +48,7 @@ def coef_plot(fitted, alpha=0.05, intercept=False, incl=None, excl=None, figsize
     if excl is not None:
         excl = ifelse(isinstance(excl, list), excl, [excl])
         rx = "(" + "|".join([f"^\b{v}|^{v}\\[" for v in excl]) + ")"
-        excl = df["index"].str.match(fr"{rx}")
+        excl = df["index"].str.match(rf"{rx}")
         if intercept:
             excl[0] = False
         df = df[~excl]
@@ -139,11 +139,10 @@ def evalreg(df, rvar, pred, dec=3):
             mae=[metrics.mean_absolute_error(dfm[rvar], dfm[pm])],
         )
 
-    result = pd.DataFrame()
-    for key, val in dct.items():
-        for p in pred:
-            result = result.append(calculate_metrics(key, val, p))
-
+    result = pd.concat(
+        [calculate_metrics(key, val, p) for key, val in dct.items() for p in pred],
+        axis=0,
+    )
     result.index = range(result.shape[0])
     return result.round(dec)
 
