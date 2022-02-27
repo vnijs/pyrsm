@@ -1,4 +1,4 @@
-__version__ = "0.5.3"
+__version__ = "0.5.7"
 from .bins import *
 from .perf import *
 from .stats import *

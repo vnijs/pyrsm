@@ -33,17 +33,15 @@ def calc_qnt(df, rvar, lev, pred, qnt=10):
     df = df.loc[:, (rvar, pred)]
     df["bins"] = xtile(df[pred], qnt)
     df["rvar_int"] = np.where(df[rvar] == lev, 1, 0)
-    perf_df = (
-        df.groupby("bins")["rvar_int"].agg(nr_obs="count", nr_resp=sum).reset_index()
-    )
+    perf_df = df.groupby("bins").rvar_int.agg(nr_obs="count", nr_resp=sum).reset_index()
 
     # flip if needed
-    if perf_df["nr_resp"].iloc[1] < perf_df["nr_resp"].iloc[-1]:
+    if perf_df.nr_resp.iloc[1] < perf_df.nr_resp.iloc[-1]:
         perf_df = perf_df.sort_values("bins", ascending=False)
 
-    perf_df["cum_obs"] = np.cumsum(perf_df["nr_obs"])
-    perf_df["cum_prop"] = perf_df["cum_obs"] / perf_df["cum_obs"].iloc[-1]
-    perf_df["cum_resp"] = np.cumsum(perf_df["nr_resp"])
+    perf_df["cum_obs"] = np.cumsum(perf_df.nr_obs)
+    perf_df["cum_prop"] = perf_df.cum_obs / perf_df.cum_obs.iloc[-1]
+    perf_df["cum_resp"] = np.cumsum(perf_df.nr_resp)
     return perf_df
 
 
@@ -70,7 +68,7 @@ def gains_tab(df, rvar, lev, pred, qnt=10):
     """
 
     df = calc_qnt(df, rvar, lev, pred, qnt=qnt)
-    df["cum_gains"] = df["cum_resp"] / df["cum_resp"].iloc[-1]
+    df["cum_gains"] = df.cum_resp / df.cum_resp.iloc[-1]
     df0 = pd.DataFrame({"cum_prop": [0], "cum_gains": [0]})
     df = pd.concat([df0, df], sort=False).reset_index(drop=True)
     df.index = range(df.shape[0])
@@ -100,8 +98,8 @@ def lift_tab(df, rvar, lev, pred, qnt=10):
     """
 
     df = calc_qnt(df, rvar, lev, pred, qnt=qnt)
-    df["cum_resp_rate"] = df["cum_resp"] / df["cum_obs"]
-    df["cum_lift"] = df["cum_resp_rate"] / df["cum_resp_rate"].iloc[-1]
+    df["cum_resp_rate"] = df.cum_resp / df.cum_obs
+    df["cum_lift"] = df.cum_resp_rate / df.cum_resp_rate.iloc[-1]
     df.index = range(df.shape[0])
     return df[["cum_prop", "cum_lift"]]
 
@@ -142,9 +140,9 @@ def confusion(df, rvar, lev, pred, cost=1, margin=2):
     gtbe = df[pred] > break_even
     pos = df[rvar] == lev
     TP = np.where(gtbe & pos, 1, 0).sum()
-    FP = np.where((gtbe == True) & (pos == False), 1, 0).sum()
-    TN = np.where((gtbe == False) & (pos == False), 1, 0).sum()
-    FN = np.where((gtbe == False) & (pos == True), 1, 0).sum()
+    FP = np.where(gtbe & np.logical_not(pos), 1, 0).sum()
+    TN = np.where(np.logical_not(gtbe) & np.logical_not(pos), 1, 0).sum()
+    FN = np.where(np.logical_not(gtbe) & pos, 1, 0).sum()
     contact = (TP + FP) / (TP + FP + TN + FN)
     return TP, FP, TN, FN, contact
 
@@ -295,7 +293,7 @@ def profit_tab(df, rvar, lev, pred, qnt=10, cost=1, margin=2):
     """
 
     df = calc_qnt(df, rvar, lev, pred, qnt=qnt)
-    df["cum_profit"] = margin * df["cum_resp"] - cost * df["cum_obs"]
+    df["cum_profit"] = margin * df.cum_resp - cost * df.cum_obs
     df0 = pd.DataFrame({"cum_prop": [0], "cum_profit": [0]})
     df = pd.concat([df0, df], sort=False)
     df.index = range(df.shape[0])
@@ -329,9 +327,9 @@ def ROME_tab(df, rvar, lev, pred, qnt=10, cost=1, margin=2):
     """
 
     df = calc_qnt(df, rvar, lev, pred, qnt=qnt)
-    df["cum_profit"] = margin * df["cum_resp"] - cost * df["cum_obs"]
-    cum_cost = cost * df["cum_obs"]
-    df["ROME"] = (margin * df["cum_resp"] - cum_cost) / cum_cost
+    df["cum_profit"] = margin * df.cum_resp - cost * df.cum_obs
+    cum_cost = cost * df.cum_obs
+    df["ROME"] = (margin * df.cum_resp - cum_cost) / cum_cost
     df.index = range(df.shape[0])
     return df[["cum_prop", "ROME"]]
 
@@ -390,7 +388,7 @@ def profit_plot(
     df = pd.concat(df).reset_index(drop=True)
     fig = sns.lineplot(
         x="cum_prop", y="cum_profit", data=df, hue=group, marker=marker, **kwargs
-    )
+    ).legend(title=None)
     fig.set(ylabel="Profit", xlabel="Proportion of customers")
     fig.axhline(1, linestyle="--", linewidth=1)
     if contact:
@@ -454,7 +452,7 @@ def ROME_plot(df, rvar, lev, pred, qnt=10, cost=1, margin=2, marker="o", **kwarg
     rd = pd.concat(rd).reset_index(drop=True)
     fig = sns.lineplot(
         x="cum_prop", y="ROME", data=rd, hue=group, marker=marker, **kwargs
-    )
+    ).legend(title=None)
     fig.set(
         ylabel="Return on Marketing Expenditures (ROME)",
         xlabel="Proportion of customers",
@@ -511,7 +509,7 @@ def gains_plot(df, rvar, lev, pred, qnt=10, marker="o", **kwargs):
     rd = pd.concat(rd).reset_index(drop=True)
     fig = sns.lineplot(
         x="cum_prop", y="cum_gains", data=rd, hue=group, marker=marker, **kwargs
-    )
+    ).legend(title=None)
     fig.set(ylabel="Cumulative gains", xlabel="Proportion of customers")
     plt.plot([0, 1], [0, 1], linestyle="--", linewidth=1)
     return fig
@@ -565,7 +563,7 @@ def lift_plot(df, rvar, lev, pred, qnt=10, marker="o", **kwargs):
     rd = pd.concat(rd).reset_index(drop=True)
     fig = sns.lineplot(
         x="cum_prop", y="cum_lift", data=rd, hue=group, marker=marker, **kwargs
-    )
+    ).legend(title=None)
     fig.axhline(1, linestyle="--", linewidth=1)
     fig.set(ylabel="Cumulative lift", xlabel="Proportion of customers")
     return fig
@@ -640,7 +638,7 @@ def evalbin(df, rvar, lev, pred, cost=1, margin=2, dec=3):
             result = result.append(calculate_metrics(key, val, p))
 
     result.index = range(result.shape[0])
-    result["index"] = result.groupby("Type")["profit"].transform(lambda x: x / x.max())
+    result["index"] = result.groupby("Type").profit.transform(lambda x: x / x.max())
     return result.round(dec)
 
 
