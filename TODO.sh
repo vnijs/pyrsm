@@ -48,5 +48,12 @@ conda build purge
 cp pyrsm/meta.yaml ~/gh/conda-packages/recipes/pyrsm/meta.yaml
 code ~/gh/conda-packages ## need to make manual edits for python >= 3.6 and license
 
-Adding packages to conda-forge: https://conda-forge.org/docs/maintainer/adding_pkgs.html
-PR created @ https://github.com/conda-forge/staged-recipes/pull/18174
+# Adding packages to conda-forge: https://conda-forge.org/docs/maintainer/adding_pkgs.html
+# PR created @ https://github.com/conda-forge/staged-recipes/pull/18174
+
+# adding package to personal channel @ https://anaconda.org/vnijs/pyrsm
+# conda install anaconda-client
+# anaconda login
+conda build .
+#anaconda upload ~/miniconda3/conda-bld/noarch/pyrsm-0.5.8-py_0.tar.bz2
+anaconda upload ~/miniconda3/conda-bld/noarch/pyrsm-*
