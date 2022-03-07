@@ -388,7 +388,7 @@ def profit_plot(
     df = pd.concat(df).reset_index(drop=True)
     fig = sns.lineplot(
         x="cum_prop", y="cum_profit", data=df, hue=group, marker=marker, **kwargs
-    ).legend(title=None)
+    )
     fig.set(ylabel="Profit", xlabel="Proportion of customers")
     fig.axhline(1, linestyle="--", linewidth=1)
     if contact:
@@ -401,6 +401,9 @@ def profit_plot(
             fig.axvline(l, linestyle="--", linewidth=1)
             for l in filter(lambda x: x < 1, cnf)
         ]
+    if len(dct) > 1:
+        fig.legend(title=None)
+
     return fig
 
 
@@ -452,12 +455,14 @@ def ROME_plot(df, rvar, lev, pred, qnt=10, cost=1, margin=2, marker="o", **kwarg
     rd = pd.concat(rd).reset_index(drop=True)
     fig = sns.lineplot(
         x="cum_prop", y="ROME", data=rd, hue=group, marker=marker, **kwargs
-    ).legend(title=None)
+    )
     fig.set(
         ylabel="Return on Marketing Expenditures (ROME)",
         xlabel="Proportion of customers",
     )
     fig.axhline(0, linestyle="--", linewidth=1)
+    if len(dct) > 1:
+        fig.legend(title=None)
     return fig
 
 
@@ -509,9 +514,11 @@ def gains_plot(df, rvar, lev, pred, qnt=10, marker="o", **kwargs):
     rd = pd.concat(rd).reset_index(drop=True)
     fig = sns.lineplot(
         x="cum_prop", y="cum_gains", data=rd, hue=group, marker=marker, **kwargs
-    ).legend(title=None)
+    )
     fig.set(ylabel="Cumulative gains", xlabel="Proportion of customers")
     plt.plot([0, 1], [0, 1], linestyle="--", linewidth=1)
+    if len(dct) > 1:
+        fig.legend(title=None)
     return fig
 
 
@@ -563,9 +570,11 @@ def lift_plot(df, rvar, lev, pred, qnt=10, marker="o", **kwargs):
     rd = pd.concat(rd).reset_index(drop=True)
     fig = sns.lineplot(
         x="cum_prop", y="cum_lift", data=rd, hue=group, marker=marker, **kwargs
-    ).legend(title=None)
-    fig.axhline(1, linestyle="--", linewidth=1)
+    )
     fig.set(ylabel="Cumulative lift", xlabel="Proportion of customers")
+    fig.axhline(1, linestyle="--", linewidth=1)
+    if len(dct) > 1:
+        fig.legend(title=None)
     return fig
 
 
@@ -635,7 +644,7 @@ def evalbin(df, rvar, lev, pred, cost=1, margin=2, dec=3):
     result = pd.DataFrame()
     for key, val in dct.items():
         for p in pred:
-            result = result.append(calculate_metrics(key, val, p))
+            result = pd.concat([result, calculate_metrics(key, val, p)], axis=0)
 
     result.index = range(result.shape[0])
     result["index"] = result.groupby("Type").profit.transform(lambda x: x / x.max())

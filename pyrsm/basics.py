@@ -56,9 +56,9 @@ class cross_tabs:
             expected.shape[0] * expected.shape[0],
         ]
         expected["Total"] = expected.sum(axis=1)
-        expected = expected.append(expected.sum(), ignore_index=True).set_index(
-            self.observed.index
-        )
+        expected = pd.concat(
+            [expected, expected.sum().to_frame().T], ignore_index=True, axis=0
+        ).set_index(self.observed.index)
         expected.columns = self.observed.columns
         self.expected = expected
         chisq = (self.observed - self.expected) ** 2 / self.expected

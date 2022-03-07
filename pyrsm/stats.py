@@ -29,6 +29,30 @@ def varprop(x, na=True):
     return p * (1 - p)
 
 
+def sdrop(x, na=True):
+    """
+    Calculate the standard deviation for a proportion
+
+    Parameters
+    ----------
+    x : List, numpy array, or pandas series
+        Numeric variable with only values 0 and 1
+    na : bool
+        Drop missing values before calculating (True or False)
+
+    Returns
+    -------
+    float
+        Calculated standard deviation for a proportion based on a vector of 0 and 1 values
+
+    Examples
+    --------
+    sdprop([0, 1, 1, 1, 0, 0, 0])
+    """
+
+    return sqrt(varprop(x, na=na))
+
+
 def seprop(x, na=True):
     """
     Calculate the standard error for a proportion
@@ -52,7 +76,7 @@ def seprop(x, na=True):
     x = np.array(x)
     if na:
         x = x[np.isnan(x) == False]
-    return sqrt(varprop(x, na=False) / len(x))
+    return sqrt(varprop(x, na=na) / len(x))
 
 
 def weighted_sd(df, wt, ddof=0):

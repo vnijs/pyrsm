@@ -1,3 +1,5 @@
+## select commands to run and use the Command Palette to send to open terminal
+
 # use build to install locally
 sudo pip3 uninstall -y pyrsm
 sudo rm -rf ~/gh/pyrsm/dist
@@ -25,6 +27,7 @@ python3 -m twine upload dist/*
 # conda install -c conda-forge importlib_resources
 # conda install -c conda-forge grayskull
 
+# grayskull seems to work a lot better
 # conda skeleton pypi --extra-specs numpy \
 #   --extra-specs pandas \
 #   --extra-specs matplotlib \
@@ -37,8 +40,13 @@ python3 -m twine upload dist/*
 #   --extra-specs importlib_resources \
 #   pyrsm --version 0.5.2 --python-version 3.6
 
+cd conda
 grayskull pypi pyrsm
 conda build pyrsm/
+conda install --use-local pyrsm
+conda build purge
+cp pyrsm/meta.yaml ~/gh/conda-packages/recipes/pyrsm/meta.yaml
+code ~/gh/conda-packages ## need to make manual edits for python >= 3.6 and license
 
 Adding packages to conda-forge: https://conda-forge.org/docs/maintainer/adding_pkgs.html
-PR created
+PR created @ https://github.com/conda-forge/staged-recipes/pull/18174
