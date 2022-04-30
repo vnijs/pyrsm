@@ -336,3 +336,24 @@ def months_abb(start=1, nr=12, year=datetime.today().year):
     ]
     start -= 1
     return mnths[start : (nr + start)]
+
+
+def md(fstr):
+    """
+    Use in-line python code to generate markdown output
+
+    Parameters
+    ----------
+    fstr : A python f-string
+
+    Returns
+    -------
+    Markdown output
+
+    Examples
+    --------
+    md(f"### In-line code to markdown results")
+    radius = 10
+    md(f"The radius of the circle is {radius}.")
+    """
+    return display(Markdown(fstr))

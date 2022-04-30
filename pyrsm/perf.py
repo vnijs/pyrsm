@@ -401,7 +401,7 @@ def profit_plot(
             fig.axvline(l, linestyle="--", linewidth=1)
             for l in filter(lambda x: x < 1, cnf)
         ]
-    if len(dct) > 1:
+    if len(dct) > 1 or len(pred) > 1:
         fig.legend(title=None)
 
     return fig
@@ -461,7 +461,7 @@ def ROME_plot(df, rvar, lev, pred, qnt=10, cost=1, margin=2, marker="o", **kwarg
         xlabel="Proportion of customers",
     )
     fig.axhline(0, linestyle="--", linewidth=1)
-    if len(dct) > 1:
+    if len(dct) > 1 or len(pred) > 1:
         fig.legend(title=None)
     return fig
 
@@ -517,7 +517,7 @@ def gains_plot(df, rvar, lev, pred, qnt=10, marker="o", **kwargs):
     )
     fig.set(ylabel="Cumulative gains", xlabel="Proportion of customers")
     plt.plot([0, 1], [0, 1], linestyle="--", linewidth=1)
-    if len(dct) > 1:
+    if len(dct) > 1 or len(pred) > 1:
         fig.legend(title=None)
     return fig
 
@@ -534,7 +534,7 @@ def lift_plot(df, rvar, lev, pred, qnt=10, marker="o", **kwargs):
     lev : str
         Name of the 'success' level in rvar
     pred : str
-        Name of the column in df with model predictions
+        Name, or list, of the column(s) in df with model predictions
     qnt : int
         Number of quantiles to create
     cost : int
@@ -573,7 +573,7 @@ def lift_plot(df, rvar, lev, pred, qnt=10, marker="o", **kwargs):
     )
     fig.set(ylabel="Cumulative lift", xlabel="Proportion of customers")
     fig.axhline(1, linestyle="--", linewidth=1)
-    if len(dct) > 1:
+    if len(dct) > 1 or len(pred) > 1:
         fig.legend(title=None)
     return fig
 

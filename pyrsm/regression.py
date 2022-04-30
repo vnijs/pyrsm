@@ -247,3 +247,18 @@ def sim_prediction(df, vary=[], nnv=5):
                 dct[v] = df[v].unique()
 
     return expand_grid(dct, dtypes)
+
+
+## add prediction and interaction plots that actually make sense
+## add measures of data density? e.g., line thickness or a dashed line?
+
+# import math
+# fig, axes = plt.subplots(3, 5, sharey=True, figsize=(10, 30))
+# evar = x_train.columns
+# for i in range(15):
+#     print(i)
+#     idat = rsm.sim_prediction(x_train[evar], vary=evar[i], nnv=50)
+#     idat[f"prediction_{evar[i]}"] = m1.predict_proba(idat)[:, 1]
+#     row = math.floor(i / 5)
+#     col = i % 5
+#     fig = sns.lineplot(x=evar[i], y=f"prediction_{evar[i]}", data=idat, ax=axes[row, col])
