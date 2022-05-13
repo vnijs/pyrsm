@@ -1,3 +1,4 @@
+from typing import List
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -8,6 +9,7 @@ from sklearn import metrics
 import seaborn as sns
 from scipy import stats
 import statsmodels.api as sm
+import statsmodels
 
 
 def coef_plot(fitted, alpha=0.05, intercept=False, incl=None, excl=None, figsize=None):
@@ -262,3 +264,48 @@ def sim_prediction(df, vary=[], nnv=5):
 #     row = math.floor(i / 5)
 #     col = i % 5
 #     fig = sns.lineplot(x=evar[i], y=f"prediction_{evar[i]}", data=idat, ax=axes[row, col])
+
+def estimate_model(data: pd.DataFrame, explanatory_vars: List[str], response_var: str) -> statsmodels.regression.linear_model.RegressionResults:
+    """
+    Estimate linear regression model
+
+    Parameters
+    ----------
+    data: pandas dataframe; dataset
+    explanatory_vars: list of strings; contains the names of the columns of data to be used as explanatory variables
+    response_var: string; name of the column which is to be used as the response variable
+
+    Returns
+    -------
+    res: Object with fitted values and residuals
+    """
+
+    explanatory_vars_df = data[explanatory_vars]
+    explanatory_vars_df = sm.add_constant(explanatory_vars_df, prepend=False)
+
+    model = sm.OLS(data[response_var], explanatory_vars_df)
+    res = model.fit()
+
+    data_name = ""
+    if hasattr(data, "description"):
+        data_name = data.description.split('\n')[0].split()[1].lower()
+
+    print("Data:\t", data_name)
+    print("Response variable:\t", response_var)
+    print("Explanatory variables:\t", ", ".join(explanatory_vars))
+    print(f"Null hyp.: the effect of x on {response_var} is zero")
+    print(f"Alt. hyp.: the effect of x on {response_var} is not zero")
+
+    summary = res.summary()
+    summary.tables.pop()
+
+    print("\n", summary)
+
+    print("Sum of squares")
+    index = ["Regression", "Error", "Total"]
+    sum_of_squares = [res.ess, res.ssr, res.centered_tss]
+    sum_of_squares_series = pd.Series(data=sum_of_squares, index=index)
+
+    print("\n", sum_of_squares_series)
+
+    return res
