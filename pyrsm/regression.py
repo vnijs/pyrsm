@@ -10,6 +10,7 @@ import seaborn as sns
 from scipy import stats
 import statsmodels.api as sm
 import statsmodels
+from math import ceil
 
 
 def coef_plot(fitted, alpha=0.05, intercept=False, incl=None, excl=None, figsize=None):
@@ -265,7 +266,10 @@ def sim_prediction(df, vary=[], nnv=5):
 #     col = i % 5
 #     fig = sns.lineplot(x=evar[i], y=f"prediction_{evar[i]}", data=idat, ax=axes[row, col])
 
-def estimate_model(data: pd.DataFrame, explanatory_vars: List[str], response_var: str) -> statsmodels.regression.linear_model.RegressionResults:
+
+def estimate_model(
+    data: pd.DataFrame, explanatory_vars: List[str], response_var: str
+) -> statsmodels.regression.linear_model.RegressionResults:
     """
     Estimate linear regression model
 
@@ -288,7 +292,7 @@ def estimate_model(data: pd.DataFrame, explanatory_vars: List[str], response_var
 
     data_name = ""
     if hasattr(data, "description"):
-        data_name = data.description.split('\n')[0].split()[1].lower()
+        data_name = data.description.split("\n")[0].split()[1].lower()
 
     print("Data:\t", data_name)
     print("Response variable:\t", response_var)
@@ -309,3 +313,130 @@ def estimate_model(data: pd.DataFrame, explanatory_vars: List[str], response_var
     print("\n", sum_of_squares_series)
 
     return res
+
+
+def distribution_plot(
+    fitted: statsmodels.regression.linear_model.RegressionResults,
+) -> None:
+    # TODO: add figsize param
+    num_exog = len(fitted.model.exog_names) - 1
+    num_rows = ceil((num_exog + 1) / 2)
+
+    _, axes = plt.subplots(num_rows, 2, figsize=(13, 13))
+    plt.subplots_adjust(wspace=0.25, hspace=0.25)
+
+    # endog variable histogram
+    endog = fitted.model.endog
+    axes[0][0].set_xlabel(fitted.model.endog_names[0])
+    axes[0][0].set_ylabel("count")
+    axes[0][0].hist(endog)
+
+    idx = 1
+    exog_names = fitted.model.exog_names
+
+    while idx <= num_exog:
+        row = idx // 2
+        col = idx % 2
+        exog_name = exog_names[idx - 1]
+        exog = [row[idx - 1] for row in fitted.model.exog]
+
+        if num_rows > 1:
+            axes[row][col].set_xlabel(exog_name)
+            axes[row][col].set_ylabel("count")
+            axes[row][col].hist(exog)
+        else:
+            axes[col].set_xlabel(exog_name)
+            axes[col].set_ylabel("count")
+            axes[col].scatter(exog, endog)
+        idx += 1
+    plt.show()
+
+
+def scatter_plot(fitted, nobs: int = 1000) -> None:
+    # TODO: add figsize param
+    num_exog = len(fitted.model.exog_names) - 1
+    num_rows = ceil(num_exog / 2)
+
+    _, axes = plt.subplots(num_rows, 2, figsize=(13, 13))
+    plt.subplots_adjust(wspace=0.25, hspace=0.25)
+
+    idx = 0
+    exog_names = fitted.model.exog_names
+    endog_name = fitted.model.endog_names[0]
+
+    endog = fitted.model.endog
+    exogs = fitted.model.exog
+
+    if nobs < fitted.model.endog.shape[0] and nobs != np.Inf and nobs != -1:
+        df = pd.DataFrame(exogs, columns=exog_names)
+        df[endog_name] = endog
+
+        df = df.copy().sample(nobs)
+
+        endog = df[endog_name].to_numpy()
+        exogs = df[exog_names].to_numpy()
+
+    while idx < num_exog:
+        row = idx // 2
+        col = idx % 2
+        exog_name = exog_names[idx]
+        exog = [row[idx] for row in exogs]
+
+        if num_rows > 1:
+            axes[row][col].set_xlabel(exog_name)
+            axes[row][col].set_ylabel(endog_name)
+            axes[row][col].scatter(exog, endog)
+        else:
+            axes[col].set_xlabel(exog_name)
+            axes[col].set_ylabel(endog_name)
+            axes[col].scatter(exog, endog)
+        idx += 1
+    plt.show()
+
+
+def residual_vs_explanatory_plot(
+    fitted: statsmodels.regression.linear_model.RegressionResults, nobs: int = 1000
+) -> None:
+    # TODO: add figsize param
+    num_exog = len(fitted.model.exog_names) - 1
+    num_rows = ceil(num_exog / 2)
+
+    _, axes = plt.subplots(num_rows, 2, figsize=(13, 13))
+    plt.subplots_adjust(wspace=0.25, hspace=0.25)
+
+    idx = 0
+    exog_names = fitted.model.exog_names
+
+    residuals = fitted.resid
+    exogs = fitted.model.exog
+
+    data = pd.DataFrame(exogs, columns=exog_names)
+    data["residuals"] = residuals
+
+    if nobs < fitted.model.endog.shape[0] and nobs != np.Inf and nobs != -1:
+        data = data.copy().sample(nobs)
+
+    while idx < num_exog:
+        row = idx // 2
+        col = idx % 2
+        exog_name = exog_names[idx]
+        exog = [row[idx] for row in exogs]
+
+        if num_rows > 1:
+            sns.regplot(
+                x=exog_name,
+                y="residuals",
+                data=data,
+                ax=axes[row][col],
+                scatter_kws={"color": "black"},
+            ).set(xlabel=exog_name, ylabel="Residuals")
+        else:
+            sns.regplot(
+                x=exog_name,
+                y="residuals",
+                data=data,
+                ax=axes[col],
+                scatter_kws={"color": "black"},
+            ).set(xlabel=exog_name, ylabel="Residuals")
+        idx += 1
+    plt.show()
