@@ -267,103 +267,90 @@ def sim_prediction(df, vary=[], nnv=5):
 #     fig = sns.lineplot(x=evar[i], y=f"prediction_{evar[i]}", data=idat, ax=axes[row, col])
 
 
-def estimate_model(
-    data: pd.DataFrame, explanatory_vars: List[str], response_var: str
+def regress(
+    dataset: pd.DataFrame,
+    rvar: str = None,
+    evars: List[str] = None,
+    form: str = "",
+    ssq: bool = False,
 ) -> statsmodels.regression.linear_model.RegressionResults:
     """
     Estimate linear regression model
 
     Parameters
     ----------
-    data: pandas dataframe; dataset
-    explanatory_vars: list of strings; contains the names of the columns of data to be used as explanatory variables
-    response_var: string; name of the column which is to be used as the response variable
+    dataset: pandas dataframe; dataset
+    evars: list of strings; contains the names of the columns of data to be used as explanatory variables
+    rvar: string; name of the column which is to be used as the response variable
+    form: string; formula for the regression equation
 
     Returns
     -------
     res: Object with fitted values and residuals
     """
 
-    explanatory_vars_df = data[explanatory_vars]
-    explanatory_vars_df = sm.add_constant(explanatory_vars_df, prepend=False)
+    if form != "":
+        model = smf.ols(form, data=dataset)
+        evars = rsm.setdiff(model.exog_names, "Intercept")
+        rvar = model.endog_names
+    else:
+        evars_df = sm.add_constant(dataset[evars], prepend=False)
+        model = sm.OLS(dataset[rvar], evars_df)
 
-    model = sm.OLS(data[response_var], explanatory_vars_df)
     res = model.fit()
 
     data_name = ""
-    if hasattr(data, "description"):
-        data_name = data.description.split("\n")[0].split()[1].lower()
+    if hasattr(dataset, "description"):
+        data_name = dataset.description.split("\n")[0].split()[1].lower()
 
-    print("Data:\t", data_name)
-    print("Response variable:\t", response_var)
-    print("Explanatory variables:\t", ", ".join(explanatory_vars))
-    print(f"Null hyp.: the effect of x on {response_var} is zero")
-    print(f"Alt. hyp.: the effect of x on {response_var} is not zero")
-
+    print("Data: ", data_name)
+    print("Response variable    :", rvar)
+    print("Explanatory variables:", ", ".join(evars))
+    print(f"Null hyp.: the effect of x on {rvar} is zero")
+    print(f"Alt. hyp.: the effect of x on {rvar} is not zero")
     summary = res.summary()
     summary.tables.pop()
-
     print("\n", summary)
 
-    print("Sum of squares")
-    index = ["Regression", "Error", "Total"]
-    sum_of_squares = [res.ess, res.ssr, res.centered_tss]
-    sum_of_squares_series = pd.Series(data=sum_of_squares, index=index)
-
-    print("\n", sum_of_squares_series)
+    if ssq:
+        print("Sum of squares")
+        index = ["Regression", "Error", "Total"]
+        sum_of_squares = [res.ess, res.ssr, res.centered_tss]
+        sum_of_squares_series = pd.Series(
+            data=rsm.format_nr(sum_of_squares, dec=0), index=index
+        )
+        print(f"\n{sum_of_squares_series.to_string()}")
 
     return res
 
 
-def distribution_plot(
-    fitted: statsmodels.regression.linear_model.RegressionResults,
-) -> None:
-    # TODO: add figsize param
-    num_exog = len(fitted.model.exog_names) - 1
-    num_rows = ceil((num_exog + 1) / 2)
+def scatter_plot(fitted, nobs: int = 1000, figsize: tuple = ()) -> None:
+    """
+    Scatter plot of explanatory and response variables from a fitted regression
 
-    _, axes = plt.subplots(num_rows, 2, figsize=(13, 13))
-    plt.subplots_adjust(wspace=0.25, hspace=0.25)
+    Parameters
+    ----------
+    nobs : int
+        Number of observations to use for the scatter plots. The default
+        value is 1,000. To use all observations in the plots, use nobs=-1
+    figsize : tuple
+        A tuple that determines the figure size. If None, size is
+        determined based on the number of variables in the model
+    """
 
-    # endog variable histogram
-    endog = fitted.model.endog
-    axes[0][0].set_xlabel(fitted.model.endog_names[0])
-    axes[0][0].set_ylabel("count")
-    axes[0][0].hist(endog)
-
-    idx = 1
-    exog_names = fitted.model.exog_names
-
-    while idx <= num_exog:
-        row = idx // 2
-        col = idx % 2
-        exog_name = exog_names[idx - 1]
-        exog = [row[idx - 1] for row in fitted.model.exog]
-
-        if num_rows > 1:
-            axes[row][col].set_xlabel(exog_name)
-            axes[row][col].set_ylabel("count")
-            axes[row][col].hist(exog)
-        else:
-            axes[col].set_xlabel(exog_name)
-            axes[col].set_ylabel("count")
-            axes[col].scatter(exog, endog)
-        idx += 1
-    plt.show()
-
-
-def scatter_plot(fitted, nobs: int = 1000) -> None:
-    # TODO: add figsize param
-    num_exog = len(fitted.model.exog_names) - 1
+    exog_names = rsm.setdiff(fitted.model.exog_names, "Intercept")
+    endog_name = fitted.model.endog_names[0]
+    num_exog = len(exog_names)
     num_rows = ceil(num_exog / 2)
 
-    _, axes = plt.subplots(num_rows, 2, figsize=(13, 13))
-    plt.subplots_adjust(wspace=0.25, hspace=0.25)
+    if figsize is None:
+        figsize = (num_rows * 5, max(5, min(num_exog, 2) * 5))
+
+    fig, axes = plt.subplots(num_rows, 2, figsize=figsize)
+    # plt.subplots_adjust(wspace=0.25, hspace=0.25)
+    plt.subplots_adjust(wspace=0.04, hspace=0.04)
 
     idx = 0
-    exog_names = fitted.model.exog_names
-    endog_name = fitted.model.endog_names[0]
-
     endog = fitted.model.endog
     exogs = fitted.model.exog
 
@@ -391,6 +378,10 @@ def scatter_plot(fitted, nobs: int = 1000) -> None:
             axes[col].set_ylabel(endog_name)
             axes[col].scatter(exog, endog)
         idx += 1
+
+    if df.shape[1] % 2 != 0:
+        fig.delaxes(axes[row][1])  # remove last empty plot
+
     plt.show()
 
 
