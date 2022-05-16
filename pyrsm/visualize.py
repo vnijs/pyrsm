@@ -42,3 +42,8 @@ def distr_plot(df, nint=25, **kwargs):
 
         if j == 1:
             row += 1
+
+    if df.shape[1] % 2 != 0:
+        fig.delaxes(axes[row][1])  # remove last empty plot
+
+    plt.show()
