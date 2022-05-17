@@ -11,6 +11,7 @@ from scipy import stats
 import statsmodels.api as sm
 import statsmodels
 from math import ceil
+from .utils import setdiff, format_nr
 
 
 def coef_plot(fitted, alpha=0.05, intercept=False, incl=None, excl=None, figsize=None):
@@ -290,8 +291,8 @@ def regress(
     """
 
     if form != "":
-        model = smf.ols(form, data=dataset)
-        evars = rsm.setdiff(model.exog_names, "Intercept")
+        model = sm.ols(form, data=dataset)
+        evars = setdiff(model.exog_names, "const")
         rvar = model.endog_names
     else:
         evars_df = sm.add_constant(dataset[evars], prepend=False)
@@ -317,14 +318,14 @@ def regress(
         index = ["Regression", "Error", "Total"]
         sum_of_squares = [res.ess, res.ssr, res.centered_tss]
         sum_of_squares_series = pd.Series(
-            data=rsm.format_nr(sum_of_squares, dec=0), index=index
+            data=format_nr(sum_of_squares, dec=0), index=index
         )
         print(f"\n{sum_of_squares_series.to_string()}")
 
     return res
 
 
-def scatter_plot(fitted, nobs: int = 1000, figsize: tuple = ()) -> None:
+def scatter_plot(fitted, nobs: int = 1000, figsize: tuple = None) -> None:
     """
     Scatter plot of explanatory and response variables from a fitted regression
 
@@ -338,8 +339,8 @@ def scatter_plot(fitted, nobs: int = 1000, figsize: tuple = ()) -> None:
         determined based on the number of variables in the model
     """
 
-    exog_names = rsm.setdiff(fitted.model.exog_names, "Intercept")
-    endog_name = fitted.model.endog_names[0]
+    exog_names = fitted.model.exog_names
+    endog_name = fitted.model.endog_names
     num_exog = len(exog_names)
     num_rows = ceil(num_exog / 2)
 
@@ -348,14 +349,16 @@ def scatter_plot(fitted, nobs: int = 1000, figsize: tuple = ()) -> None:
 
     fig, axes = plt.subplots(num_rows, 2, figsize=figsize)
     # plt.subplots_adjust(wspace=0.25, hspace=0.25)
-    plt.subplots_adjust(wspace=0.04, hspace=0.04)
+    plt.subplots_adjust(wspace=0.2, hspace=0.2)
 
     idx = 0
     endog = fitted.model.endog
     exogs = fitted.model.exog
 
+    df = pd.DataFrame(exogs, columns=exog_names)
+    df.drop("const", axis=1, inplace=True)
+
     if nobs < fitted.model.endog.shape[0] and nobs != np.Inf and nobs != -1:
-        df = pd.DataFrame(exogs, columns=exog_names)
         df[endog_name] = endog
 
         df = df.copy().sample(nobs)
@@ -386,14 +389,18 @@ def scatter_plot(fitted, nobs: int = 1000, figsize: tuple = ()) -> None:
 
 
 def residual_vs_explanatory_plot(
-    fitted: statsmodels.regression.linear_model.RegressionResults, nobs: int = 1000
+    fitted: statsmodels.regression.linear_model.RegressionResults,
+    nobs: int = 1000,
+    figsize: tuple = None,
 ) -> None:
-    # TODO: add figsize param
     num_exog = len(fitted.model.exog_names) - 1
     num_rows = ceil(num_exog / 2)
 
-    _, axes = plt.subplots(num_rows, 2, figsize=(13, 13))
-    plt.subplots_adjust(wspace=0.25, hspace=0.25)
+    if figsize is None:
+        figsize = (num_rows * 5, max(5, min(num_exog, 2) * 5))
+
+    fig, axes = plt.subplots(num_rows, 2, figsize=figsize)
+    plt.subplots_adjust(wspace=0.2, hspace=0.2)
 
     idx = 0
     exog_names = fitted.model.exog_names
@@ -430,4 +437,7 @@ def residual_vs_explanatory_plot(
                 scatter_kws={"color": "black"},
             ).set(xlabel=exog_name, ylabel="Residuals")
         idx += 1
+
+    if data.shape[1] % 2 != 0:
+        fig.delaxes(axes[row][1])  # remove last empty plot
     plt.show()

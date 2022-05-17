@@ -6,6 +6,8 @@ import seaborn as sns
 from pyrsm.logit import sig_stars
 from pyrsm.utils import ifelse
 
+from typing import Tuple
+
 
 class cross_tabs:
     def __init__(self, df, var1, var2):
@@ -456,54 +458,72 @@ class correlation:
 
         cor_mat(self.df, self.cr, self.cp, dec=dec, nobs=nobs, figsize=figsize)
 
+
 class ProbabilityCalculator:
-    def __init__(self, distribution) -> None:
+    def __init__(self, distribution, params) -> None:
         self.distribution = distribution
+        self.__dict__.update(params)
         print("Probability calculator")
 
-    def calculate(self, **kwargs):
+    def calculate(self):
         print(f"Distribution: {self.distribution}")
-        def calc_f_dist(dfn: int, dfd: int, lb: float=0, ub: float=0.95, decimals: int=3) -> Tuple[float, float]:
+
+        def calc_f_dist(
+            dfn: int, dfd: int, lb: float = 0, ub: float = 0.95, decimals: int = 3
+        ) -> Tuple[float, float]:
             print(f"Df 1:\t{dfn}")
             print(f"Df 2:\t{dfd}")
 
             print(f"Mean:\t{round(stats.f.mean(dfn, dfd, loc=lb), decimals)}")
             print(f"Variance:\t{round(stats.f.var(dfn, dfd, loc=lb), decimals)}")
             print(f"Lower bound:\t{lb}")
-            print(f"Upper bound:\t{ub}")
-            print()
+            print(f"Upper bound:\t{ub}\n")
 
             if lb == 0:
                 critical_f = round(stats.f.ppf(q=ub, dfn=dfn, dfd=dfd), decimals)
 
-                _num_decimal_places_in_ub = len(str(ub).split('.')[-1])
+                _num_decimal_places_in_ub = len(str(ub).split(".")[-1])
 
                 print(f"P(X < {critical_f}) = {ub}")
-                print(f"P(X > {critical_f}) = {round(1 - ub, _num_decimal_places_in_ub)}")
+                print(
+                    f"P(X > {critical_f}) = {round(1 - ub, _num_decimal_places_in_ub)}"
+                )
                 return (0, critical_f)
 
             critical_f_lower = round(stats.f.ppf(q=lb, dfn=dfn, dfd=dfd), decimals)
 
-            _num_decimal_places_in_lb = len(str(lb).split('.')[-1])
+            _num_decimal_places_in_lb = len(str(lb).split(".")[-1])
 
             print(f"P(X < {critical_f_lower}) = {lb}")
-            print(f"P(X > {critical_f_lower}) = {round(1 - lb, _num_decimal_places_in_lb)}")
+            print(
+                f"P(X > {critical_f_lower}) = {round(1 - lb, _num_decimal_places_in_lb)}"
+            )
             ########################################################################################
             critical_f_upper = round(stats.f.ppf(q=ub, dfn=dfn, dfd=dfd), decimals)
 
-            _num_decimal_places_in_ub = len(str(ub).split('.')[-1])
+            _num_decimal_places_in_ub = len(str(ub).split(".")[-1])
 
             print(f"P(X < {critical_f_upper}) = {ub}")
-            print(f"P(X > {critical_f_upper}) = {round(1 - ub, _num_decimal_places_in_ub)}")
+            print(
+                f"P(X > {critical_f_upper}) = {round(1 - ub, _num_decimal_places_in_ub)}"
+            )
             ########################################################################################
-            _num_decimal_places = max(len(str(ub).split('.')[-1]), len(str(lb).split('.')[-1]))
+            _num_decimal_places = max(
+                len(str(ub).split(".")[-1]), len(str(lb).split(".")[-1])
+            )
 
-            print(f"P({critical_f_lower} < X < {critical_f_upper}) = {round((ub - lb), _num_decimal_places)}")
-            print(f"1 - P({critical_f_lower} < X < {critical_f_upper} = {round(1 - (ub - lb), _num_decimal_places)}")
+            print(
+                f"P({critical_f_lower} < X < {critical_f_upper}) = {round((ub - lb), _num_decimal_places)}"
+            )
+            print(
+                f"1 - P({critical_f_lower} < X < {critical_f_upper} = {round(1 - (ub - lb), _num_decimal_places)}"
+            )
 
             return (critical_f_lower, critical_f_upper)
 
-        def calc_t_dist(df: int, lb: float=0, ub: float=0.95, decimals: int=3) -> Tuple[float, float]:
+        def calc_t_dist(
+            df: int, lb: float = 0, ub: float = 0.95, decimals: int = 3
+        ) -> Tuple[float, float]:
             print(f"Df:\t{df}")
             print(f"Mean:\t{round(stats.t.mean(df), decimals)}")
             print(f"St. dev:\t{round(stats.t.std(df), decimals)}")
@@ -514,94 +534,134 @@ class ProbabilityCalculator:
             if lb == 0:
                 critical_t = round(stats.t.ppf(q=ub, df=df), decimals)
 
-                _num_decimal_places_in_ub = len(str(ub).split('.')[-1])
+                _num_decimal_places_in_ub = len(str(ub).split(".")[-1])
 
                 print(f"P(X < {critical_t}) = {ub}")
-                print(f"P(X > {critical_t}) = {round(1 - ub, _num_decimal_places_in_ub)}")
+                print(
+                    f"P(X > {critical_t}) = {round(1 - ub, _num_decimal_places_in_ub)}"
+                )
                 return (0, critical_t)
 
             critical_t_lower = round(stats.t.ppf(q=lb, df=df), decimals)
 
-            _num_decimal_places_in_lb = len(str(lb).split('.')[-1])
+            _num_decimal_places_in_lb = len(str(lb).split(".")[-1])
 
             print(f"P(X < {critical_t_lower}) = {lb}")
-            print(f"P(X > {critical_t_lower}) = {round(1 - lb, _num_decimal_places_in_lb)}")
+            print(
+                f"P(X > {critical_t_lower}) = {round(1 - lb, _num_decimal_places_in_lb)}"
+            )
             ########################################################################################
             critical_t_upper = round(stats.t.ppf(q=ub, df=df), decimals)
 
-            _num_decimal_places_in_ub = len(str(ub).split('.')[-1])
+            _num_decimal_places_in_ub = len(str(ub).split(".")[-1])
 
             print(f"P(X < {critical_t_upper}) = {ub}")
-            print(f"P(X > {critical_t_upper}) = {round(1 - ub, _num_decimal_places_in_ub)}")
+            print(
+                f"P(X > {critical_t_upper}) = {round(1 - ub, _num_decimal_places_in_ub)}"
+            )
             ########################################################################################
-            _num_decimal_places = max(len(str(ub).split('.')[-1]), len(str(lb).split('.')[-1]))
+            _num_decimal_places = max(
+                len(str(ub).split(".")[-1]), len(str(lb).split(".")[-1])
+            )
 
-            print(f"P({critical_t_lower} < X < {critical_t_upper}) = {round((ub - lb), _num_decimal_places)}")
-            print(f"1 - P({critical_t_lower} < X < {critical_t_upper} = {round(1 - (ub - lb), _num_decimal_places)}")
+            print(
+                f"P({critical_t_lower} < X < {critical_t_upper}) = {round((ub - lb), _num_decimal_places)}"
+            )
+            print(
+                f"1 - P({critical_t_lower} < X < {critical_t_upper} = {round(1 - (ub - lb), _num_decimal_places)}"
+            )
 
             return (critical_t_lower, critical_t_upper)
 
         if self.distribution == "F":
-            lb = kwargs["lb"] if "lb" in kwargs else 0
-            ub = kwargs["ub"] if "ub" in kwargs else 0.95
-            dfn = kwargs["dfn"]
-            dfd = kwargs["dfd"]
-            decimals = kwargs["decimals"] if "decimals" in kwargs else 3
+            lb = self.lb if "lb" in self.__dict__ else 0
+            ub = self.ub if "ub" in self.__dict__ else 0.95
+            dfn = self.dfn
+            dfd = self.dfd
+            decimals = self.decimals if "decimals" in self.__dict__ else 3
             calc_f_dist(dfn, dfd, lb, ub, decimals)
 
         elif self.distribution == "t":
-            lb = kwargs["lb"] if "lb" in kwargs else 0
-            ub = kwargs["ub"] if "ub" in kwargs else 0.95
-            df = kwargs["df"]
-            decimals = kwargs["decimals"] if "decimals" in kwargs else 3
+            lb = self.lb if "lb" in self.__dict__ else 0
+            ub = self.ub if "ub" in self.__dict__ else 0.95
+            df = self.df
+            decimals = self.decimals if "decimals" in self.__dict__ else 3
             calc_t_dist(df, lb, ub, decimals)
 
-    def plot(self, **kwargs):
-        def plot_f_dist(dfn: int, dfd: int, lb: float=0, ub:float=0.95, decimals: int=3):
+    def plot(self):
+        def plot_f_dist(
+            dfn: int, dfd: int, lb: float = 0, ub: float = 0.95, decimals: int = 3
+        ):
             x = np.linspace(stats.f.ppf(0, dfn, dfd), stats.f.ppf(0.99, dfn, dfd), 200)
 
             plt.grid()
             pdf = stats.f.pdf(x, dfn, dfd)
 
-            plt.plot(x, pdf, 'r-', lw=3, alpha=0.6, label='f pdf')
+            plt.plot(x, pdf, "black", lw=1, alpha=0.6, label="f pdf")
 
             if lb == 0:
                 critical_f = round(stats.f.ppf(q=ub, dfn=dfn, dfd=dfd), decimals)
-                plt.fill_between(x, pdf, where=(x > critical_f))
+                plt.fill_between(x, pdf, where=(x < critical_f), color="slateblue")
+                plt.fill_between(x, pdf, where=(x > critical_f), color="salmon")
             else:
                 critical_f_lower = round(stats.f.ppf(q=lb, dfn=dfn, dfd=dfd), decimals)
                 critical_f_upper = round(stats.f.ppf(q=ub, dfn=dfn, dfd=dfd), decimals)
 
-                plt.fill_between(x, pdf, where=((x > critical_f_upper) | (x < critical_f_lower)))
+                plt.fill_between(
+                    x,
+                    pdf,
+                    where=((x > critical_f_upper) | (x < critical_f_lower)),
+                    color="slateblue",
+                )
+                plt.fill_between(
+                    x,
+                    pdf,
+                    where=((x > critical_f_upper) | (x < critical_f_lower)),
+                    color="salmon",
+                )
 
-        def plot_t_dist(df: int, lb: float=0, ub: float=0.95, decimals: int=3):
+        def plot_t_dist(
+            df: int, lb: float = 0.025, ub: float = 0.975, decimals: int = 3
+        ):
             x = np.linspace(stats.t.ppf(0.01, df), stats.t.ppf(0.99, df), 200)
 
             plt.grid()
             pdf = stats.t.pdf(x, df)
 
-            plt.plot(x, pdf, 'r-', lw=3, alpha=0.6, label='t pdf')
+            plt.plot(x, pdf, "black", lw=1, alpha=0.6, label="t pdf")
 
             if lb == 0:
                 critical_t = round(stats.t.ppf(q=ub, df=df), decimals)
-                plt.fill_between(x, pdf, where=(x > critical_t))
+                plt.fill_between(x, pdf, where=(x < critical_t), color="slateblue")
+                plt.fill_between(x, pdf, where=(x > critical_t), color="salmon")
             else:
                 critical_t_lower = round(stats.t.ppf(q=lb, df=df), decimals)
                 critical_t_upper = round(stats.t.ppf(q=ub, df=df), decimals)
 
-                plt.fill_between(x, pdf, where=((x > critical_t_upper) | (x < critical_t_lower)))
+                plt.fill_between(
+                    x,
+                    pdf,
+                    where=((x < critical_t_upper) | (x > critical_t_lower)),
+                    color="slateblue",
+                )
+                plt.fill_between(
+                    x,
+                    pdf,
+                    where=((x > critical_t_upper) | (x < critical_t_lower)),
+                    color="salmon",
+                )
 
         if self.distribution == "F":
-            lb = kwargs["lb"] if "lb" in kwargs else 0
-            ub = kwargs["ub"] if "ub" in kwargs else 0.95
-            dfn = kwargs["dfn"]
-            dfd = kwargs["dfd"]
-            decimals = kwargs["decimals"] if "decimals" in kwargs else 3
+            lb = self.lb if "lb" in self.__dict__ else 0
+            ub = self.ub if "ub" in self.__dict__ else 0.95
+            dfn = self.dfn
+            dfd = self.dfd
+            decimals = self.decimals if "decimals" in self.__dict__ else 3
             plot_f_dist(dfn, dfd, lb, ub, decimals)
 
         elif self.distribution == "t":
-            lb = kwargs["lb"] if "lb" in kwargs else 0
-            ub = kwargs["ub"] if "ub" in kwargs else 0.95
-            df = kwargs["df"]
-            decimals = kwargs["decimals"] if "decimals" in kwargs else 3
+            lb = self.lb if "lb" in self.__dict__ else 0
+            ub = self.ub if "ub" in self.__dict__ else 0.95
+            df = self.df
+            decimals = self.decimals if "decimals" in self.__dict__ else 3
             plot_t_dist(df, lb, ub, decimals)
