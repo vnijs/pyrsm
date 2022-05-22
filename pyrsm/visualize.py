@@ -1,10 +1,11 @@
 import math
 import matplotlib.pyplot as plt
 import pandas as pd
-from pyrsm.utils import ifelse
+from .utils import ifelse
+from typing import Tuple, List
 
 
-def distr_plot(df, nint=25, **kwargs):
+def distr_plot(df, nint=25, cols: List = None, **kwargs):
     """
     Plot histograms for numeric variables and frequency plots for categorical.
     variables. Columns of type integer with less than 25 unique values will be
@@ -17,8 +18,12 @@ def distr_plot(df, nint=25, **kwargs):
     nint: int
         The number of unique values in a series of type integer below which the
         series will be treated as a categorical variable
+    cols: A list of column names which indicate the subset of variables whose distribution needs to be plotted
     **kwargs : Named arguments to be passed to the pandas plotting methods
     """
+    if cols != None:
+        df = df[cols]
+
     fig, axes = plt.subplots(
         math.ceil(df.shape[1] / 2), 2, figsize=(10, 1.5 * df.shape[1])
     )
@@ -45,5 +50,19 @@ def distr_plot(df, nint=25, **kwargs):
 
     if df.shape[1] % 2 != 0:
         fig.delaxes(axes[row][1])  # remove last empty plot
+
+    plt.show()
+
+
+def scatter(
+    df: pd.DataFrame,
+    col1: str,
+    col2: str,
+    figsize: Tuple[int, int] = (10, 10),
+) -> None:
+    _, ax = plt.subplots(figsize=figsize)
+    ax.set_xlabel(col1)
+    ax.set_ylabel(col2)
+    ax.scatter(df[col1], df[col2])
 
     plt.show()

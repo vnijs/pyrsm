@@ -5,6 +5,8 @@ from datetime import date, datetime
 from math import ceil
 from IPython.display import display, Markdown
 from sys import modules
+from typing import Tuple, List
+from math import log
 
 
 def add_description(df, md="", path=""):
@@ -357,3 +359,54 @@ def md(fstr):
     md(f"The radius of the circle is {radius}.")
     """
     return display(Markdown(fstr))
+
+
+def undummify(df: pd.DataFrame, prefix_sep: str = "__") -> Tuple[pd.DataFrame, bool]:
+    cols2collapse = {
+        item.split(prefix_sep)[0]: (prefix_sep in item) for item in df.columns
+    }
+    if not any(cols2collapse.values()):
+        return df, False
+
+    series_list = []
+    for col, needs_to_collapse in cols2collapse.items():
+        if needs_to_collapse:
+            undummified = (
+                df.filter(like=col)
+                .idxmax(axis=1)
+                .apply(lambda x: x.split(prefix_sep, maxsplit=1)[1])
+                .rename(col)
+            )
+            series_list.append(undummified)
+        else:
+            series_list.append(df[col])
+    undummified_df = pd.concat(series_list, axis=1)
+    return undummified_df, True
+
+
+class Transform:
+    def __init__(
+        self, data: pd.DataFrame, cols: List[str], transform_type: str
+    ) -> None:
+        self.transform_type = transform_type
+        self.data = data
+        self.cols = cols
+
+    def transform(self) -> pd.DataFrame:
+        if self.transform_type == "ln":
+            return self.transform_log()
+        elif self.transform_type == "log2":
+            return self.transform_log(base=2)
+
+    def transform_log(self, base: int = None) -> pd.DataFrame:
+        new_cols = {
+            col: col + "_ln" if col in self.cols else col for col in self.data.columns
+        }
+        for old_col in self.cols:
+            if base != None:
+                self.data[old_col] = self.data[old_col].transform(log, base)
+            else:
+                self.data[old_col] = self.data[old_col].transform(log)
+
+        self.data.rename(new_cols, axis=1, inplace=True)
+        return self.data

@@ -3,8 +3,8 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 import seaborn as sns
-from pyrsm.logit import sig_stars
-from pyrsm.utils import ifelse
+from .logit import sig_stars
+from .utils import ifelse
 
 from typing import Tuple
 

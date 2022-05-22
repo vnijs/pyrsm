@@ -11,7 +11,7 @@ from scipy import stats
 import statsmodels.api as sm
 import statsmodels
 from math import ceil
-from .utils import setdiff, format_nr
+from .utils import setdiff, format_nr, undummify
 
 
 def coef_plot(fitted, alpha=0.05, intercept=False, incl=None, excl=None, figsize=None):
@@ -289,6 +289,22 @@ def regress(
     -------
     res: Object with fitted values and residuals
     """
+    dataset_cols = evars.copy()
+    dataset_cols.append(rvar)
+    dataset = dataset[dataset_cols]
+
+    categorical_dtypes = ["object", "category", "bool"]
+
+    categorical_vars = [
+        col for col in dataset.columns if dataset[col].dtype.name in categorical_dtypes
+    ]
+
+    if len(categorical_vars) > 0:
+        print(f"there are categorical values: {categorical_vars}")
+        dataset = pd.get_dummies(
+            data=dataset, prefix_sep="__", columns=categorical_vars, drop_first=True
+        )
+        evars = dataset.columns.to_list()
 
     if form != "":
         model = sm.ols(form, data=dataset)
@@ -310,7 +326,7 @@ def regress(
     print(f"Null hyp.: the effect of x on {rvar} is zero")
     print(f"Alt. hyp.: the effect of x on {rvar} is not zero")
     summary = res.summary()
-    summary.tables.pop()
+    summary.tables.pop()  # gets rid of the last table in res.summary(), we don't need it
     print("\n", summary)
 
     if ssq:
@@ -326,6 +342,7 @@ def regress(
 
 
 def scatter_plot(fitted, nobs: int = 1000, figsize: tuple = None) -> None:
+    # TODO: this has some bug when dealing with the plotting of categorical variables
     """
     Scatter plot of explanatory and response variables from a fitted regression
 
@@ -339,8 +356,21 @@ def scatter_plot(fitted, nobs: int = 1000, figsize: tuple = None) -> None:
         determined based on the number of variables in the model
     """
 
+    endog = fitted.model.endog
+    exogs = fitted.model.exog
+
     exog_names = fitted.model.exog_names
     endog_name = fitted.model.endog_names
+
+    df = pd.DataFrame(exogs, columns=exog_names)
+    df, was_undummified = undummify(df)
+    df.drop("const", axis=1, inplace=True)
+    exog_names = df.columns.to_list()
+    if was_undummified:
+        exog_names.remove(endog_name)
+        endog = df[endog_name].to_numpy()
+        exogs = df[exog_names].to_numpy()
+
     num_exog = len(exog_names)
     num_rows = ceil(num_exog / 2)
 
@@ -352,11 +382,6 @@ def scatter_plot(fitted, nobs: int = 1000, figsize: tuple = None) -> None:
     plt.subplots_adjust(wspace=0.2, hspace=0.2)
 
     idx = 0
-    endog = fitted.model.endog
-    exogs = fitted.model.exog
-
-    df = pd.DataFrame(exogs, columns=exog_names)
-    df.drop("const", axis=1, inplace=True)
 
     if nobs < fitted.model.endog.shape[0] and nobs != np.Inf and nobs != -1:
         df[endog_name] = endog
@@ -382,8 +407,11 @@ def scatter_plot(fitted, nobs: int = 1000, figsize: tuple = None) -> None:
             axes[col].scatter(exog, endog)
         idx += 1
 
-    if df.shape[1] % 2 != 0:
-        fig.delaxes(axes[row][1])  # remove last empty plot
+    if (df.shape[1] - 1) % 2 != 0:
+        if num_rows > 1:
+            fig.delaxes(axes[row][1])  # remove last empty plot
+        else:
+            fig.delaxes(axes[1])
 
     plt.show()
 
@@ -393,7 +421,33 @@ def residual_vs_explanatory_plot(
     nobs: int = 1000,
     figsize: tuple = None,
 ) -> None:
-    num_exog = len(fitted.model.exog_names) - 1
+    # TODO: this has some bug when dealing with the plotting of categorical variables
+    """
+    Plot of variables vs residuals
+
+    Parameters
+    ----------
+    nobs : int
+        Number of observations to use for the scatter plots. The default
+        value is 1,000. To use all observations in the plots, use nobs=-1
+    figsize : tuple
+        A tuple that determines the figure size. If None, size is
+        determined based on the number of variables in the model
+    """
+
+    exogs = fitted.model.exog
+
+    exog_names = fitted.model.exog_names
+    endog_name = fitted.model.endog_names
+
+    df = pd.DataFrame(exogs, columns=exog_names)
+    df, was_undummified = undummify(df)
+    df.drop("const", axis=1, inplace=True)
+    true_exog_names = df.columns.to_list()
+    if was_undummified:
+        true_exog_names.remove(endog_name)
+
+    num_exog = len(true_exog_names)
     num_rows = ceil(num_exog / 2)
 
     if figsize is None:
@@ -403,41 +457,64 @@ def residual_vs_explanatory_plot(
     plt.subplots_adjust(wspace=0.2, hspace=0.2)
 
     idx = 0
-    exog_names = fitted.model.exog_names
 
     residuals = fitted.resid
-    exogs = fitted.model.exog
 
     data = pd.DataFrame(exogs, columns=exog_names)
+    data, _ = undummify(data)
+
     data["residuals"] = residuals
 
     if nobs < fitted.model.endog.shape[0] and nobs != np.Inf and nobs != -1:
         data = data.copy().sample(nobs)
 
+    categorical_dtypes = ["object", "category", "bool"]
+
     while idx < num_exog:
         row = idx // 2
         col = idx % 2
-        exog_name = exog_names[idx]
+        exog_name = true_exog_names[idx]
         exog = [row[idx] for row in exogs]
 
         if num_rows > 1:
-            sns.regplot(
-                x=exog_name,
-                y="residuals",
-                data=data,
-                ax=axes[row][col],
-                scatter_kws={"color": "black"},
-            ).set(xlabel=exog_name, ylabel="Residuals")
+            if data[exog_name].dtype.name in categorical_dtypes:
+                sns.stripplot(
+                    x=exog_name,
+                    y="residuals",
+                    data=data,
+                    ax=axes[row][col],
+                    c="black",
+                ).set(xlabel=exog_name, ylabel="Residuals")
+            else:
+                sns.regplot(
+                    x=exog_name,
+                    y="residuals",
+                    data=data,
+                    ax=axes[row][col],
+                    scatter_kws={"color": "black"},
+                ).set(xlabel=exog_name, ylabel="Residuals")
         else:
-            sns.regplot(
-                x=exog_name,
-                y="residuals",
-                data=data,
-                ax=axes[col],
-                scatter_kws={"color": "black"},
-            ).set(xlabel=exog_name, ylabel="Residuals")
+            if data[exog_name].dtype.name in categorical_dtypes:
+                sns.stripplot(
+                    x=exog_name,
+                    y="residuals",
+                    data=data,
+                    ax=axes[col],
+                    c="black",
+                ).set(xlabel=exog_name, ylabel="Residuals")
+            else:
+                sns.regplot(
+                    x=exog_name,
+                    y="residuals",
+                    data=data,
+                    ax=axes[col],
+                    scatter_kws={"color": "black"},
+                ).set(xlabel=exog_name, ylabel="Residuals")
         idx += 1
 
-    if data.shape[1] % 2 != 0:
-        fig.delaxes(axes[row][1])  # remove last empty plot
+    if (df.shape[1] - 1) % 2 != 0:
+        if num_rows > 1:
+            fig.delaxes(axes[row][1])  # remove last empty plot
+        else:
+            fig.delaxes(axes[1])  # remove last empty plot
     plt.show()
