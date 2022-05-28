@@ -1,3 +1,4 @@
+from cmath import sqrt
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -6,7 +7,7 @@ import seaborn as sns
 from .logit import sig_stars
 from .utils import ifelse
 
-from typing import Tuple
+from typing import Tuple, List
 
 
 class cross_tabs:
@@ -460,7 +461,7 @@ class correlation:
 
 
 class ProbabilityCalculator:
-    def __init__(self, distribution, params) -> None:
+    def __init__(self, distribution: str, params: dict) -> None:
         self.distribution = distribution
         self.__dict__.update(params)
         print("Probability calculator")
@@ -665,3 +666,145 @@ class ProbabilityCalculator:
             df = self.df
             decimals = self.decimals if "decimals" in self.__dict__ else 3
             plot_t_dist(df, lb, ub, decimals)
+
+
+class SingleMean:
+    def __init__(
+        self,
+        data: pd.DataFrame,
+        variable: str,
+        alt_hypo: str,
+        conf: float,
+        comparison_value: float,
+    ):
+        self.data = data
+        self.variable = variable
+        self.alt_hypo = alt_hypo
+        self.conf = conf
+        self.comparison_value = comparison_value
+        self.t_val = None
+        self.p_val = None
+
+        print("Single mean test")
+
+    def calculate(self):
+        result = stats.ttest_1samp(
+            a=self.data[self.variable],
+            popmean=self.comparison_value,
+            nan_policy="omit",
+            alternative=self.alt_hypo,
+        )
+
+        self.t_val, self.p_val = result.statistic, result.pvalue
+
+        self.mean = np.nanmean(self.data[self.variable])
+        self.n = len(self.data[self.variable])
+        self.n_missing = self.data[self.variable].isna().sum()
+
+        self.sd = self.data[self.variable].std()
+        self.se = self.data[self.variable].sem()
+        z_score = stats.norm.ppf((1 + self.conf) / 2)
+
+        self.me = z_score * self.sd / sqrt(self.n)
+        self.diff = self.mean - self.comparison_value
+        self.df = self.n - 1
+        self.x_percent = self.mean - stats.t.ppf(self.conf, self.df) * self.se
+        self.hundred_percent = self.mean - stats.t.ppf(0, self.df) * self.se
+
+    def summary(self):
+        if self.t_val == None:
+            self.calculate()
+        data_name = ""
+        if hasattr(self.data, "description"):
+            data_name = self.data.description.split("\n")[0].split()[1].lower()
+        if len(data_name) > 0:
+            print(f"Data: {data_name}")
+        print(f"Variable: {self.variable}")
+        print(f"Confidence: {self.conf}")
+
+        print(f"Null hyp.: the mean of {self.variable} = {self.comparison_value}")
+
+        alt_hypo = ">"
+        if self.alt_hypo == "lesser":
+            alt_hypo = "<"
+        elif self.alt_hypo == "two-sided":
+            alt_hypo = "different from"
+
+        print(f"Alt. hyp.: the mean of demand is {alt_hypo} {self.comparison_value}")
+        print()
+
+        row1 = [[self.mean, self.n, self.n_missing, self.sd, self.se, self.me]]
+        row2 = [
+            [
+                self.diff,
+                self.se,
+                self.t_val,
+                self.p_val,
+                self.df,
+                self.x_percent,
+                self.hundred_percent,
+            ]
+        ]
+
+        col_names1 = ["mean", "n", "n_missing", "sd", "se", "me"]
+        col_names2 = [
+            "diff",
+            "se",
+            "t.value",
+            "p.value",
+            "df",
+            str(int((1 - self.conf) * 100)) + "%",
+            "100%",
+        ]
+
+        table1 = pd.DataFrame(row1, columns=col_names1)
+        table2 = pd.DataFrame(row2, columns=col_names2)
+
+        table1.reset_index(drop=True, inplace=True)
+        table2.reset_index(drop=True, inplace=True)
+
+        print(table1.to_string(index=False))
+        print(table2.to_string(index=False))
+
+    def plot(self, types: List[str], figsize: Tuple[float, float] = (10, 10)):
+        numplots = 2
+        which_plot = ""
+        if isinstance(types, str):
+            numplots = 1
+            which_plot = types
+        elif isinstance(types, list):
+            assert len(types) == 2
+            assert "hist" in types and "sim" in types
+        else:
+            raise TypeError("`types` should be of list data type")
+
+        fig, axes = plt.subplots(numplots, figsize=figsize)
+
+        if numplots == 1:
+            if which_plot == "hist":
+                self.data[self.variable].plot.hist(
+                    ax=axes, title=self.variable, color="slateblue"
+                )
+                plt.sca(axes)
+                plt.vlines(
+                    x=(self.comparison_value, self.x_percent, self.mean),
+                    ymin=axes.get_ylim()[0],
+                    ymax=axes.get_ylim()[1],
+                    colors=("r", "k", "k"),
+                    linestyles=("solid", "dashed", "solid"),
+                )
+            else:
+                # TODO: ask Prof. Nijs about this
+                pass
+        else:
+            self.data[self.variable].plot.hist(
+                ax=axes[0], title=self.variable, color="slateblue"
+            )
+            plt.vlines(
+                x=[self.comparison_value, self.me, self.mean],
+                ymin=0,
+                ymax=axes.get_ylim(),
+                colors=["r", "k", "k"],
+                linestyles=["solid", "dashed", "dashed"],
+            )
+            # simulate plot here
