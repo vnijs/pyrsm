@@ -461,7 +461,8 @@ class correlation:
         cor_mat(self.df, self.cr, self.cp, dec=dec, nobs=nobs, figsize=figsize)
 
 
-class ProbabilityCalculator:
+class prob_calc:
+    # Probability calculator
     def __init__(self, distribution: str, params: dict) -> None:
         self.distribution = distribution
         self.__dict__.update(params)
@@ -669,7 +670,7 @@ class ProbabilityCalculator:
             plot_t_dist(df, lb, ub, decimals)
 
 
-class SingleMean:
+class single_mean:
     def __init__(
         self,
         data: pd.DataFrame,
@@ -712,7 +713,7 @@ class SingleMean:
         self.x_percent = self.mean - stats.t.ppf(self.conf, self.df) * self.se
         self.hundred_percent = self.mean - stats.t.ppf(0, self.df) * self.se
 
-    def summary(self) -> None:
+    def summary(self, dec=3) -> None:
         if self.t_val == None:
             self.calculate()
         data_name = ""
@@ -731,8 +732,9 @@ class SingleMean:
         elif self.alt_hypo == "two-sided":
             alt_hypo = "!="
 
-        print(f"Alt. hyp.: the mean of demand is {alt_hypo} {self.comparison_value}")
-        print()
+        print(
+            f"Alt. hyp.: the mean of {self.variable} is {alt_hypo} {self.comparison_value}\n"
+        )
 
         row1 = [[self.mean, self.n, self.n_missing, self.sd, self.se, self.me]]
         row2 = [
@@ -740,7 +742,7 @@ class SingleMean:
                 self.diff,
                 self.se,
                 self.t_val,
-                self.p_val,
+                ifelse(self.p_val < 0.001, "< .001", self.p_val),
                 self.df,
                 self.x_percent,
                 self.hundred_percent,
@@ -758,8 +760,8 @@ class SingleMean:
             "100%",
         ]
 
-        table1 = pd.DataFrame(row1, columns=col_names1)
-        table2 = pd.DataFrame(row2, columns=col_names2)
+        table1 = pd.DataFrame(row1, columns=col_names1).round(dec)
+        table2 = pd.DataFrame(row2, columns=col_names2).round(dec)
 
         table1.reset_index(drop=True, inplace=True)
         table2.reset_index(drop=True, inplace=True)
@@ -811,7 +813,7 @@ class SingleMean:
             # simulate plot here
 
 
-class CompareMeans:
+class compare_means:
     def __init__(
         self,
         data: pd.DataFrame,
@@ -868,9 +870,9 @@ class CompareMeans:
             n_missing = subset.isna().sum()
             sd = subset.std()
             se = subset.sem()
-
             z_score = stats.norm.ppf((1 + self.conf) / 2)
-            me = z_score * sd / sqrt(n)
+            # was printing out imaginary part in som cases
+            me = np.real(z_score * sd / sqrt(n))
             row = [element, mean, n, n_missing, sd, se, me]
             rows1.append(row)
 
@@ -914,8 +916,8 @@ class CompareMeans:
                 null_hypo,
                 alt_hypo,
                 diff,
-                self.p_val,
                 self.t_val,
+                ifelse(self.p_val < 0.001, "< .001", self.p_val),
                 df,
                 # zero_percent,
                 # x_percent,
@@ -928,15 +930,15 @@ class CompareMeans:
                 "Null hyp.",
                 "Alt. hyp.",
                 "diff",
-                "p.value",
                 "t.value",
+                "p.value",
                 "df",
                 # "0%",
                 # str(self.conf * 100) + "%",
             ],
         )
 
-    def summary(self) -> None:
+    def summary(self, dec=3) -> None:
         if self.t_val == None:
             self.calculate()
         data_name = ""
@@ -948,5 +950,5 @@ class CompareMeans:
         print(f"Confidence: {self.conf}")
         print(f"Adjustment: {self.multiple_comp_adjustment}")
 
-        print(self.table1.to_string(index=False))
-        print(self.table2.to_string(index=False))
+        print(self.table1.round(dec).to_string(index=False))
+        print(self.table2.round(dec).to_string(index=False))

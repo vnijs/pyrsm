@@ -8,8 +8,8 @@ from pyrsm.utils import expand_grid
 from sklearn import metrics
 import seaborn as sns
 from scipy import stats
-import statsmodels.api as sm
-import statsmodels
+import statsmodels.formula.api as sm
+from statsmodels.regression.linear_model import RegressionResults as rrs
 from math import ceil
 from .utils import setdiff, format_nr, undummify
 
@@ -32,7 +32,7 @@ def coef_plot(fitted, alpha=0.05, intercept=False, incl=None, excl=None, figsize
 
     Returns
     -------
-    Matplotlit object
+    Matplotlib object
         Plot of Odds ratios
     """
     df = fitted.conf_int(alpha=alpha).reset_index().iloc[::-1]
@@ -274,7 +274,7 @@ def regress(
     evars: List[str] = None,
     form: str = "",
     ssq: bool = False,
-) -> statsmodels.regression.linear_model.RegressionResults:
+) -> rrs:
     """
     Estimate linear regression model
 
@@ -283,36 +283,19 @@ def regress(
     dataset: pandas dataframe; dataset
     evars: list of strings; contains the names of the columns of data to be used as explanatory variables
     rvar: string; name of the column which is to be used as the response variable
-    form: string; formula for the regression equation
+    form: string; formula for the regression equation to use if evars and rvar are not provided
 
     Returns
     -------
     res: Object with fitted values and residuals
     """
-    dataset_cols = evars.copy()
-    dataset_cols.append(rvar)
-    dataset = dataset[dataset_cols]
-
-    categorical_dtypes = ["object", "category", "bool"]
-
-    categorical_vars = [
-        col for col in dataset.columns if dataset[col].dtype.name in categorical_dtypes
-    ]
-
-    if len(categorical_vars) > 0:
-        print(f"there are categorical values: {categorical_vars}")
-        dataset = pd.get_dummies(
-            data=dataset, prefix_sep="__", columns=categorical_vars, drop_first=True
-        )
-        evars = dataset.columns.to_list()
-
     if form != "":
         model = sm.ols(form, data=dataset)
         evars = setdiff(model.exog_names, "const")
         rvar = model.endog_names
     else:
-        evars_df = sm.add_constant(dataset[evars], prepend=False)
-        model = sm.OLS(dataset[rvar], evars_df)
+        form = f"{rvar} ~ {' + '.join(evars)}"
+        model = sm.ols(form, data=dataset)
 
     res = model.fit()
 
@@ -417,7 +400,7 @@ def scatter_plot(fitted, nobs: int = 1000, figsize: tuple = None) -> None:
 
 
 def residual_vs_explanatory_plot(
-    fitted: statsmodels.regression.linear_model.RegressionResults,
+    fitted: rrs,
     nobs: int = 1000,
     figsize: tuple = None,
 ) -> None:
