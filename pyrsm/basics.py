@@ -1,4 +1,5 @@
 from cmath import sqrt
+from os import stat
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -8,7 +9,7 @@ import seaborn as sns
 from .logit import sig_stars
 from .utils import ifelse
 
-from typing import Tuple, List
+from typing import Any, Tuple, List
 
 
 class cross_tabs:
@@ -763,9 +764,6 @@ class single_mean:
         table1 = pd.DataFrame(row1, columns=col_names1).round(dec)
         table2 = pd.DataFrame(row2, columns=col_names2).round(dec)
 
-        table1.reset_index(drop=True, inplace=True)
-        table2.reset_index(drop=True, inplace=True)
-
         print(table1.to_string(index=False))
         print(table2.to_string(index=False))
 
@@ -866,8 +864,8 @@ class compare_means:
             subset = self.data[self.data[self.var1] == element][self.var2]
             row = []
             mean = np.nanmean(subset)
-            n = len(subset)
             n_missing = subset.isna().sum()
+            n = len(subset) - n_missing
             sd = subset.std()
             se = subset.sem()
             z_score = stats.norm.ppf((1 + self.conf) / 2)
@@ -952,3 +950,96 @@ class compare_means:
 
         print(self.table1.round(dec).to_string(index=False))
         print(self.table2.round(dec).to_string(index=False))
+
+
+class single_prop:
+    def __init__(
+        self,
+        data: pd.DataFrame,
+        variable: str,
+        level: Any,
+        alt_hypo: str,
+        conf: float,
+        comparison_value: float,
+        test_type: str = "binomial",
+    ) -> None:
+        self.data = data
+        self.variable = variable
+        self.level = level
+        self.alt_hypo = alt_hypo
+        self.conf = conf
+        self.comparison_value = comparison_value
+        self.test_type = test_type
+
+        self.p_val = None
+
+        print(f"Single proportion ({self.test_type})")
+
+    def calculate(self) -> None:
+        self.ns = len(self.data[self.data[self.variable] == self.level])
+        self.n_missing = self.data[self.variable].isna().sum()
+        self.n = len(self.data) - self.n_missing
+        self.p = self.ns / self.n
+        self.sd = sqrt(self.p * (1 - self.p))
+        self.se = self.sd / sqrt(self.n)
+
+        z_score = stats.norm.ppf((1 + self.conf) / 2)
+
+        self.me = z_score * self.se
+
+        self.diff = self.p - self.comparison_value
+
+        results = stats.binomtest(self.ns, self.n, self.comparison_value, self.alt_hypo)
+        print(
+            f"results.pvalue = {results.pvalue}, results.proportion_ci = {results.proportion_ci(self.conf)}"
+        )
+
+        self.p_val = results.pvalue
+        proportion_ci = results.proportion_ci(self.conf)
+        self.zero_percent = proportion_ci.low
+        self.x_percent = proportion_ci.high
+
+    def summary(self) -> None:
+        if self.p_val == None:
+            self.calculate()
+        data_name = ""
+        if hasattr(self.data, "description"):
+            data_name = self.data.description.split("\n")[0].split()[1].lower()
+        if len(data_name) > 0:
+            print(f"Data: {data_name}")
+
+        print(f"Variable: {self.variable}")
+        print(f"Level: {self.level} in {self.variable}")
+        print(f"Confidence: {self.conf}")
+        print(
+            f"Null hyp.: the proportion of {self.level} in {self.variable} = {self.comparison_value}"
+        )
+
+        alt_hypo_sign = ">"
+        if self.alt_hypo == "less":
+            alt_hypo_sign = "<"
+        elif self.alt_hypo == "two-sided":
+            alt_hypo_sign = "!="
+
+        print(
+            f"Alt. hyp.: the proportion of {self.level} in {self.variable} {alt_hypo_sign} {self.comparison_value}"
+        )
+
+        row1 = [[self.p, self.ns, self.n, self.n_missing, self.sd, self.se, self.me]]
+        table1 = pd.DataFrame(
+            row1, columns=["p", "ns", "n", "n_missing", "sd", "se", "me"]
+        )
+
+        row2 = [[self.diff, self.ns, self.p_val, self.zero_percent, self.x_percent]]
+        table2 = pd.DataFrame(
+            row2, columns=["diff", "ns", "p_val", "0%", str(self.conf * 100) + "%"]
+        )
+
+        print()
+
+        print(table1.to_string(index=False))
+        print(table2.to_string(index=False))
+
+    def plot(self) -> None:
+        # TODO
+        pass
