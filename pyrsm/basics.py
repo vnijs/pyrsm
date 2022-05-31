@@ -2,6 +2,7 @@ from cmath import sqrt
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from pyparsing import col
 from scipy import stats
 import seaborn as sns
 from .logit import sig_stars
@@ -687,7 +688,7 @@ class SingleMean:
 
         print("Single mean test")
 
-    def calculate(self):
+    def calculate(self) -> None:
         result = stats.ttest_1samp(
             a=self.data[self.variable],
             popmean=self.comparison_value,
@@ -711,7 +712,7 @@ class SingleMean:
         self.x_percent = self.mean - stats.t.ppf(self.conf, self.df) * self.se
         self.hundred_percent = self.mean - stats.t.ppf(0, self.df) * self.se
 
-    def summary(self):
+    def summary(self) -> None:
         if self.t_val == None:
             self.calculate()
         data_name = ""
@@ -728,7 +729,7 @@ class SingleMean:
         if self.alt_hypo == "lesser":
             alt_hypo = "<"
         elif self.alt_hypo == "two-sided":
-            alt_hypo = "different from"
+            alt_hypo = "!="
 
         print(f"Alt. hyp.: the mean of demand is {alt_hypo} {self.comparison_value}")
         print()
@@ -766,7 +767,7 @@ class SingleMean:
         print(table1.to_string(index=False))
         print(table2.to_string(index=False))
 
-    def plot(self, types: List[str], figsize: Tuple[float, float] = (10, 10)):
+    def plot(self, types: List[str], figsize: Tuple[float, float] = (10, 10)) -> None:
         numplots = 2
         which_plot = ""
         if isinstance(types, str):
@@ -808,3 +809,144 @@ class SingleMean:
                 linestyles=["solid", "dashed", "dashed"],
             )
             # simulate plot here
+
+
+class CompareMeans:
+    def __init__(
+        self,
+        data: pd.DataFrame,
+        var1: str,
+        var2: str,
+        combinations: List[Tuple[str, str]],
+        alt_hypo: str,
+        conf: float,
+        sample_type: str = "independent",
+        multiple_comp_adjustment: str = "none",
+        test_type: str = "t-test",
+    ) -> None:
+        self.data = data
+        self.var1 = var1
+        self.var2 = var2
+        self.combinations = combinations
+        self.alt_hypo = alt_hypo
+        self.conf = conf
+        self.sample_type = sample_type
+        self.multiple_comp_adjustment = multiple_comp_adjustment
+        self.test_type = test_type
+
+        self.t_val = None
+        self.p_val = None
+
+        print(f"Pairwise mean comparisons {self.test_type}")
+
+    def welch_dof(self, v1: str, v2: str) -> float:
+        x = self.data[self.data[self.var1] == v1][self.var2]
+        y = self.data[self.data[self.var1] == v2][self.var2]
+        dof = (x.var() / x.size + y.var() / y.size) ** 2 / (
+            (x.var() / x.size) ** 2 / (x.size - 1)
+            + (y.var() / y.size) ** 2 / (y.size - 1)
+        )
+
+        return dof
+
+    def calculate(self) -> None:
+        combinations_elements = set()
+        for combination in self.combinations:
+            combinations_elements.add(combination[0])
+            combinations_elements.add(combination[1])
+        combinations_elements = list(combinations_elements)
+
+        print(f"Combinations elements: {combinations_elements}")
+
+        rows1 = []
+        mean = 0
+        for element in combinations_elements:
+            subset = self.data[self.data[self.var1] == element][self.var2]
+            row = []
+            mean = np.nanmean(subset)
+            n = len(subset)
+            n_missing = subset.isna().sum()
+            sd = subset.std()
+            se = subset.sem()
+
+            z_score = stats.norm.ppf((1 + self.conf) / 2)
+            me = z_score * sd / sqrt(n)
+            row = [element, mean, n, n_missing, sd, se, me]
+            rows1.append(row)
+
+        self.table1 = pd.DataFrame(
+            rows1, columns=["rank", "mean", "n", "n_missing", "sd", "se", "me"]
+        )
+
+        alt_hypo_sign = " > "
+        if self.alt_hypo == "less":
+            alt_hypo_sign = " < "
+        elif self.alt_hypo == "two-sided":
+            alt_hypo_sign = " != "
+
+        rows2 = []
+        for v1, v2 in self.combinations:
+            null_hypo = v1 + " = " + v2
+            alt_hypo = v1 + alt_hypo_sign + v2
+            diff = np.nanmean(
+                self.data[self.data[self.var1] == v1][self.var2]
+            ) - np.nanmean(self.data[self.data[self.var1] == v2][self.var2])
+
+            result = stats.ttest_ind(
+                self.data[self.data[self.var1] == v1][self.var2],
+                self.data[self.data[self.var1] == v2][self.var2],
+                equal_var=False,
+                nan_policy="omit",
+                alternative=self.alt_hypo,
+            )
+
+            self.t_val, self.p_val = result.statistic, result.pvalue
+            se = self.data[self.data[self.var1] == v2][self.var2].sem()
+            df = self.welch_dof(v1, v2)
+
+            """
+            Not entirely sure how to calculate these
+            """
+            # zero_percent = mean - stats.t.ppf(1, df) * se
+            # x_percent = mean - stats.t.ppf(self.conf, df) * se
+
+            row = [
+                null_hypo,
+                alt_hypo,
+                diff,
+                self.p_val,
+                self.t_val,
+                df,
+                # zero_percent,
+                # x_percent,
+            ]
+            rows2.append(row)
+
+        self.table2 = pd.DataFrame(
+            rows2,
+            columns=[
+                "Null hyp.",
+                "Alt. hyp.",
+                "diff",
+                "p.value",
+                "t.value",
+                "df",
+                # "0%",
+                # str(self.conf * 100) + "%",
+            ],
+        )
+
+    def summary(self) -> None:
+        if self.t_val == None:
+            self.calculate()
+        data_name = ""
+        if hasattr(self.data, "description"):
+            data_name = self.data.description.split("\n")[0].split()[1].lower()
+        if len(data_name) > 0:
+            print(f"Data: {data_name}")
+        print(f"Variables: {self.var1}, {self.var2}")
+        print(f"Confidence: {self.conf}")
+        print(f"Adjustment: {self.multiple_comp_adjustment}")
+
+        print(self.table1.to_string(index=False))
+        print(self.table2.to_string(index=False))
