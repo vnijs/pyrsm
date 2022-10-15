@@ -1,5 +1,5 @@
 {% set name = "pyrsm" %}
-{% set version = "0.5.12.6" %}
+{% set version = "0.5.12.8" %}
 
 package:
   name: {{ name|lower }}

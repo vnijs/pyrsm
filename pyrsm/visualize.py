@@ -2,10 +2,9 @@ import math
 import matplotlib.pyplot as plt
 import pandas as pd
 from .utils import ifelse
-from typing import Tuple, List
 
 
-def distr_plot(df, nint=25, cols: List = None, **kwargs):
+def distr_plot(df, nint=25, cols: list = None, **kwargs):
     """
     Plot histograms for numeric variables and frequency plots for categorical.
     variables. Columns of type integer with less than 25 unique values will be
@@ -58,7 +57,7 @@ def scatter(
     df: pd.DataFrame,
     col1: str,
     col2: str,
-    figsize: Tuple[int, int] = (10, 10),
+    figsize: tuple[int, int] = (10, 10),
 ) -> None:
     _, ax = plt.subplots(figsize=figsize)
     ax.set_xlabel(col1)
