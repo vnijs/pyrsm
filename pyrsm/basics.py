@@ -8,8 +8,6 @@ import seaborn as sns
 from .logit import sig_stars
 from .utils import ifelse
 
-from typing import Tuple, List
-
 
 class cross_tabs:
     def __init__(self, df, var1, var2):
@@ -473,7 +471,7 @@ class prob_calc:
 
         def calc_f_dist(
             dfn: int, dfd: int, lb: float = 0, ub: float = 0.95, decimals: int = 3
-        ) -> Tuple[float, float]:
+        ) -> tuple[float, float]:
             print(f"Df 1:\t{dfn}")
             print(f"Df 2:\t{dfd}")
 
@@ -526,7 +524,7 @@ class prob_calc:
 
         def calc_t_dist(
             df: int, lb: float = 0, ub: float = 0.95, decimals: int = 3
-        ) -> Tuple[float, float]:
+        ) -> tuple[float, float]:
             print(f"Df:\t{df}")
             print(f"Mean:\t{round(stats.t.mean(df), decimals)}")
             print(f"St. dev:\t{round(stats.t.std(df), decimals)}")
@@ -769,7 +767,7 @@ class single_mean:
         print(table1.to_string(index=False))
         print(table2.to_string(index=False))
 
-    def plot(self, types: List[str], figsize: Tuple[float, float] = (10, 10)) -> None:
+    def plot(self, types: list[str], figsize: tuple[float, float] = (10, 10)) -> None:
         numplots = 2
         which_plot = ""
         if isinstance(types, str):
@@ -819,7 +817,7 @@ class compare_means:
         data: pd.DataFrame,
         var1: str,
         var2: str,
-        combinations: List[Tuple[str, str]],
+        combinations: list[tuple[str, str]],
         alt_hypo: str,
         conf: float,
         sample_type: str = "independent",

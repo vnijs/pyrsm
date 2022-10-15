@@ -19,7 +19,7 @@ def bincode(x, breaks, right=True, include_lowest=True):
         Should intervals be closed on the right (and open on the left) or vice versa
     include_lowest : bool
         Should an ‘x[i]’ equal to the lowest (or highest, for right = FALSE) ‘breaks’ value be included in the first (or last) bin
-    
+
     Returns
     -------
     Numpy array with bin numbers for each numeric value in x

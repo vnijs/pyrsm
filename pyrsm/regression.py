@@ -1,20 +1,24 @@
-from typing import List
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from pyrsm.utils import ifelse
-from pyrsm.logit import sig_stars
-from pyrsm.utils import expand_grid
 from sklearn import metrics
 import seaborn as sns
 from scipy import stats
-import statsmodels.formula.api as sm
+import statsmodels.formula.api as smf
 from statsmodels.regression.linear_model import RegressionResults as rrs
 from math import ceil
-from .utils import setdiff, format_nr, undummify
+from .logit import sig_stars
+from .utils import setdiff, format_nr, undummify, expand_grid, ifelse
 
 
-def coef_plot(fitted, alpha=0.05, intercept=False, incl=None, excl=None, figsize=None):
+def coef_plot(
+    fitted,
+    alpha: float = 0.05,
+    intercept: bool = False,
+    incl: str = None,
+    excl: str = None,
+    figsize: tuple = None,
+):
     """
     Coefficient plot
 
@@ -70,7 +74,7 @@ def coef_plot(fitted, alpha=0.05, intercept=False, incl=None, excl=None, figsize
     return ax
 
 
-def coef_ci(fitted, alpha=0.05, intercept=False, dec=3):
+def coef_ci(fitted, alpha: float = 0.05, intercept: bool = False, dec: int = 3):
     """
     Confidence interval for coefficient from linear regression
 
@@ -111,13 +115,13 @@ def coef_ci(fitted, alpha=0.05, intercept=False, dec=3):
     return df
 
 
-def evalreg(df, rvar, pred, dec=3):
+def evalreg(df, rvar: str, pred: str, dec: int = 3):
     """
     Evaluate regression models. Calculates R-squared, MSE, and MAE
 
     Parameters
     ----------
-    df : Pandas dataframe or a dictionary of dataframes with keys to show results for
+    df : Pandas DataFrame or a dictionary of DataFrames with keys to show results for
         multiple model predictions and datasets (training and test)
     rvar : str
         Name of the response variable column in df
@@ -151,15 +155,15 @@ def evalreg(df, rvar, pred, dec=3):
     return result.round(dec)
 
 
-def reg_dashboard(fitted, nobs=1000):
+def reg_dashboard(fitted, nobs: int = 1000):
     """
     Plot regression residual dashboard
 
     Parameters
     ----------
-    fitted : Object with fittedvalues and residuals
+    fitted : Object with fittedv alues and residuals
     nobs: int
-        Number of observerations to use for plots.
+        Number of observations to use for plots.
         Set to None or -1 to plot all values.
         The Residuals vs Order plot will only be valid
         if all observations are plotted
@@ -187,7 +191,7 @@ def reg_dashboard(fitted, nobs=1000):
     sns.lineplot(x="order", y="resid", data=data, ax=axes[1, 0]).set(
         title="Residuals vs Row order", ylabel="Residuals", xlabel=None
     )
-    sm.qqplot(data.resid, line="s", ax=axes[1, 1])
+    smf.qqplot(data.resid, line="s", ax=axes[1, 1])
     axes[1, 1].title.set_text("Normal Q-Q plot")
     pdp = data.resid.plot.hist(
         ax=axes[2, 0],
@@ -209,20 +213,20 @@ def reg_dashboard(fitted, nobs=1000):
     )
 
 
-def sim_prediction(df, vary=[], nnv=5):
+def sim_prediction(df: pd.DataFrame, vary: list = [], nnv: int = 5) -> pd.DataFrame:
     """
     Simulate data for prediction
 
     Parameters
     ----------
-    df : Pandas dataframe
+    df : Pandas DataFrame
     vary : List of column names of Dictionary with keys and values to use
     nnv : int
         Number of values to use to simulate the effect of a numeric variable
 
     Returns:
     ----------
-    Pandas dataframe with values to use for estimation
+    Pandas DataFrame with values to use for estimation
     """
 
     def fix_value(s):
@@ -232,7 +236,7 @@ def sim_prediction(df, vary=[], nnv=5):
             return s.value_counts().idxmax()
 
     dct = {c: [fix_value(df[c])] for c in df.columns}
-    dtypes = df.dtypes
+    dt = df.dtypes
     if type(vary) is dict:
         # user provided values and ranges
         for key, val in vary.items():
@@ -250,7 +254,7 @@ def sim_prediction(df, vary=[], nnv=5):
             else:
                 dct[v] = df[v].unique()
 
-    return expand_grid(dct, dtypes)
+    return expand_grid(dct, dt)
 
 
 ## add prediction and interaction plots that actually make sense
@@ -271,7 +275,7 @@ def sim_prediction(df, vary=[], nnv=5):
 def regress(
     dataset: pd.DataFrame,
     rvar: str = None,
-    evars: List[str] = None,
+    evars: list[str] = None,
     form: str = "",
     ssq: bool = False,
 ) -> rrs:
@@ -280,22 +284,22 @@ def regress(
 
     Parameters
     ----------
-    dataset: pandas dataframe; dataset
-    evars: list of strings; contains the names of the columns of data to be used as explanatory variables
-    rvar: string; name of the column which is to be used as the response variable
-    form: string; formula for the regression equation to use if evars and rvar are not provided
+    dataset: pandas DataFrame; dataset
+    evars: List of strings; contains the names of the columns of data to be used as explanatory variables
+    rvar: String; name of the column to be used as the response variable
+    form: String; formula for the regression equation to use if evars and rvar are not provided
 
     Returns
     -------
     res: Object with fitted values and residuals
     """
     if form != "":
-        model = sm.ols(form, data=dataset)
+        model = smf.ols(form, data=dataset)
         evars = setdiff(model.exog_names, "const")
         rvar = model.endog_names
     else:
         form = f"{rvar} ~ {' + '.join(evars)}"
-        model = sm.ols(form, data=dataset)
+        model = smf.ols(form, data=dataset)
 
     res = model.fit()
 
