@@ -1,3 +1,4 @@
+from typing import List, Tuple
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -406,7 +407,7 @@ def scatter_plot(fitted, nobs: int = 1000, figsize: tuple = None) -> None:
 def residual_vs_explanatory_plot(
     fitted: rrs,
     nobs: int = 1000,
-    figsize: tuple = None,
+    figsize: Tuple = None,
 ) -> None:
     # TODO: this has some bug when dealing with the plotting of categorical variables
     """
