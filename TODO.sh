@@ -26,14 +26,16 @@ cc pyrsm-dev pyrsm
 ##
 
 conda activate pyrsm-dev
-conda install -y conda-build # only need this once
+# conda install -y conda-build # only need this once
 conda remove -y --force pyrsm # remove current version
-rm -f /opt/conda/envs/pyrsm-dev/conda-bld/broken/pyrsm*
+# rm -f /opt/conda/envs/pyrsm-dev/conda-bld/broken/pyrsm*
+rm -f /opt/conda/conda-bld/broken/pyrsm*
 conda build ~/gh/pyrsm/conda/pyrsm
 
 # the build step above will likely throw an error but then you can install using the below
 # what? :)
 # conda install /opt/conda/envs/pyrsm-dev/conda-bld/broken/pyrsm*
+conda install /opt/conda/conda-bld/broken/pyrsm*
 
 # check the pyrsm version number in 
 python -c "import pyrsm; print(pyrsm.__version__)"
