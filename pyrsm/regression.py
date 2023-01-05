@@ -10,8 +10,7 @@ import statsmodels.formula.api as smf
 from statsmodels.regression.linear_model import RegressionResults as rrs
 from math import ceil
 from .logit import sig_stars
-from .utils import setdiff, format_nr, expand_grid, ifelse
-from .perf import auc
+from .utils import setdiff, format_nr, expand_grid, ifelse, group_categorical
 
 
 def coef_plot(
@@ -316,180 +315,177 @@ def regress(
     return res
 
 
-# def scatter_plot(fitted, nobs: int = 1000, figsize: tuple = None) -> None:
-#     # TODO: this has some bug when dealing with the plotting of categorical variables
-#     """
-#     Scatter plot of explanatory and response variables from a fitted regression
+def scatter_plot(fitted, nobs: int = 1000, figsize: tuple = None) -> None:
+    # TODO: this has some bug when dealing with the plotting of categorical variables
+    """
+    Scatter plot of explanatory and response variables from a fitted regression
 
-#     Parameters
-#     ----------
-#     nobs : int
-#         Number of observations to use for the scatter plots. The default
-#         value is 1,000. To use all observations in the plots, use nobs=-1
-#     figsize : tuple
-#         A tuple that determines the figure size. If None, size is
-#         determined based on the number of variables in the model
-#     """
+    Parameters
+    ----------
+    nobs : int
+        Number of observations to use for the scatter plots. The default
+        value is 1,000. To use all observations in the plots, use nobs=-1
+    figsize : tuple
+        A tuple that determines the figure size. If None, size is
+        determined based on the number of variables in the model
+    """
 
-#     endog = fitted.model.endog
-#     exogs = fitted.model.exog
+    endog = fitted.model.endog
+    exogs = fitted.model.exog
 
-#     exog_names = fitted.model.exog_names
-#     endog_name = fitted.model.endog_names
+    exog_names = fitted.model.exog_names
+    endog_name = fitted.model.endog_names
 
-#     df = pd.DataFrame(exogs, columns=exog_names)
-#     df, was_undummified = undummify(df)
-#     df.drop("const", axis=1, inplace=True)
-#     exog_names = df.columns.to_list()
-#     if was_undummified:
-#         exog_names.remove(endog_name)
-#         endog = df[endog_name].to_numpy()
-#         exogs = df[exog_names].to_numpy()
+    print(f"exog_names: {exog_names}")
+    print()
 
-#     num_exog = len(exog_names)
-#     num_rows = ceil(num_exog / 2)
+    df = pd.DataFrame(exogs, columns=exog_names)
+    df, was_grouped = group_categorical(df)
+    df.drop("Intercept", axis=1, inplace=True)
+    exog_names = df.columns.to_list()
+    print(f"exog_names: {exog_names}")
+    if was_grouped:
+        exogs = df[exog_names].to_numpy()
 
-#     if figsize is None:
-#         figsize = (num_rows * 5, max(5, min(num_exog, 2) * 5))
+    num_exog = len(exog_names)
+    num_rows = ceil(num_exog / 2)
 
-#     fig, axes = plt.subplots(num_rows, 2, figsize=figsize)
-#     # plt.subplots_adjust(wspace=0.25, hspace=0.25)
-#     plt.subplots_adjust(wspace=0.2, hspace=0.2)
+    if figsize is None:
+        figsize = (num_rows * 5, max(5, min(num_exog, 2) * 5))
 
-#     idx = 0
+    fig, axes = plt.subplots(num_rows, 2, figsize=figsize)
+    plt.subplots_adjust(wspace=0.2, hspace=0.2)
 
-#     if nobs < fitted.model.endog.shape[0] and nobs != np.Inf and nobs != -1:
-#         df[endog_name] = endog
+    idx = 0
 
-#         df = df.copy().sample(nobs)
+    if nobs < fitted.model.endog.shape[0] and nobs != np.Inf and nobs != -1:
+        df[endog_name] = endog
 
-#         endog = df[endog_name].to_numpy()
-#         exogs = df[exog_names].to_numpy()
+        df = df.copy().sample(nobs)
 
-#     while idx < num_exog:
-#         row = idx // 2
-#         col = idx % 2
-#         exog_name = exog_names[idx]
-#         exog = [row[idx] for row in exogs]
+        endog = df[endog_name].to_numpy()
+        exogs = df[exog_names].to_numpy()
 
-#         if num_rows > 1:
-#             axes[row][col].set_xlabel(exog_name)
-#             axes[row][col].set_ylabel(endog_name)
-#             axes[row][col].scatter(exog, endog)
-#         else:
-#             axes[col].set_xlabel(exog_name)
-#             axes[col].set_ylabel(endog_name)
-#             axes[col].scatter(exog, endog)
-#         idx += 1
+    while idx < num_exog:
+        row = idx // 2
+        col = idx % 2
+        exog_name = exog_names[idx]
+        exog = [row[idx] for row in exogs]
 
-#     if (df.shape[1] - 1) % 2 != 0:
-#         if num_rows > 1:
-#             fig.delaxes(axes[row][1])  # remove last empty plot
-#         else:
-#             fig.delaxes(axes[1])
+        if num_rows > 1:
+            axes[row][col].set_xlabel(exog_name)
+            axes[row][col].set_ylabel(endog_name)
+            axes[row][col].scatter(exog, endog)
+        else:
+            axes[col].set_xlabel(exog_name)
+            axes[col].set_ylabel(endog_name)
+            axes[col].scatter(exog, endog)
+        idx += 1
 
-#     plt.show()
+    if (df.shape[1] - 1) % 2 != 0:
+        if num_rows > 1:
+            fig.delaxes(axes[row][1])  # remove last empty plot
+        else:
+            fig.delaxes(axes[1])
+
+    plt.show()
 
 
-# def residual_vs_explanatory_plot(
-#     fitted: rrs,
-#     nobs: int = 1000,
-#     figsize: Tuple = None,
-# ) -> None:
-#     # TODO: this has some bug when dealing with the plotting of categorical variables
-#     """
-#     Plot of variables vs residuals
+def residual_vs_explanatory_plot(
+    fitted: rrs,
+    nobs: int = 1000,
+    figsize: Tuple = None,
+) -> None:
+    """
+    Plot of variables vs residuals
 
-#     Parameters
-#     ----------
-#     nobs : int
-#         Number of observations to use for the scatter plots. The default
-#         value is 1,000. To use all observations in the plots, use nobs=-1
-#     figsize : tuple
-#         A tuple that determines the figure size. If None, size is
-#         determined based on the number of variables in the model
-#     """
+    Parameters
+    ----------
+    nobs : int
+        Number of observations to use for the scatter plots. The default
+        value is 1,000. To use all observations in the plots, use nobs=-1
+    figsize : tuple
+        A tuple that determines the figure size. If None, size is
+        determined based on the number of variables in the model
+    """
 
-#     exogs = fitted.model.exog
+    exogs = fitted.model.exog
 
-#     exog_names = fitted.model.exog_names
-#     endog_name = fitted.model.endog_names
+    exog_names = fitted.model.exog_names
 
-#     df = pd.DataFrame(exogs, columns=exog_names)
-#     df, was_undummified = undummify(df)
-#     df.drop("const", axis=1, inplace=True)
-#     true_exog_names = df.columns.to_list()
-#     if was_undummified:
-#         true_exog_names.remove(endog_name)
+    df = pd.DataFrame(exogs, columns=exog_names)
+    df, _ = group_categorical(df)
+    df.drop("Intercept", axis=1, inplace=True)
+    true_exog_names = df.columns.to_list()
 
-#     num_exog = len(true_exog_names)
-#     num_rows = ceil(num_exog / 2)
+    num_exog = len(true_exog_names)
+    num_rows = ceil(num_exog / 2)
 
-#     if figsize is None:
-#         figsize = (num_rows * 5, max(5, min(num_exog, 2) * 5))
+    if figsize is None:
+        figsize = (num_rows * 5, max(5, min(num_exog, 2) * 5))
 
-#     fig, axes = plt.subplots(num_rows, 2, figsize=figsize)
-#     plt.subplots_adjust(wspace=0.2, hspace=0.2)
+    fig, axes = plt.subplots(num_rows, 2, figsize=figsize)
+    plt.subplots_adjust(wspace=0.2, hspace=0.2)
 
-#     idx = 0
+    idx = 0
 
-#     residuals = fitted.resid
+    residuals = fitted.resid
 
-#     data = pd.DataFrame(exogs, columns=exog_names)
-#     data, _ = undummify(data)
+    data = pd.DataFrame(exogs, columns=exog_names)
+    data, _ = group_categorical(data)
 
-#     data["residuals"] = residuals
+    data["residuals"] = residuals
 
-#     if nobs < fitted.model.endog.shape[0] and nobs != np.Inf and nobs != -1:
-#         data = data.copy().sample(nobs)
+    if nobs < fitted.model.endog.shape[0] and nobs != np.Inf and nobs != -1:
+        data = data.copy().sample(nobs)
 
-#     categorical_dtypes = ["object", "category", "bool"]
+    categorical_dtypes = ["object", "category", "bool"]
 
-#     while idx < num_exog:
-#         row = idx // 2
-#         col = idx % 2
-#         exog_name = true_exog_names[idx]
-#         exog = [row[idx] for row in exogs]
+    while idx < num_exog:
+        row = idx // 2
+        col = idx % 2
+        exog_name = true_exog_names[idx]
 
-#         if num_rows > 1:
-#             if data[exog_name].dtype.name in categorical_dtypes:
-#                 sns.stripplot(
-#                     x=exog_name,
-#                     y="residuals",
-#                     data=data,
-#                     ax=axes[row][col],
-#                     c="black",
-#                 ).set(xlabel=exog_name, ylabel="Residuals")
-#             else:
-#                 sns.regplot(
-#                     x=exog_name,
-#                     y="residuals",
-#                     data=data,
-#                     ax=axes[row][col],
-#                     scatter_kws={"color": "black"},
-#                 ).set(xlabel=exog_name, ylabel="Residuals")
-#         else:
-#             if data[exog_name].dtype.name in categorical_dtypes:
-#                 sns.stripplot(
-#                     x=exog_name,
-#                     y="residuals",
-#                     data=data,
-#                     ax=axes[col],
-#                     c="black",
-#                 ).set(xlabel=exog_name, ylabel="Residuals")
-#             else:
-#                 sns.regplot(
-#                     x=exog_name,
-#                     y="residuals",
-#                     data=data,
-#                     ax=axes[col],
-#                     scatter_kws={"color": "black"},
-#                 ).set(xlabel=exog_name, ylabel="Residuals")
-#         idx += 1
+        if num_rows > 1:
+            if data[exog_name].dtype.name in categorical_dtypes:
+                sns.stripplot(
+                    x=exog_name,
+                    y="residuals",
+                    data=data,
+                    ax=axes[row][col],
+                    c="black",
+                ).set(xlabel=exog_name, ylabel="Residuals")
+            else:
+                sns.regplot(
+                    x=exog_name,
+                    y="residuals",
+                    data=data,
+                    ax=axes[row][col],
+                    scatter_kws={"color": "black"},
+                ).set(xlabel=exog_name, ylabel="Residuals")
+        else:
+            if data[exog_name].dtype.name in categorical_dtypes:
+                sns.stripplot(
+                    x=exog_name,
+                    y="residuals",
+                    data=data,
+                    ax=axes[col],
+                    c="black",
+                ).set(xlabel=exog_name, ylabel="Residuals")
+            else:
+                sns.regplot(
+                    x=exog_name,
+                    y="residuals",
+                    data=data,
+                    ax=axes[col],
+                    scatter_kws={"color": "black"},
+                ).set(xlabel=exog_name, ylabel="Residuals")
+        idx += 1
 
-#     if (df.shape[1] - 1) % 2 != 0:
-#         if num_rows > 1:
-#             fig.delaxes(axes[row][1])  # remove last empty plot
-#         else:
-#             fig.delaxes(axes[1])  # remove last empty plot
-#     plt.show()
+    if df.shape[1] % 2 != 0:
+        if num_rows > 1:
+            fig.delaxes(axes[row][1])  # remove last empty plot
+        else:
+            fig.delaxes(axes[1])  # remove last empty plot
+
+    plt.show()

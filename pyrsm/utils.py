@@ -392,27 +392,29 @@ def odir(obj, private: bool = False) -> dict:
     return {"methods": mth, "attributes": attr}
 
 
-# def undummify(df: pd.DataFrame, prefix_sep: str = "__") -> tuple[pd.DataFrame, bool]:
-#     cols2collapse = {
-#         item.split(prefix_sep)[0]: (prefix_sep in item) for item in df.columns
-#     }
-#     if not any(cols2collapse.values()):
-#         return df, False
+def group_categorical(
+    df: pd.DataFrame, prefix_sep: str = "["
+) -> tuple[pd.DataFrame, bool]:
+    columns_to_group = {
+        item.split(prefix_sep)[0]: (prefix_sep in item) for item in df.columns
+    }
+    if not any(columns_to_group.values()):
+        return df, False
 
-#     series_list = []
-#     for col, needs_to_collapse in cols2collapse.items():
-#         if needs_to_collapse:
-#             undummified = (
-#                 df.filter(like=col)
-#                 .idxmax(axis=1)
-#                 .apply(lambda x: x.split(prefix_sep, maxsplit=1)[1])
-#                 .rename(col)
-#             )
-#             series_list.append(undummified)
-#         else:
-#             series_list.append(df[col])
-#     undummified_df = pd.concat(series_list, axis=1)
-#     return undummified_df, True
+    series_list = []
+    for col, needs_to_collapse in columns_to_group.items():
+        if needs_to_collapse:
+            categorical_grouped = (
+                df.filter(like=col)
+                .idxmax(axis=1)
+                .apply(lambda x: x.split(prefix_sep, maxsplit=1)[1].split(".")[1][:-1])
+                .rename(col)
+            )
+            series_list.append(categorical_grouped)
+        else:
+            series_list.append(df[col])
+    categorical_grouped_df = pd.concat(series_list, axis=1)
+    return categorical_grouped_df, True
 
 
 # class Transform:
