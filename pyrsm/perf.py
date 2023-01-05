@@ -136,6 +136,9 @@ def confusion(df, rvar, lev, pred, cost=1, margin=2):
         Proportion of cases to act on based on the cost/margin ratio
     """
 
+    if isinstance(pred, list) and len(pred) > 1:
+        return "This function can only take one predictor variables at time"
+
     break_even = cost / margin
     gtbe = df[pred] > break_even
     pos = df[rvar] == lev
