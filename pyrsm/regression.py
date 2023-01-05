@@ -5,11 +5,13 @@ import matplotlib.pyplot as plt
 from sklearn import metrics
 import seaborn as sns
 from scipy import stats
+import statsmodels as sm
 import statsmodels.formula.api as smf
 from statsmodels.regression.linear_model import RegressionResults as rrs
 from math import ceil
 from .logit import sig_stars
 from .utils import setdiff, format_nr, expand_grid, ifelse
+from .perf import auc
 
 
 def coef_plot(
@@ -162,7 +164,7 @@ def reg_dashboard(fitted, nobs: int = 1000):
 
     Parameters
     ----------
-    fitted : Object with fittedv alues and residuals
+    fitted : Object with fitted values and residuals
     nobs: int
         Number of observations to use for plots.
         Set to None or -1 to plot all values.
@@ -221,7 +223,7 @@ def sim_prediction(df: pd.DataFrame, vary: list = [], nnv: int = 5) -> pd.DataFr
     Parameters
     ----------
     df : Pandas DataFrame
-    vary : List of column names of Dictionary with keys and values to use
+    vary : List of column names or Dictionary with keys and values to use
     nnv : int
         Number of values to use to simulate the effect of a numeric variable
 
@@ -256,21 +258,6 @@ def sim_prediction(df: pd.DataFrame, vary: list = [], nnv: int = 5) -> pd.DataFr
                 dct[v] = df[v].unique()
 
     return expand_grid(dct, dt)
-
-
-## add prediction and interaction plots that actually make sense
-## add measures of data density? e.g., line thickness or a dashed line?
-
-# import math
-# fig, axes = plt.subplots(3, 5, sharey=True, figsize=(10, 30))
-# evar = x_train.columns
-# for i in range(15):
-#     print(i)
-#     idat = rsm.sim_prediction(x_train[evar], vary=evar[i], nnv=50)
-#     idat[f"prediction_{evar[i]}"] = m1.predict_proba(idat)[:, 1]
-#     row = math.floor(i / 5)
-#     col = i % 5
-#     fig = sns.lineplot(x=evar[i], y=f"prediction_{evar[i]}", data=idat, ax=axes[row, col])
 
 
 def regress(
