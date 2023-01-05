@@ -1,11 +1,25 @@
 ## select commands to run and use the Command Palette to send to open terminal
 
 # use python build to install locally testing 
+conda deactivate
 sudo pip3 uninstall -y pyrsm
 sudo rm -rf ~/gh/pyrsm/dist
 pip3 install -q build
 sudo python3 -m build
-pip3 install dist/pyrsm-*.tar.gz
+# sudo pip3 install dist/pyrsm-*.tar.gz
+
+# from https://github.com/vnijs/pypi-howto
+# sudo pip3 install --upgrade twine keyring
+
+# https://kynan.github.io/blog/2020/05/23/how-to-upload-your-package-to-the-python-package-index-pypi-test-server
+# tokens are in ~/.pypirc
+
+# try sending to pypi testing ground first
+python3 -m twine check dist/*
+python3 -m twine upload --repository testpypi dist/*
+
+# if all goes well push to main pypi
+python3 -m twine upload dist/*
 
 # use conda for local 
 
@@ -29,30 +43,28 @@ conda activate pyrsm-dev
 # conda install -y conda-build # only need this once
 conda remove -y --force pyrsm # remove current version
 # rm -f /opt/conda/envs/pyrsm-dev/conda-bld/broken/pyrsm*
-rm -f /opt/conda/conda-bld/broken/pyrsm*
+rm -rf /opt/conda/conda-bld/broken/pyrsm*
+rm -rf /opt/conda/conda-bld/pyrsm*
 conda build ~/gh/pyrsm/conda/pyrsm
+conda install /opt/conda/conda-bld/pyrsm*
 
-# the build step above will likely throw an error but then you can install using the below
-# what? :)
-# conda install /opt/conda/envs/pyrsm-dev/conda-bld/broken/pyrsm*
+# if this fails on the last step use the below
+conda install /opt/conda/conda-bld/broken/pyrsm*
+
+# adding to base environment
+conda activate base
+conda remove -y --force pyrsm # remove current version
+rm -rf /opt/conda/conda-bld/broken/pyrsm*
+rm -rf /opt/conda/conda-bld/pyrsm*
+conda build ~/gh/pyrsm/conda/pyrsm
+conda install /opt/conda/conda-bld/pyrsm*
+
+# if this fails on the last step use the below
 conda install /opt/conda/conda-bld/broken/pyrsm*
 
 # check the pyrsm version number in 
 python -c "import pyrsm; print(pyrsm.__version__)"
 python -c "import pyrsm; print(pyrsm.__file__)"
-
-# from https://github.com/vnijs/pypi-howto
-# sudo pip3 install --upgrade twine keyring
-
-# https://kynan.github.io/blog/2020/05/23/how-to-upload-your-package-to-the-python-package-index-pypi-test-server
-# tokens are in ~/.pypirc
-
-# try sending to pypi testing ground first
-python3 -m twine check dist/*
-python3 -m twine upload --repository testpypi dist/*
-
-# if all goes well push to main pypi
-python3 -m twine upload dist/*
 
 # setting up for conda
 
