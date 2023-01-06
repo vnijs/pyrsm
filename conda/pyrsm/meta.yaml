@@ -6,10 +6,8 @@ package:
   version: {{ version }}
 
 source:
-  # url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/pyrsm-{{ version }}.tar.gz
-  # sha256: 1d0b0900f9f1ddcdfdd487b6e5ba03a8a4d907d1b501e0cd22cdf4d83aad608d
-  # path: /Users/raghavprasad/Work/UCSD/Rady/pyrsm  # this needs to be modified to match the local repo parent directory path
-  path: /Users/vnijs/gh/pyrsm  # this needs to be modified to match the local repo parent directory path
+  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/pyrsm-{{ version }}.tar.gz
+  sha256: 356fb4ed117dbe4c05b7edcef7ff78b4a5cde96082cfcdc61f7ec389f3bdf032
 
 build:
   noarch: python
@@ -18,20 +16,21 @@ build:
 
 requirements:
   host:
-    - pip
     - python
+    - pip
   run:
-    - importlib-resources >=3.3.1
-    - ipynbname >=2021.3.2
-    - ipython >=8.0.1
-    - matplotlib-base >=3.1.1
+    - python
+    - python >=3.6
     - numpy >=1.17.3
     - pandas >=0.25.2
-    - python
-    - scikit-learn >=1.0.2
-    - scipy >=1.4.1
     - seaborn >=0.9.0
+    - matplotlib-base >=3.1.1
     - statsmodels >=0.10.1
+    - scipy >=1.4.1
+    - ipynbname >=2021.3.2
+    - scikit-learn >=1.0.2
+    - ipython >=8.0.1
+    - importlib-resources >=3.3.1
 
 test:
   imports:

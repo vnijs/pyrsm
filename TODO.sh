@@ -88,6 +88,8 @@ python -c "import pyrsm; print(pyrsm.__file__)"
 
 cd conda
 grayskull pypi pyrsm
+rm -rf /opt/conda/conda-bld/broken/pyrsm*
+rm -rf /opt/conda/conda-bld/pyrsm*
 conda build pyrsm/
 conda install --use-local pyrsm
 conda build purge
@@ -98,8 +100,20 @@ code ~/gh/conda-packages ## need to make manual edits for python >= 3.6 and lice
 # PR created @ https://github.com/conda-forge/staged-recipes/pull/18174
 
 # adding package to personal channel @ https://anaconda.org/vnijs/pyrsm
-# conda install anaconda-client
-# anaconda login
-conda build .
+conda install anaconda-client
+anaconda login
+# conda build .
 #anaconda upload ~/miniconda3/conda-bld/noarch/pyrsm-0.5.8-py_0.tar.bz2
-anaconda upload ~/miniconda3/conda-bld/noarch/pyrsm-*
+#anaconda upload ~/miniconda3/conda-bld/noarch/pyrsm-*
+
+# if the builds above completed without issues use the below
+anaconda upload /opt/conda/conda-bld/pyrsm*
+
+# else use the below
+anaconda upload /opt/conda/conda-bld/broken/pyrsm*
+
+#conda install /opt/conda/conda-bld/pyrsm*
+# if this fails on the last step use the below
+#conda install /opt/conda/conda-bld/broken/pyrsm*
+
+
