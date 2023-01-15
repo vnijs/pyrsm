@@ -93,7 +93,9 @@ def extract_evars(model, cn):
     return [v for i, v in enumerate(evars) if v not in evars[:i]]
 
 
-def pred_plot_sm(fitted, df, incl=None, excl=[], incl_int=[], nnv=20):
+def pred_plot_sm(
+    fitted, df, incl=None, excl=[], incl_int=[], nnv=20, minq=0.025, maxq=0.975
+):
     """
     Generate prediction plots for statsmodels regression models (OLS and Logistic).
     A faster alternative to PDP plots.
@@ -111,6 +113,10 @@ def pred_plot_sm(fitted, df, incl=None, excl=[], incl_int=[], nnv=20):
           prediction plotting (e.g., ["x1:x2", "x2:x3"] would generate interaction plots for
           x1 and x2 and x2 and x3
     nnv: Integer: The number of values to simulate for numeric variables used in prediction
+    minq : float
+        Quantile to use for the minimum value for simulation of numeric variables
+    maxq : float
+        Quantile to use for the maximum value for simulation of numeric variables
 
     Examples
     -------
@@ -124,6 +130,7 @@ def pred_plot_sm(fitted, df, incl=None, excl=[], incl_int=[], nnv=20):
         model = fitted
 
     min_max = [np.Inf, -np.Inf]
+    probs = np.linspace(0.05, 0.95, 20)
 
     def calc_ylim(lab, lst, min_max):
         vals = lst[lab]
@@ -151,7 +158,7 @@ def pred_plot_sm(fitted, df, incl=None, excl=[], incl_int=[], nnv=20):
 
     pred_dict = {}
     for v in incl:
-        iplot = sim_prediction(df, vary=v, nnv=nnv)
+        iplot = sim_prediction(df, vary=v, nnv=nnv, minq=minq, maxq=maxq)
         iplot["prediction"] = fitted.predict(iplot)
         min_max = calc_ylim("prediction", iplot, min_max)
         pred_dict[v] = iplot
@@ -159,7 +166,7 @@ def pred_plot_sm(fitted, df, incl=None, excl=[], incl_int=[], nnv=20):
     for v in incl_int:
         vl = v.split(":")
         is_num = [pd.api.types.is_numeric_dtype(df[c].dtype) for c in vl]
-        iplot = sim_prediction(df, vary=vl, nnv=nnv)
+        iplot = sim_prediction(df, vary=vl, nnv=nnv, minq=maxq, maxq=maxq)
         iplot["prediction"] = fitted.predict(iplot)
         if sum(is_num) < 2:
             min_max = calc_ylim("prediction", iplot, min_max)
@@ -232,7 +239,17 @@ def pred_plot_sm(fitted, df, incl=None, excl=[], incl_int=[], nnv=20):
         ax[-1, -1].remove()
 
 
-def pred_plot_sk(fitted, df, rvar=None, incl=None, excl=[], incl_int=[], nnv=20):
+def pred_plot_sk(
+    fitted,
+    df,
+    rvar=None,
+    incl=None,
+    excl=[],
+    incl_int=[],
+    nnv=20,
+    minq=0.025,
+    maxq=0.975,
+):
     """
     Generate prediction plots for sklearn models. A faster alternative to PDP plots
     that can handle interaction plots with categorical variables
@@ -250,6 +267,10 @@ def pred_plot_sk(fitted, df, rvar=None, incl=None, excl=[], incl_int=[], nnv=20)
         variables a x b and b x c
     nnv: int
         The number of values to use in simulation for numeric variables
+    minq : float
+        Quantile to use for the minimum value of numeric variables
+    maxq : float
+        Quantile to use for the maximum value of numeric variables
     """
     # features names used in the sklearn model
     fn = fitted.feature_names_in_
@@ -291,7 +312,11 @@ def pred_plot_sk(fitted, df, rvar=None, incl=None, excl=[], incl_int=[], nnv=20)
     pred_dict = {}
     for v in incl:
         iplot = sim_prediction(
-            df[transformed + not_transformed].dropna(), vary=v, nnv=nnv
+            df[transformed + not_transformed].dropna(),
+            vary=v,
+            nnv=nnv,
+            minq=minq,
+            maxq=maxq,
         )
         iplot_dum = dummify(iplot, transformed)[fn]
         iplot["prediction"] = fitted.predict_proba(iplot_dum)[:, 1]
@@ -302,7 +327,11 @@ def pred_plot_sk(fitted, df, rvar=None, incl=None, excl=[], incl_int=[], nnv=20)
         vl = v.split(":")
         is_num = [pd.api.types.is_numeric_dtype(df[c].dtype) for c in vl]
         iplot = sim_prediction(
-            df[transformed + not_transformed].dropna(), vary=vl, nnv=nnv
+            df[transformed + not_transformed].dropna(),
+            vary=vl,
+            nnv=nnv,
+            minq=minq,
+            maxq=maxq,
         )
         iplot_dum = dummify(iplot, transformed)[fn]
         iplot["prediction"] = fitted.predict_proba(iplot_dum)[:, 1]

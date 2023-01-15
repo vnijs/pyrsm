@@ -12,7 +12,11 @@ df["x3"] = np.random.choice(["a", "b", "c"], nr)
 df["response_prob"] = np.random.uniform(0, 1, nr)
 df["response"] = np.where((df["x1"] > 0.5) & (df["response_prob"] > 0.5), "yes", "no")
 
+# df.iloc[0, 0] = 1000
+# sim_prediction(df, vary="x1", minq=0, maxq=1)
+# sim_prediction(df, vary="x1")
+
 
 def test_sim_prediction():
     ret = sim_prediction(df)
-    assert ret.loc[0, "x3"] is "b", "Incorrectly generated simulated data"
+    assert ret.loc[0, "x3"] == "b", "Incorrectly generated simulated data"

@@ -215,7 +215,13 @@ def reg_dashboard(fitted, nobs: int = 1000):
     )
 
 
-def sim_prediction(df: pd.DataFrame, vary: list = [], nnv: int = 5) -> pd.DataFrame:
+def sim_prediction(
+    df: pd.DataFrame,
+    vary: list = [],
+    nnv: int = 5,
+    minq: float = 0,
+    maxq: float = 1,
+) -> pd.DataFrame:
     """
     Simulate data for prediction
 
@@ -225,6 +231,10 @@ def sim_prediction(df: pd.DataFrame, vary: list = [], nnv: int = 5) -> pd.DataFr
     vary : List of column names or Dictionary with keys and values to use
     nnv : int
         Number of values to use to simulate the effect of a numeric variable
+    minq : float
+        Quantile to use for the minimum value of numeric variables
+    maxq : float
+        Quantile to use for the maximum value of numeric variables
 
     Returns:
     ----------
@@ -250,7 +260,11 @@ def sim_prediction(df: pd.DataFrame, vary: list = [], nnv: int = 5) -> pd.DataFr
             if pd.api.types.is_numeric_dtype(df[v].dtype):
                 nu = df[v].nunique()
                 if nu > 2:
-                    dct[v] = np.linspace(df[v].min(), df[v].max(), min([nu, nnv]))
+                    dct[v] = np.linspace(
+                        np.quantile(df[v], minq),
+                        np.quantile(df[v], maxq),
+                        min([nu, nnv]),
+                    )
                 else:
                     dct[v] = [df[v].min(), df[v].max()]
             else:

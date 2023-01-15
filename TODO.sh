@@ -6,6 +6,13 @@ sudo pip3 uninstall -y pyrsm
 sudo rm -rf ~/gh/pyrsm/dist
 pip3 install -q build
 sudo python3 -m build
+sudo pip3 install dist/pyrsm-*.tar.gz
+
+python3 -c "import pyrsm; print(pyrsm.__version__)"
+python3 -c "import pyrsm; print(pyrsm.__file__)"
+
+# Weird and annoying "Could not find a version that satisfies the requirement python>=3.6"
+# conda activate base
 # sudo pip3 install dist/pyrsm-*.tar.gz
 
 # from https://github.com/vnijs/pypi-howto
@@ -42,9 +49,12 @@ cc pyrsm-dev pyrsm
 conda activate pyrsm-dev
 # conda install -y conda-build # only need this once
 conda remove -y --force pyrsm # remove current version
-# rm -f /opt/conda/envs/pyrsm-dev/conda-bld/broken/pyrsm*
 rm -rf /opt/conda/conda-bld/broken/pyrsm*
 rm -rf /opt/conda/conda-bld/pyrsm*
+
+# get the sha256 code on the built tar.gz file
+openssl sha256 dist/pyrsm-*.tar.gz
+# add the sha256 sequence to conda/meta.yaml file **before** building
 conda build ~/gh/pyrsm/conda/pyrsm
 conda install /opt/conda/conda-bld/pyrsm*
 
@@ -52,11 +62,21 @@ conda install /opt/conda/conda-bld/pyrsm*
 conda install /opt/conda/conda-bld/broken/pyrsm*
 
 # adding to base environment
+# note: need to change the sha256 code in the meta.yaml file 
+# download the tar.gz file after login in to pypi and looking at the 
+# releases then use "openssl sha256 ~/Downloads/pyrsm-0.6.3.tar.gz" 
+# or similar and add the code to meta.yaml in the conda directory
 conda activate base
 conda remove -y --force pyrsm # remove current version
 rm -rf /opt/conda/conda-bld/broken/pyrsm*
 rm -rf /opt/conda/conda-bld/pyrsm*
+
+# get the sha256 code on the built tar.gz file
+openssl sha256 dist/pyrsm-*.tar.gz
+# add the sha256 sequence to conda/meta.yaml file **before** building
 conda build ~/gh/pyrsm/conda/pyrsm
+
+# try the below, might work but 
 conda install /opt/conda/conda-bld/pyrsm*
 
 # if this fails on the last step use the below
