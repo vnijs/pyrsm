@@ -6,7 +6,7 @@ sudo pip3 uninstall -y pyrsm
 sudo rm -rf ~/gh/pyrsm/dist
 pip3 install -q build
 sudo python3 -m build
-sudo pip3 install dist/pyrsm-*.tar.gz
+# sudo pip3 install dist/pyrsm-*.tar.gz
 
 python3 -c "import pyrsm; print(pyrsm.__version__)"
 python3 -c "import pyrsm; print(pyrsm.__file__)"

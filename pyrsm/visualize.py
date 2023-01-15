@@ -166,7 +166,7 @@ def pred_plot_sm(
     for v in incl_int:
         vl = v.split(":")
         is_num = [pd.api.types.is_numeric_dtype(df[c].dtype) for c in vl]
-        iplot = sim_prediction(df, vary=vl, nnv=nnv, minq=maxq, maxq=maxq)
+        iplot = sim_prediction(df, vary=vl, nnv=nnv, minq=minq, maxq=maxq)
         iplot["prediction"] = fitted.predict(iplot)
         if sum(is_num) < 2:
             min_max = calc_ylim("prediction", iplot, min_max)
