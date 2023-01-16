@@ -94,7 +94,16 @@ def extract_evars(model, cn):
 
 
 def pred_plot_sm(
-    fitted, df, incl=None, excl=[], incl_int=[], nnv=20, minq=0.025, maxq=0.975
+    fitted,
+    df,
+    incl=None,
+    excl=[],
+    incl_int=[],
+    fix=True,
+    hline=True,
+    nnv=20,
+    minq=0.025,
+    maxq=0.975,
 ):
     """
     Generate prediction plots for statsmodels regression models (OLS and Logistic).
@@ -112,6 +121,13 @@ def pred_plot_sm(
     incl_int: List of strings; contains the names of the columns of data to be interacted for
           prediction plotting (e.g., ["x1:x2", "x2:x3"] would generate interaction plots for
           x1 and x2 and x2 and x3
+    fix : Logical or tuple
+        Set the desired limited on yhat or have it calculated automatically.
+        Set to FALSE to have y-axis limits set by ggplot2 for each plot
+    hline : Logical or float
+        Add a horizontal line at the average of the target variable. When set to False
+        no line is added. When set to a specific number, the horizontal line will be
+        added at that value
     nnv: Integer: The number of values to simulate for numeric variables used in prediction
     minq : float
         Quantile to use for the minimum value for simulation of numeric variables
@@ -130,14 +146,22 @@ def pred_plot_sm(
         model = fitted
 
     min_max = [np.Inf, -np.Inf]
-    probs = np.linspace(0.05, 0.95, 20)
 
     def calc_ylim(lab, lst, min_max):
-        vals = lst[lab]
-        return [min(min_max[0], min(vals)), max(min_max[1], max(vals))]
+        if isinstance(fix, bool) and fix == True:
+            vals = lst[lab]
+            return [min(min_max[0], min(vals)), max(min_max[1], max(vals))]
+        elif not isinstance(fix, bool) and len(fix) == 2:
+            return fix
+        else:
+            return False
 
     rvar = model.endog_names
-    hline = df[rvar].mean()
+    if isinstance(hline, bool) and hline == True:
+        hline = df[rvar].mean()
+
+    if not isinstance(hline, float) and not isinstance(hline, int):
+        hline = False
 
     if incl is None:
         incl = extract_evars(model, df.columns)
@@ -181,8 +205,10 @@ def pred_plot_sm(
             fig = sns.lineplot(
                 x=v, y="prediction", marker="o", data=pred_dict[v], ax=ax[row, col]
             )
-        ax[row, col].set(ylim=tuple(min_max))
-        ax[row, col].axhline(y=hline, linestyle="--")
+        if isinstance(min_max, tuple) and len(min_max) == 2:
+            ax[row, col].set(ylim=tuple(min_max))
+        if hline != False:
+            ax[row, col].axhline(y=hline, linestyle="--")
 
         if col == 1:
             row += 1
@@ -219,9 +245,9 @@ def pred_plot_sm(
                 ax=ax[row, col],
             )
 
-        if min_max[0] != np.inf and min_max[1] != -np.inf and sum(is_num) < 2:
+        if isinstance(min_max, tuple) and len(min_max) == 2 and sum(is_num) < 2:
             ax[row, col].set(ylim=tuple(min_max))
-        if sum(is_num) < 2:
+        if sum(is_num) < 2 and hline != False:
             ax[row, col].axhline(y=hline, linestyle="--")
 
         if col == 1:
@@ -246,6 +272,8 @@ def pred_plot_sk(
     incl=None,
     excl=[],
     incl_int=[],
+    fix=True,
+    hline=True,
     nnv=20,
     minq=0.025,
     maxq=0.975,
@@ -258,13 +286,20 @@ def pred_plot_sk(
     ----------
     fitted : A fitted sklearn model
     df : Pandas DataFrame with data used for estimation
-    rvar: The column name for the response/target variable
-    incl: A list of column names to generate prediction plots for. If None, all
+    rvar : The column name for the response/target variable
+    incl : A list of column names to generate prediction plots for. If None, all
         variables will be plotted
-    excl: A list of column names to exclude from plotting
-    incl_int: A list is ":" separated column names to plots interaction plots for.
+    excl : A list of column names to exclude from plotting
+    incl_int : A list is ":" separated column names to plots interaction plots for.
         For example incl_int = ["a:b", "b:c"] would generate interaction plots for
         variables a x b and b x c
+    fix : Logical or tuple
+        Set the desired limited on yhat or have it calculated automatically.
+        Set to False to have y-axis limits set by ggplot2 for each plot
+    hline : Logical or float
+        Add a horizontal line at the average of the target variable. When set to False
+        no line is added. When set to a specific number, the horizontal line will be
+        added at that value
     nnv: int
         The number of values to use in simulation for numeric variables
     minq : float
@@ -290,12 +325,20 @@ def pred_plot_sk(
             return df
 
     min_max = [np.Inf, -np.Inf]
-    if rvar is not None:
+    if rvar is not None and isinstance(hline, bool) and hline == True:
         hline = df[rvar].mean()
 
+    if not isinstance(hline, float) and not isinstance(hline, int):
+        hline = False
+
     def calc_ylim(lab, lst, min_max):
-        vals = lst[lab]
-        return [min(min_max[0], min(vals)), max(min_max[1], max(vals))]
+        if isinstance(fix, bool) and fix == True:
+            vals = lst[lab]
+            return [min(min_max[0], min(vals)), max(min_max[1], max(vals))]
+        elif not isinstance(fix, bool) and len(fix) == 2:
+            return fix
+        else:
+            return False
 
     excl = ifelse(isinstance(excl, list), excl, [excl])
     incl_int = ifelse(isinstance(incl_int, list), incl_int, [incl_int])
@@ -349,8 +392,9 @@ def pred_plot_sk(
                 x=v, y="prediction", marker="o", data=pred_dict[v], ax=ax[row, col]
             )
         # fig = sns.lineplot(x=v, y="prediction", data=pred_dict[v], ax=ax[row, col])
-        ax[row, col].set(ylim=tuple(min_max))
-        if rvar is not None:
+        if isinstance(min_max, tuple) and len(min_max) == 2:
+            ax[row, col].set(ylim=tuple(min_max))
+        if hline != False:
             ax[row, col].axhline(y=hline, linestyle="--")
 
         if col == 1:
@@ -388,9 +432,9 @@ def pred_plot_sk(
                 ax=ax[row, col],
             )
 
-        if min_max[0] != np.inf and min_max[1] != -np.inf and sum(is_num) < 2:
+        if isinstance(min_max, tuple) and len(min_max) == 2 and sum(is_num) < 2:
             ax[row, col].set(ylim=tuple(min_max))
-        if sum(is_num) < 2 and rvar is not None:
+        if sum(is_num) < 2 and hline != False:
             ax[row, col].axhline(y=hline, linestyle="--")
 
         if col == 1:
@@ -473,7 +517,7 @@ def vimp_plot_sm(fitted, df, rep=5):
     importance_values = {k: [v / rep] for k, v in importance_values.items()}
     sorted_idx = pd.DataFrame(importance_values).transpose()
     sorted_idx = sorted_idx.sort_values(0, ascending=True)
-    fig = sorted_idx.plot.barh(color="slateblue", legend=None)
+    fig = sorted_idx.plot.barh(color="slateblue", legend=None, errorbar=None)
     plt.xlabel(xlab)
     plt.title("Permutation Importance")
 
@@ -505,6 +549,10 @@ def vimp_plot_sk(fitted, X, y, rep=5):
     data.columns = fitted.feature_names_in_
     order = data.agg("mean").sort_values(ascending=False).index
     fig = sns.barplot(
-        x="value", y="variable", color="slateblue", data=pd.melt(data[order])
+        x="value",
+        y="variable",
+        color="slateblue",
+        errorbar=None,
+        data=pd.melt(data[order]),
     )
     fig = fig.set(title="Permutation Importance", xlabel=xlab, ylabel=None)

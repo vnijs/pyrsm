@@ -86,6 +86,18 @@ conda install /opt/conda/conda-bld/broken/pyrsm*
 python -c "import pyrsm; print(pyrsm.__version__)"
 python -c "import pyrsm; print(pyrsm.__file__)"
 
+# if the builds above completed without issues use the below
+# to upload to the vnijs user account on anaconda
+# (check passwd manager as needed)
+anaconda upload /opt/conda/conda-bld/pyrsm*
+
+# else use the below to upload to the vnijs user
+# account on anaconda (check passwd manager as needed)
+anaconda upload /opt/conda/conda-bld/broken/pyrsm*
+
+
+## not sure if still needed
+
 # setting up for conda
 
 # conda config --add channels conda-forge
