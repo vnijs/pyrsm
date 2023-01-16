@@ -150,7 +150,7 @@ def pred_plot_sm(
     def calc_ylim(lab, lst, min_max):
         if isinstance(fix, bool) and fix == True:
             vals = lst[lab]
-            return [min(min_max[0], min(vals)), max(min_max[1], max(vals))]
+            return (min(min_max[0], min(vals)), max(min_max[1], max(vals)))
         elif not isinstance(fix, bool) and len(fix) == 2:
             return fix
         else:
@@ -334,7 +334,7 @@ def pred_plot_sk(
     def calc_ylim(lab, lst, min_max):
         if isinstance(fix, bool) and fix == True:
             vals = lst[lab]
-            return [min(min_max[0], min(vals)), max(min_max[1], max(vals))]
+            return (min(min_max[0], min(vals)), max(min_max[1], max(vals)))
         elif not isinstance(fix, bool) and len(fix) == 2:
             return fix
         else:
@@ -517,7 +517,7 @@ def vimp_plot_sm(fitted, df, rep=5):
     importance_values = {k: [v / rep] for k, v in importance_values.items()}
     sorted_idx = pd.DataFrame(importance_values).transpose()
     sorted_idx = sorted_idx.sort_values(0, ascending=True)
-    fig = sorted_idx.plot.barh(color="slateblue", legend=None, errorbar=None)
+    fig = sorted_idx.plot.barh(color="slateblue", legend=None)
     plt.xlabel(xlab)
     plt.title("Permutation Importance")
 
