@@ -7,7 +7,7 @@ package:
 
 source:
   url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/pyrsm-{{ version }}.tar.gz
-  sha256: e9a43d30b38a710e2130ba0e49ad741256e600ad3b367220dc047358bf6a8916
+  sha256: e29128ad2861546ab8a83e3233a7f775da0746ea7c24bc3dbc46c278cdf11589
 
 build:
   noarch: python

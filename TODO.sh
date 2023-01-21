@@ -11,6 +11,12 @@ sudo pip3 install dist/pyrsm-*.tar.gz
 python3 -c "import pyrsm; print(pyrsm.__version__)"
 python3 -c "import pyrsm; print(pyrsm.__file__)"
 
+# get the sha256 code on the built tar.gz file **before**
+# building the conda version. You can get this from the version 
+# built for pip
+# add to meta.yaml
+openssl sha256 dist/pyrsm-*.tar.gz
+
 # Weird and annoying "Could not find a version that satisfies the requirement python>=3.6"
 ##### removed some references to python and python>=3.6 -- lets see if that helps #####
 # conda activate base
@@ -42,6 +48,8 @@ python3 -m twine upload dist/*
 # and this local build of pyrsm can be installed using
 # conda install -y /path/to/build/file
 
+
+
 ##
 ## For some reason you have to increment the version number in __init__.py
 ## and meta.yaml for changes to get picked up
@@ -71,6 +79,7 @@ conda activate base
 conda remove -y --force pyrsm # remove current version
 rm -rf /opt/conda/conda-bld/broken/pyrsm*
 rm -rf /opt/conda/conda-bld/pyrsm*
+rm -rf /opt/conda/conda-bld/noarch/pyrsm*
 
 # get the sha256 code on the built tar.gz file **before**
 # building the conda version. You can get this from the version 
@@ -81,10 +90,10 @@ openssl sha256 dist/pyrsm-*.tar.gz
 conda build ~/gh/pyrsm/conda/pyrsm
 
 # try the below, might work but
-conda install /opt/conda/conda-bld/pyrsm*
+# conda install /opt/conda/conda-bld/pyrsm*
 
 # if this fails on the last step use the below
-conda install /opt/conda/conda-bld/broken/pyrsm*
+# conda install /opt/conda/conda-bld/broken/pyrsm*
 
 # check the pyrsm version number in
 python -c "import pyrsm; print(pyrsm.__version__)"
