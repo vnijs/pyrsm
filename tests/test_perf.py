@@ -15,7 +15,7 @@ np.random.seed(1234)
 nr = 100
 df = pd.DataFrame()
 df["x1"] = np.random.uniform(0, 1, nr)
-df["x2"] = 1 - df["x1"]
+df["x2"] = 1 - df.x1
 df["response_prob"] = np.random.uniform(0, 1, nr)
 df["response"] = np.where((df["x1"] > 0.5) & (df["response_prob"] > 0.5), "yes", "no")
 df["training"] = np.concatenate([np.ones(80), np.zeros(20)])
@@ -86,7 +86,7 @@ def test_profit_plot_single():
 
 
 def test_profit_plot_mult():
-    fig = profit_plot(df, "response", "yes", ["x1", "x2"], qnt=10)
+    fig = profit_plot(df, "response", "yes", ["x1", "x2"], qnt=10, contact=True)
 
 
 def test_rome_plot_single():
