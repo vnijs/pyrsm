@@ -36,7 +36,7 @@ def calc_qnt(df, rvar, lev, pred, qnt=10):
     perf_df = df.groupby("bins").rvar_int.agg(nr_obs="count", nr_resp=sum).reset_index()
 
     # flip if needed
-    if perf_df.nr_resp.iloc[0] < perf_df.nr_resp.iloc[-1]:
+    if perf_df.nr_resp.iloc[1] < perf_df.nr_resp.iloc[-1]:
         perf_df = perf_df.sort_values("bins", ascending=False)
 
     perf_df["cum_obs"] = np.cumsum(perf_df.nr_obs)
