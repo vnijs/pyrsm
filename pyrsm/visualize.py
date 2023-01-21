@@ -224,7 +224,7 @@ def pred_plot_sm(
         if col == 1:
             row += 1
 
-    start_col = ifelse(col == 1, 0, 1)
+    start_col = ifelse((col == 1) or len(incl) == 0, 0, 1)
     for j, v in enumerate(incl_int):
         col = ifelse(j % 2 == start_col, 0, 1)
         vl = v.split(":")
@@ -324,6 +324,17 @@ def pred_plot_sk(
     not_transformed = [c for c in df.columns for f in fn if c == f]
     transformed = list(set([c for c in df.columns for f in fn if c in f and c != f]))
 
+    if hasattr(fitted, "classes_"):
+        sk_type = "classification"
+    else:
+        sk_type = "regression"
+
+    def pred_fun(fitted, df):
+        if sk_type == "classification":
+            return fitted.predict_proba(df)[:, 1]
+        else:
+            return fitted.predict(df)
+
     if incl is None:
         incl = not_transformed + transformed
     else:
@@ -373,7 +384,7 @@ def pred_plot_sk(
             maxq=maxq,
         )
         iplot_dum = dummify(iplot, transformed)[fn]
-        iplot["prediction"] = fitted.predict_proba(iplot_dum)[:, 1]
+        iplot["prediction"] = pred_fun(fitted, iplot_dum)
         min_max = calc_ylim("prediction", iplot, min_max)
         pred_dict[v] = iplot
 
@@ -388,7 +399,7 @@ def pred_plot_sk(
             maxq=maxq,
         )
         iplot_dum = dummify(iplot, transformed)[fn]
-        iplot["prediction"] = fitted.predict_proba(iplot_dum)[:, 1]
+        iplot["prediction"] = pred_fun(fitted, iplot_dum)
         if sum(is_num) < 2:
             min_max = calc_ylim("prediction", iplot, min_max)
         pred_dict[v] = iplot
@@ -411,7 +422,7 @@ def pred_plot_sk(
         if col == 1:
             row += 1
 
-    start_col = ifelse(col == 1, 0, 1)
+    start_col = ifelse((col == 1) or len(incl) == 0, 0, 1)
     for j, v in enumerate(incl_int):
         col = ifelse(j % 2 == start_col, 0, 1)
         vl = v.split(":")
@@ -454,13 +465,13 @@ def pred_plot_sk(
     # needed because the axes object must always be 2-dimensional
     # or else the indexing used in this function will fail for small
     # DataFrames
-    if nr_plots < 3:
-        ax[-1, -1].remove()
-        ax[-1, 0].remove()
-        if nr_plots == 1:
-            ax[0, -1].remove()
-    elif nr_plots % 2 == 1:
-        ax[-1, -1].remove()
+    # if nr_plots < 3:
+    #     ax[-1, -1].remove()
+    #     ax[-1, 0].remove()
+    #     if nr_plots == 1:
+    #         ax[0, -1].remove()
+    # elif nr_plots % 2 == 1:
+    #     ax[-1, -1].remove()
 
 
 def vimp_plot_sm(fitted, df, rep=5):
