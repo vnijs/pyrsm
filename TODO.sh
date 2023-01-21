@@ -32,7 +32,7 @@ python3 -m twine upload dist/*
 # use conda for local 
 
 # create a conda environment for testing
-cc pyrsm-dev pyrsm
+# cc pyrsm-dev pyrsm
 
 # Use the conda directory in the pyrsm repo that contains meta.yaml.
 # change the source to point to the local directory you are working
@@ -72,11 +72,13 @@ conda remove -y --force pyrsm # remove current version
 rm -rf /opt/conda/conda-bld/broken/pyrsm*
 rm -rf /opt/conda/conda-bld/pyrsm*
 
+# get the sha256 code on the built tar.gz file **before**
+# building the conda version. You can get this from the version 
+# built for pip
+openssl sha256 dist/pyrsm-*.tar.gz
+
 # add the sha256 sequence to conda/meta.yaml file **before** building (huh?)
 conda build ~/gh/pyrsm/conda/pyrsm
-
-# get the sha256 code on the built tar.gz file
-openssl sha256 dist/pyrsm-*.tar.gz
 
 # try the below, might work but
 conda install /opt/conda/conda-bld/pyrsm*
