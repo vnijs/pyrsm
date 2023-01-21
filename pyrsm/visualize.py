@@ -28,8 +28,19 @@ def distr_plot(df: pd.DataFrame, cols: list = None, nint: int = 25, **kwargs):
         series will be treated as a categorical variable
     **kwargs : Named arguments to be passed to the pandas plotting methods
     """
-    if cols != None:
-        df = df[cols]
+    if cols is None:
+        all_cols = df.columns
+        cols = []
+        for i, c in enumerate(all_cols):
+            if (
+                not pd.api.types.is_numeric_dtype(df[c].dtype)
+                and not pd.api.types.is_categorical_dtype(df[c].dtype)
+            ) or pd.api.types.is_object_dtype(df[c].dtype):
+                print(f"No plot will be created for {c} (type {df[c].dtype})")
+            else:
+                cols.append(c)
+
+    df = df.loc[:, cols].copy()
 
     fig, axes = plt.subplots(
         max(math.ceil(df.shape[1] / 2), 2), 2, figsize=(10, 2 * max(df.shape[1], 4))
@@ -40,7 +51,7 @@ def distr_plot(df: pd.DataFrame, cols: list = None, nint: int = 25, **kwargs):
         s = df[c]
         j = ifelse(i % 2 == 0, 0, 1)
         if pd.api.types.is_integer_dtype(s.dtype) and s.nunique() < nint:
-            s.value_counts(sort=False).plot.bar(
+            s.sort_values().value_counts(sort=False).plot.bar(
                 ax=axes[row, j], title=c, rot=0, color="slateblue", **kwargs
             )
         elif pd.api.types.is_numeric_dtype(s.dtype):
@@ -50,7 +61,7 @@ def distr_plot(df: pd.DataFrame, cols: list = None, nint: int = 25, **kwargs):
                 ax=axes[row, j], title=c, rot=0, color="slateblue", **kwargs
             )
         else:
-            print(f"No plot for {c} (type {s.dtype})")
+            print(f"No plot will be created for {c} (type {s.dtype})")
 
         if j == 1:
             row += 1
