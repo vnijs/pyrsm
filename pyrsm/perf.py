@@ -136,6 +136,9 @@ def confusion(df, rvar, lev, pred, cost=1, margin=2):
         Proportion of cases to act on based on the cost/margin ratio
     """
 
+    if isinstance(pred, list) and len(pred) > 1:
+        return "This function can only take one predictor variables at time"
+
     break_even = cost / margin
     gtbe = df[pred] > break_even
     pos = df[rvar] == lev
@@ -397,9 +400,111 @@ def profit_plot(
             for k in dct.keys()
             for p in pred
         ]
+        prof = [
+            profit_max(dct[k], rvar, lev, p, cost=cost, margin=margin)
+            for k in dct.keys()
+            for p in pred
+        ]
         [
-            fig.axvline(l, linestyle="--", linewidth=1)
-            for l in filter(lambda x: x < 1, cnf)
+            [
+                fig.axvline(
+                    l, linestyle="--", linewidth=1, color=sns.color_palette()[i]
+                ),
+                fig.axhline(
+                    prof[i], linestyle="--", linewidth=1, color=sns.color_palette()[i]
+                ),
+            ]
+            for i, l in enumerate(filter(lambda x: x < 1, cnf))
+        ]
+    if len(dct) > 1 or len(pred) > 1:
+        fig.legend(title=None)
+
+    return fig
+
+
+def expected_profit_plot(
+    df, rvar, lev, pred, cost=1, margin=2, contact=False, **kwargs
+):
+    """
+    Plot an expected profit curve
+
+    Parameters
+    ----------
+    df : Pandas dataframe or a dictionary of dataframes with keys to show multiple curves for different models or data samples
+    rvar : str
+        Name of the response variable column in df
+    lev : str
+        Name of the 'success' level in rvar
+    pred : str
+        Name of the column in df with model predictions
+    cost : int
+        Cost of an action
+    margin : int
+        Benefit of an action if a successful outcome results from the action
+    contact : bool
+        Plot a vertical line that shows the optimal contact level. Requires
+        that `pred` is a series of probabilities. Values equal to 1 (100% contact)
+        will not be plotted
+    **kwargs : Named arguments to be passed to the seaborn lineplot function
+
+    Returns
+    -------
+    Seaborn object
+        Plot of profits per quantile
+
+    Examples
+    --------
+    expected_profit_plot(df, "buyer", "yes", "pred_a", cost=0.5, margin=6)
+    expected_profit_plot(df, "buyer", "yes", ["pred_a", "pred_b"], cost=0.5, margin=6)
+    dct = {"Training": df.query("training == 1"), "Test": df.query("training == 0")}
+    expected_profit_plot(dct, "buyer", "yes", "pred_a", cost=0.5, margin=6)
+    """
+    dct = ifelse(type(df) is dict, df, {"": df})
+    pred = ifelse(type(pred) is list, pred, [pred])
+    group = ifelse(len(pred) > 1 or len(dct.keys()) > 1, "predictor", None)
+
+    def calc_exp_profit(df, pred, cost, margin):
+        prediction = df[pred].sort_values(ascending=False)
+        profit = prediction * margin - cost
+        return pd.DataFrame(
+            {
+                "cum_prop": np.arange(1, df.shape[0] + 1) / df.shape[0],
+                "cum_profit": np.cumsum(profit),
+            }
+        )
+
+    df = [
+        calc_exp_profit(dct[k], p, cost, margin).assign(
+            predictor=p + ifelse(k == "", k, f" ({k})")
+        )
+        for k in dct.keys()
+        for p in pred
+    ]
+    df = pd.concat(df).reset_index(drop=True)
+    fig = sns.lineplot(x="cum_prop", y="cum_profit", data=df, hue=group, **kwargs)
+    fig.set(ylabel="Profit", xlabel="Proportion of customers")
+    fig.axhline(1, linestyle="--", linewidth=1)
+    if contact:
+        cnf = [
+            confusion(dct[k], rvar, lev, p, cost=cost, margin=margin)[-1]
+            for k in dct.keys()
+            for p in pred
+        ]
+        prof = [
+            profit_max(dct[k], rvar, lev, p, cost=cost, margin=margin)
+            for k in dct.keys()
+            for p in pred
+        ]
+        [
+            [
+                fig.axvline(
+                    l, linestyle="--", linewidth=1, color=sns.color_palette()[i]
+                ),
+                fig.axhline(
+                    prof[i], linestyle="--", linewidth=1, color=sns.color_palette()[i]
+                ),
+            ]
+            for i, l in enumerate(filter(lambda x: x < 1, cnf))
         ]
     if len(dct) > 1 or len(pred) > 1:
         fig.legend(title=None)
@@ -516,7 +621,7 @@ def gains_plot(df, rvar, lev, pred, qnt=10, marker="o", **kwargs):
         x="cum_prop", y="cum_gains", data=rd, hue=group, marker=marker, **kwargs
     )
     fig.set(ylabel="Cumulative gains", xlabel="Proportion of customers")
-    plt.plot([0, 1], [0, 1], linestyle="--", linewidth=1)
+    plt.plot([0, 1], [0, 1], linestyle="--", linewidth=1, color=plt.cm.Blues(0.7))
     if len(dct) > 1 or len(pred) > 1:
         fig.legend(title=None)
     return fig

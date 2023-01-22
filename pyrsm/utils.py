@@ -1,10 +1,13 @@
 import numpy as np
 import pandas as pd
+import inspect as ins
 from itertools import product
 from datetime import date, datetime
 from math import ceil
 from IPython.display import display, Markdown
 from sys import modules
+
+from math import log
 
 
 def add_description(df, md="", path=""):
@@ -338,22 +341,105 @@ def months_abb(start=1, nr=12, year=datetime.today().year):
     return mnths[start : (nr + start)]
 
 
-def md(fstr):
+def md(x: str) -> None:
     """
     Use in-line python code to generate markdown output
 
     Parameters
     ----------
-    fstr : A python f-string
+    x : A python f-string or the path to a markdown file
 
     Returns
     -------
-    Markdown output
+    None - Markdown output is printed
 
     Examples
     --------
     md(f"### In-line code to markdown results")
     radius = 10
     md(f"The radius of the circle is {radius}.")
+    md("./path-to-markdown-file.md")
     """
-    return display(Markdown(fstr))
+    display(Markdown(x))
+
+
+def odir(obj, private: bool = False) -> dict:
+    """
+    List an objects attributes and 'public' methods
+
+    Parameters
+    ----------
+    obj : Any python object
+    private : Boolean, default is false to exclude 'private' methods and attributes
+
+    Returns
+    -------
+    Dictionary with names of attributes and methods
+
+    Examples
+    --------
+    odir(["a"])
+    """
+    mth = []
+    attr = []
+    for i in ins.getmembers(obj):
+        if private or not i[0].startswith("_"):
+            if ins.ismethod(i[1]) or ins.isbuiltin(i[1]):
+                mth.append(i[0])
+            else:
+                attr.append(i[0])
+
+    return {"methods": mth, "attributes": attr}
+
+
+def group_categorical(
+    df: pd.DataFrame, prefix_sep: str = "["
+) -> tuple[pd.DataFrame, bool]:
+    columns_to_group = {
+        item.split(prefix_sep)[0]: (prefix_sep in item) for item in df.columns
+    }
+    if not any(columns_to_group.values()):
+        return df, False
+
+    series_list = []
+    for col, needs_to_collapse in columns_to_group.items():
+        if needs_to_collapse:
+            categorical_grouped = (
+                df.filter(like=col)
+                .idxmax(axis=1)
+                .apply(lambda x: x.split(prefix_sep, maxsplit=1)[1].split(".")[1][:-1])
+                .rename(col)
+            )
+            series_list.append(categorical_grouped)
+        else:
+            series_list.append(df[col])
+    categorical_grouped_df = pd.concat(series_list, axis=1)
+    return categorical_grouped_df, True
+
+
+# class Transform:
+#     def __init__(
+#         self, data: pd.DataFrame, cols: list[str], transform_type: str
+#     ) -> None:
+#         self.transform_type = transform_type
+#         self.data = data
+#         self.cols = cols
+
+#     def transform(self) -> pd.DataFrame:
+#         if self.transform_type == "ln":
+#             return self.transform_log()
+#         elif self.transform_type == "log2":
+#             return self.transform_log(base=2)
+
+#     def transform_log(self, base: int = None) -> pd.DataFrame:
+#         new_cols = {
+#             col: col + "_ln" if col in self.cols else col for col in self.data.columns
+#         }
+#         for old_col in self.cols:
+#             if base != None:
+#                 self.data[old_col] = self.data[old_col].transform(log, base)
+#             else:
+#                 self.data[old_col] = self.data[old_col].transform(log)
+
+#         self.data.rename(new_cols, axis=1, inplace=True)
+#         return self.data

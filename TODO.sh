@@ -1,11 +1,26 @@
 ## select commands to run and use the Command Palette to send to open terminal
 
-# use build to install locally
+# use python build to install locally testing 
+conda deactivate
 sudo pip3 uninstall -y pyrsm
 sudo rm -rf ~/gh/pyrsm/dist
 pip3 install -q build
 sudo python3 -m build
-pip3 install dist/pyrsm-*.tar.gz
+sudo pip3 install dist/pyrsm-*.tar.gz
+
+python3 -c "import pyrsm; print(pyrsm.__version__)"
+python3 -c "import pyrsm; print(pyrsm.__file__)"
+
+# get the sha256 code on the built tar.gz file **before**
+# building the conda version. You can get this from the version 
+# built for pip
+# add to meta.yaml
+openssl sha256 dist/pyrsm-*.tar.gz
+
+# Weird and annoying "Could not find a version that satisfies the requirement python>=3.6"
+##### removed some references to python and python>=3.6 -- lets see if that helps #####
+# conda activate base
+# sudo pip3 install dist/pyrsm-*.tar.gz
 
 # from https://github.com/vnijs/pypi-howto
 # sudo pip3 install --upgrade twine keyring
@@ -19,6 +34,82 @@ python3 -m twine upload --repository testpypi dist/*
 
 # if all goes well push to main pypi
 python3 -m twine upload dist/*
+
+# use conda for local 
+
+# create a conda environment for testing
+# cc pyrsm-dev pyrsm
+
+# Use the conda directory in the pyrsm repo that contains meta.yaml.
+# change the source to point to the local directory you are working
+# in. Then in the repo directory issue `conda build .`
+# do conda install -y conda-build first). This creates a .tar.bz2
+# build file (and the output shows you the location of the same)
+# and this local build of pyrsm can be installed using
+# conda install -y /path/to/build/file
+
+
+
+##
+## For some reason you have to increment the version number in __init__.py
+## and meta.yaml for changes to get picked up
+##
+
+conda activate pyrsm-dev
+# conda install -y conda-build # only need this once
+conda remove -y --force pyrsm # remove current version
+rm -rf /opt/conda/conda-bld/broken/pyrsm*
+rm -rf /opt/conda/conda-bld/pyrsm*
+
+# get the sha256 code on the built tar.gz file
+openssl sha256 dist/pyrsm-*.tar.gz
+# add the sha256 sequence to conda/meta.yaml file **before** building
+conda build ~/gh/pyrsm/conda/pyrsm
+conda install /opt/conda/conda-bld/pyrsm*
+
+# if this fails on the last step use the below
+conda install /opt/conda/conda-bld/broken/pyrsm*
+
+# adding to base environment
+# note: need to change the sha256 code in the meta.yaml file 
+# download the tar.gz file after login in to pypi and looking at the 
+# releases then use "openssl sha256 ~/Downloads/pyrsm-0.6.3.tar.gz" 
+# or similar and add the code to meta.yaml in the conda directory
+conda activate base
+conda remove -y --force pyrsm # remove current version
+rm -rf /opt/conda/conda-bld/broken/pyrsm*
+rm -rf /opt/conda/conda-bld/pyrsm*
+rm -rf /opt/conda/conda-bld/noarch/pyrsm*
+
+# get the sha256 code on the built tar.gz file **before**
+# building the conda version. You can get this from the version 
+# built for pip
+openssl sha256 dist/pyrsm-*.tar.gz
+
+# add the sha256 sequence to conda/meta.yaml file **before** building (huh?)
+conda build ~/gh/pyrsm/conda/pyrsm
+
+# try the below, might work but
+# conda install /opt/conda/conda-bld/pyrsm*
+
+# if this fails on the last step use the below
+# conda install /opt/conda/conda-bld/broken/pyrsm*
+
+# check the pyrsm version number in
+python -c "import pyrsm; print(pyrsm.__version__)"
+python -c "import pyrsm; print(pyrsm.__file__)"
+
+# if the builds above completed without issues use the below
+# to upload to the vnijs user account on anaconda
+# (check passwd manager as needed)
+anaconda upload /opt/conda/conda-bld/noarch/pyrsm*
+
+# else use the below to upload to the vnijs user
+# account on anaconda (check passwd manager as needed)
+# anaconda upload /opt/conda/conda-bld/broken/pyrsm*
+
+
+## not sure if still needed
 
 # setting up for conda
 
@@ -42,6 +133,8 @@ python3 -m twine upload dist/*
 
 cd conda
 grayskull pypi pyrsm
+rm -rf /opt/conda/conda-bld/broken/pyrsm*
+rm -rf /opt/conda/conda-bld/pyrsm*
 conda build pyrsm/
 conda install --use-local pyrsm
 conda build purge
@@ -52,8 +145,20 @@ code ~/gh/conda-packages ## need to make manual edits for python >= 3.6 and lice
 # PR created @ https://github.com/conda-forge/staged-recipes/pull/18174
 
 # adding package to personal channel @ https://anaconda.org/vnijs/pyrsm
-# conda install anaconda-client
-# anaconda login
-conda build .
+conda install anaconda-client
+anaconda login
+# conda build .
 #anaconda upload ~/miniconda3/conda-bld/noarch/pyrsm-0.5.8-py_0.tar.bz2
-anaconda upload ~/miniconda3/conda-bld/noarch/pyrsm-*
+#anaconda upload ~/miniconda3/conda-bld/noarch/pyrsm-*
+
+# if the builds above completed without issues use the below
+anaconda upload /opt/conda/conda-bld/pyrsm*
+
+# else use the below
+anaconda upload /opt/conda/conda-bld/broken/pyrsm*
+
+#conda install /opt/conda/conda-bld/pyrsm*
+# if this fails on the last step use the below
+#conda install /opt/conda/conda-bld/broken/pyrsm*
+
+
