@@ -1,4 +1,5 @@
-import importlib_resources as ir
+import os
+from importlib import import_module
 import pandas as pd
 
 
@@ -11,7 +12,7 @@ def load_data(pkg=None, name=None, dct=None):
     pkg : str
         One of "data", "design", "basics", "model", or "multivariate"
         These string coincide with the dropdown menuss at https://radiant-rstats.github.io/docs/
-        If None, files from all dictionaries will be returned
+        If None, datasets from all packages will be returned
     name : str
         Name of the dataset you want to load (e.g., "diamonds").
         If None, all datasets will be returned
@@ -22,34 +23,34 @@ def load_data(pkg=None, name=None, dct=None):
 
     Examples
     --------
-    load_state(globals(), path="my-notebook.state.pkl")
+    load_data(globals(), path="my-notebook.state.pkl")
     """
 
     base = "pyrsm.data"
+    base_path = import_module(base).__path__[0]
 
-    def load(gen):
-        with gen as data_path:
-            return pd.read_pickle(data_path)
+    def load(file_path):
+        return pd.read_pickle(file_path)
 
     def mkdct(spkg):
         data = {}
         for sp in spkg:
-            data.update(
-                {
-                    f.replace(".pkl", ""): load(ir.path(f"{base}.{sp}", f))
-                    for f in ir.contents(f"{base}.{sp}")
-                    if (name is None and f[0:2] != "__")
-                    or (name is not None and f == (name + ".pkl"))
-                }
-            )
+            package_path = os.path.join(base_path, sp)
+            for file_name in os.listdir(package_path):
+                if (name is None and not file_name.startswith(("__", "."))) or (
+                    name is not None and file_name == f"{name}.pkl"
+                ):
+                    file_path = os.path.join(package_path, file_name)
+                    key = file_name.replace(".pkl", "")
+                    data[key] = load(file_path)
         return data
 
     if pkg is None:
-        data = mkdct([d for d in ir.contents(base) if d[0:2] != "__"])
+        data = mkdct([d for d in os.listdir(base_path) if not d.startswith("__")])
     elif name is None:
         data = mkdct([pkg])
     elif pkg is not None and name is not None:
-        data = {name: load(ir.path(f"{base}.{pkg}", name + ".pkl"))}
+        data = {name: load(os.path.join(base_path, pkg, f"{name}.pkl"))}
     else:
         data = {}
 

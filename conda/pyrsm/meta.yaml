@@ -1,5 +1,5 @@
 {% set name = "pyrsm" %}
-{% set version = "0.6.9" %}
+{% set version = "0.7.0" %}
 
 package:
   name: {{ name|lower }}
@@ -7,7 +7,7 @@ package:
 
 source:
   url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/pyrsm-{{ version }}.tar.gz
-  sha256: 4a2dc3c5444ea4c4972e129faef0457361a607b961b78fd3b7a59e576a9322e4
+  sha256: 7dbcf9f033060d11129371e8dfec070dc8ea7a527a717bb454b0864024f7eaa3
 
 build:
   noarch: python
@@ -28,7 +28,6 @@ requirements:
     - ipynbname >=2021.3.2
     - scikit-learn >=1.0.2
     - ipython >=8.0.1
-    - importlib-resources >=3.3.1
 
 test:
   imports:
