@@ -11,6 +11,10 @@ sudo pip3 install dist/pyrsm-*.tar.gz
 python3 -c "import pyrsm; print(pyrsm.__version__)"
 python3 -c "import pyrsm; print(pyrsm.__file__)"
 
+## might be useful when testing
+conda remove -y --force pyrsm # remove current version
+conda install -c conda-forge pyrsm 
+
 # get the sha256 code on the built tar.gz file **before**
 # building the conda version. You can get this from the version 
 # built for pip
@@ -76,6 +80,7 @@ conda install /opt/conda/conda-bld/broken/pyrsm*
 # releases then use "openssl sha256 ~/Downloads/pyrsm-0.6.3.tar.gz" 
 # or similar and add the code to meta.yaml in the conda directory
 conda activate base
+# conda install -c conda-forge pyrsm
 conda remove -y --force pyrsm # remove current version
 rm -rf /opt/conda/conda-bld/broken/pyrsm*
 rm -rf /opt/conda/conda-bld/pyrsm*

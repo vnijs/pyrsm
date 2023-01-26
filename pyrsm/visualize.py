@@ -465,13 +465,13 @@ def pred_plot_sk(
     # needed because the axes object must always be 2-dimensional
     # or else the indexing used in this function will fail for small
     # DataFrames
-    # if nr_plots < 3:
-    #     ax[-1, -1].remove()
-    #     ax[-1, 0].remove()
-    #     if nr_plots == 1:
-    #         ax[0, -1].remove()
-    # elif nr_plots % 2 == 1:
-    #     ax[-1, -1].remove()
+    if nr_plots < 3:
+        ax[-1, -1].remove()
+        ax[-1, 0].remove()
+        if nr_plots == 1:
+            ax[0, -1].remove()
+    elif nr_plots % 2 == 1:
+        ax[-1, -1].remove()
 
 
 def vimp_plot_sm(fitted, df, rep=5):
@@ -495,19 +495,23 @@ def vimp_plot_sm(fitted, df, rep=5):
     evars = extract_evars(model, df.columns)
     df = df[[rvar] + evars].copy().reset_index(drop=True).dropna()
 
+    if len(model.endog) != df.shape[0]:
+        raise Exception(
+            "The number of rows in the DataFrame should be the same as the number of rows in the data used to estimate the model"
+        )
+
     def imp_calc_reg(base, pred):
         return pd.DataFrame({"y": model.endog, "yhat": pred}).corr().iloc[0, 1] ** 2
 
     def imp_calc_logit(base, pred):
         return base - auc(model.endog, pred)
 
-    # Calculate the baseline mean squared error
+    # Calculate the baseline performance
     if isinstance(fitted, sm.genmod.generalized_linear_model.GLMResultsWrapper):
         baseline_fit = auc(model.endog, fitted.predict(df[evars]))
         imp_calc = imp_calc_logit  # specifying the function to use
         xlab = "Importance (AUC decrease)"
     elif isinstance(fitted, sm.regression.linear_model.RegressionResultsWrapper):
-        # baseline_fit = mean_squared_error(model.endog, fitted.predict(df[evars]))
         baseline_fit = (
             pd.DataFrame({"y": model.endog, "yhat": fitted.predict(df[evars])})
             .corr()
@@ -517,7 +521,7 @@ def vimp_plot_sm(fitted, df, rep=5):
         imp_calc = imp_calc_reg  # specifying the function to use
         xlab = "Importance (R-square decrease)"
     else:
-        return "Model for this model type not supported"
+        return "This model type is not supported. For sklearn models use vimp_plot_sk"
 
     # Create a copy of the dataframe
     permuted = df.copy()
@@ -552,9 +556,10 @@ def vimp_plot_sk(fitted, X, y, rep=5):
     Parameters
     ----------
     fitted : A fitted sklearn objects
-    X : Pandas DataFrame with data used for estimation
+    X : Pandas DataFrame with data containing the explanatory variables (features) used for estimation
+    y : Series with data for the response variable (target) used for estimation
     rep: int
-        The number of times to resample and calculate the permutation importance
+        The number of times to resample and calculate permutation importance
     """
 
     if hasattr(fitted, "classes_"):
