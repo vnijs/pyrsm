@@ -821,9 +821,9 @@ class compare_means:
         data: pd.DataFrame,
         var1: str,
         var2: str,
-        combinations: list[tuple[str, str]],
-        alt_hypo: str,
-        conf: float,
+        combinations: list[tuple[str, str]] = None,
+        alt_hypo: str = "two-sided"
+        conf: float = 0.95,
         sample_type: str = "independent",
         multiple_comp_adjustment: str = "none",
         test_type: str = "t-test",
