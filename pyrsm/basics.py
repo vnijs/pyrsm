@@ -822,7 +822,7 @@ class compare_means:
         var1: str,
         var2: str,
         combinations: list[tuple[str, str]] = None,
-        alt_hypo: str = "two-sided"
+        alt_hypo: str = "two-sided",
         conf: float = 0.95,
         sample_type: str = "independent",
         multiple_comp_adjustment: str = "none",
@@ -843,17 +843,16 @@ class compare_means:
 
         print(f"Pairwise mean comparisons {self.test_type}")
 
-    def welch_dof(self, v1: str, v2: str) -> float:
-        x = self.data[self.data[self.var1] == v1][self.var2]
-        y = self.data[self.data[self.var1] == v2][self.var2]
-        dof = (x.var() / x.size + y.var() / y.size) ** 2 / (
-            (x.var() / x.size) ** 2 / (x.size - 1)
-            + (y.var() / y.size) ** 2 / (y.size - 1)
-        )
+        def welch_dof(v1: str, v2: str) -> float:
+            x = self.data[self.data[self.var1] == v1][self.var2]
+            y = self.data[self.data[self.var1] == v2][self.var2]
+            dof = (x.var() / x.size + y.var() / y.size) ** 2 / (
+                (x.var() / x.size) ** 2 / (x.size - 1)
+                + (y.var() / y.size) ** 2 / (y.size - 1)
+            )
 
-        return dof
+            return dof
 
-    def calculate(self) -> None:
         combinations_elements = set()
         for combination in self.combinations:
             combinations_elements.add(combination[0])
@@ -877,7 +876,7 @@ class compare_means:
             rows1.append(row)
 
         self.table1 = pd.DataFrame(
-            rows1, columns=["rank", "mean", "n", "n_missing", "sd", "se", "me"]
+            rows1, columns=[self.var1, "mean", "n", "n_missing", "sd", "se", "me"]
         )
 
         alt_hypo_sign = " > "
@@ -904,7 +903,7 @@ class compare_means:
 
             self.t_val, self.p_val = result.statistic, result.pvalue
             se = self.data[self.data[self.var1] == v2][self.var2].sem()
-            df = self.welch_dof(v1, v2)
+            df = welch_dof(v1, v2)
 
             """
             Not entirely sure how to calculate these
