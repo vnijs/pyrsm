@@ -279,6 +279,7 @@ def pred_plot_sm(
 def pred_plot_sk(
     fitted,
     df,
+    transformed=None,
     rvar=None,
     incl=None,
     excl=[],
@@ -296,7 +297,10 @@ def pred_plot_sk(
     Parameters
     ----------
     fitted : A fitted sklearn model
-    df : Pandas DataFrame with data used for estimation
+    df : Pandas DataFrame with data used for estimatin. Should include categorical variables
+        in their original for (i.e., before using get_dummies)
+    transformed : List of column names that were transformed using Pandas' get_dummies. If
+        None, the function will try to determine which variables might have been transformed
     rvar : The column name for the response/target variable
     incl : A list of column names to generate prediction plots for. If None, all
         variables will be plotted
@@ -322,7 +326,22 @@ def pred_plot_sk(
     fn = fitted.feature_names_in_
 
     not_transformed = [c for c in df.columns for f in fn if c == f]
-    transformed = list(set([c for c in df.columns for f in fn if c in f and c != f]))
+    if transformed is None:
+        transformed = list(
+            set([c for c in df.columns for f in fn if c in f and c != f])
+        )
+
+    not_transformed = [c for c in df.columns for f in fn if c == f]
+    ints = rsm.intersect(transformed, not_transformed)
+    if len(ints) > 0:
+        trn = '", "'.join(transformed)
+        ints = ", ".join(ints)
+        not_transformed = rsm.setdiff(not_transformed, transformed)
+        mess = f"""It is not clear which variables were (not) transformed using get_dummies. Please specify the
+        transformed variables in your call to pred_plot_sk as `transformed=["{trn}"]`.
+        In particular it is unclear how {ints} should be treated. Please remove entries from the list that
+        are not correct and add any that are missing"""
+        raise Exception(mess)
 
     if hasattr(fitted, "classes_"):
         sk_type = "classification"
@@ -390,7 +409,10 @@ def pred_plot_sk(
 
     for v in incl_int:
         vl = v.split(":")
-        is_num = [pd.api.types.is_numeric_dtype(df[c].dtype) for c in vl]
+        is_num = [
+            pd.api.types.is_numeric_dtype(df[c].dtype) and df[c].nunique() > 10
+            for c in vl
+        ]
         iplot = sim_prediction(
             df[transformed + not_transformed].dropna(),
             vary=vl,
@@ -426,7 +448,10 @@ def pred_plot_sk(
     for j, v in enumerate(incl_int):
         col = ifelse(j % 2 == start_col, 0, 1)
         vl = v.split(":")
-        is_num = [pd.api.types.is_numeric_dtype(df[c].dtype) for c in vl]
+        is_num = [
+            pd.api.types.is_numeric_dtype(df[c].dtype) and df[c].nunique() > 10
+            for c in vl
+        ]
         if sum(is_num) == 2:
             plot_data = (
                 pred_dict[v]
@@ -543,7 +568,9 @@ def vimp_plot_sm(fitted, df, rep=5):
     importance_values = {k: [v / rep] for k, v in importance_values.items()}
     sorted_idx = pd.DataFrame(importance_values).transpose()
     sorted_idx = sorted_idx.sort_values(0, ascending=True)
-    fig = sorted_idx.plot.barh(color="slateblue", legend=None)
+    fig = sorted_idx.plot.barh(
+        color="slateblue", legend=None, figsize=(6, max(5, len(sorted_idx) * 0.5))
+    )
     plt.xlabel(xlab)
     plt.title("Permutation Importance")
 
@@ -575,6 +602,7 @@ def vimp_plot_sk(fitted, X, y, rep=5):
     data = pd.DataFrame(imp.importances.T)
     data.columns = fitted.feature_names_in_
     order = data.agg("mean").sort_values(ascending=False).index
+    plt.figure(figsize=(6, max(5, data.shape[0] * 1.5)))
     fig = sns.barplot(
         x="value",
         y="variable",
