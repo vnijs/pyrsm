@@ -1,15 +1,39 @@
+## set up for testing without needing to build!!!
+
+## assuming you are using conda
+## remove all version pyrsm you might be using
+conda activate base
+sudo pip uninstall -y pyrsm
+conda remove -y --force pyrsm
+
+## now install in "editable" mode
+sudo pip install -e ~/gh/pyrsm
+
+## in a jupyter notebook setup pyrsm for 
+## autoreload when you edit code and save
+## code in the pyrsm repo
+## nothing else needed!
+%reload_ext autoreload
+%autoreload 2
+%aimport pyrsm
+
 ## select commands to run and use the Command Palette to send to open terminal
 
 # use python build to install locally testing 
 conda deactivate
 sudo pip3 uninstall -y pyrsm
 sudo rm -rf ~/gh/pyrsm/dist
-pip3 install -q build
+# pip3 install -q build
 sudo python3 -m build
 sudo pip3 install dist/pyrsm-*.tar.gz
 
 python3 -c "import pyrsm; print(pyrsm.__version__)"
 python3 -c "import pyrsm; print(pyrsm.__file__)"
+
+# use pip to add to base (or other) environment
+conda activate base
+sudo pip uninstall -y pyrsm
+sudo pip install dist/pyrsm-*.tar.gz
 
 ## might be useful when testing
 conda remove -y --force pyrsm # remove current version
