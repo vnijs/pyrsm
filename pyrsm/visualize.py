@@ -6,7 +6,7 @@ import numpy as np
 import seaborn as sns
 import statsmodels as sm
 from sklearn.inspection import permutation_importance
-from .utils import ifelse
+from .utils import ifelse, intersect, setdiff
 from .regression import sim_prediction
 from .perf import auc
 
@@ -156,12 +156,17 @@ def pred_plot_sm(
         # legacy for when only an un-fitted model was accepted
         model = fitted
 
-    min_max = [np.Inf, -np.Inf]
+    # margin to add above and below in plots
+    plot_margin = 0.025
 
     def calc_ylim(lab, lst, min_max):
         if isinstance(fix, bool) and fix == True:
             vals = lst[lab]
-            return (min(min_max[0], min(vals)), max(min_max[1], max(vals)))
+            min_vals = min(vals)
+            max_vals = max(vals)
+            mmin = min(min_max[0], min_vals - plot_margin * min_vals)
+            mmax = max(min_max[1], max_vals + plot_margin * max_vals)
+            return (mmin, mmax)
         elif not isinstance(fix, bool) and len(fix) == 2:
             return fix
         else:
@@ -173,6 +178,9 @@ def pred_plot_sm(
 
     if not isinstance(hline, float) and not isinstance(hline, int):
         hline = False
+        min_max = (np.Inf, -np.Inf)
+    else:
+        min_max = (hline - plot_margin * hline, hline + plot_margin * hline)
 
     if incl is None:
         incl = extract_evars(model, df.columns)
@@ -200,7 +208,10 @@ def pred_plot_sm(
 
     for v in incl_int:
         vl = v.split(":")
-        is_num = [pd.api.types.is_numeric_dtype(df[c].dtype) for c in vl]
+        is_num = [
+            pd.api.types.is_numeric_dtype(df[c].dtype) and df[c].nunique() > 5
+            for c in vl
+        ]
         iplot = sim_prediction(df, vary=vl, nnv=nnv, minq=minq, maxq=maxq)
         iplot["prediction"] = fitted.predict(iplot)
         if sum(is_num) < 2:
@@ -210,14 +221,14 @@ def pred_plot_sm(
     row = col = 0
     for i, v in enumerate(incl):
         col = ifelse(i % 2 == 0, 0, 1)
-        if pd.api.types.is_numeric_dtype(df[v].dtype):
+        if pd.api.types.is_numeric_dtype(df[v].dtype) and df[v].nunique() > 5:
             fig = sns.lineplot(x=v, y="prediction", data=pred_dict[v], ax=ax[row, col])
         else:
             fig = sns.lineplot(
                 x=v, y="prediction", marker="o", data=pred_dict[v], ax=ax[row, col]
             )
         if isinstance(min_max, tuple) and len(min_max) == 2:
-            ax[row, col].set(ylim=tuple(min_max))
+            ax[row, col].set(ylim=min_max)
         if hline != False:
             ax[row, col].axhline(y=hline, linestyle="--")
 
@@ -228,7 +239,10 @@ def pred_plot_sm(
     for j, v in enumerate(incl_int):
         col = ifelse(j % 2 == start_col, 0, 1)
         vl = v.split(":")
-        is_num = [pd.api.types.is_numeric_dtype(df[c].dtype) for c in vl]
+        is_num = [
+            pd.api.types.is_numeric_dtype(df[c].dtype) and df[c].nunique() > 5
+            for c in vl
+        ]
         if sum(is_num) == 2:
             plot_data = (
                 pred_dict[v]
@@ -257,7 +271,7 @@ def pred_plot_sm(
             )
 
         if isinstance(min_max, tuple) and len(min_max) == 2 and sum(is_num) < 2:
-            ax[row, col].set(ylim=tuple(min_max))
+            ax[row, col].set(ylim=min_max)
         if sum(is_num) < 2 and hline != False:
             ax[row, col].axhline(y=hline, linestyle="--")
 
@@ -332,11 +346,11 @@ def pred_plot_sk(
         )
 
     not_transformed = [c for c in df.columns for f in fn if c == f]
-    ints = rsm.intersect(transformed, not_transformed)
+    ints = intersect(transformed, not_transformed)
     if len(ints) > 0:
         trn = '", "'.join(transformed)
         ints = ", ".join(ints)
-        not_transformed = rsm.setdiff(not_transformed, transformed)
+        not_transformed = setdiff(not_transformed, transformed)
         mess = f"""It is not clear which variables were (not) transformed using get_dummies. Please specify the
         transformed variables in your call to pred_plot_sk as `transformed=["{trn}"]`.
         In particular it is unclear how {ints} should be treated. Please remove entries from the list that
@@ -365,17 +379,26 @@ def pred_plot_sk(
         else:
             return df
 
-    min_max = [np.Inf, -np.Inf]
     if rvar is not None and isinstance(hline, bool) and hline == True:
         hline = df[rvar].mean()
 
+    # margin to add above and below in plots
+    plot_margin = 0.025
+
     if not isinstance(hline, float) and not isinstance(hline, int):
         hline = False
+        min_max = (np.Inf, -np.Inf)
+    else:
+        min_max = (hline - plot_margin * hline, hline + plot_margin * hline)
 
     def calc_ylim(lab, lst, min_max):
         if isinstance(fix, bool) and fix == True:
             vals = lst[lab]
-            return (min(min_max[0], min(vals)), max(min_max[1], max(vals)))
+            min_vals = min(vals)
+            max_vals = max(vals)
+            mmin = min(min_max[0], min_vals - plot_margin * min_vals)
+            mmax = max(min_max[1], max_vals + plot_margin * max_vals)
+            return (mmin, mmax)
         elif not isinstance(fix, bool) and len(fix) == 2:
             return fix
         else:
@@ -410,7 +433,7 @@ def pred_plot_sk(
     for v in incl_int:
         vl = v.split(":")
         is_num = [
-            pd.api.types.is_numeric_dtype(df[c].dtype) and df[c].nunique() > 10
+            pd.api.types.is_numeric_dtype(df[c].dtype) and df[c].nunique() > 5
             for c in vl
         ]
         iplot = sim_prediction(
@@ -429,15 +452,14 @@ def pred_plot_sk(
     row = col = 0
     for i, v in enumerate(incl):
         col = ifelse(i % 2 == 0, 0, 1)
-        if pd.api.types.is_numeric_dtype(df[v].dtype):
+        if pd.api.types.is_numeric_dtype(df[v].dtype) and df[v].nunique() > 5:
             fig = sns.lineplot(x=v, y="prediction", data=pred_dict[v], ax=ax[row, col])
         else:
             fig = sns.lineplot(
                 x=v, y="prediction", marker="o", data=pred_dict[v], ax=ax[row, col]
             )
-        # fig = sns.lineplot(x=v, y="prediction", data=pred_dict[v], ax=ax[row, col])
         if isinstance(min_max, tuple) and len(min_max) == 2:
-            ax[row, col].set(ylim=tuple(min_max))
+            ax[row, col].set(ylim=min_max)
         if hline != False:
             ax[row, col].axhline(y=hline, linestyle="--")
 
@@ -449,7 +471,7 @@ def pred_plot_sk(
         col = ifelse(j % 2 == start_col, 0, 1)
         vl = v.split(":")
         is_num = [
-            pd.api.types.is_numeric_dtype(df[c].dtype) and df[c].nunique() > 10
+            pd.api.types.is_numeric_dtype(df[c].dtype) and df[c].nunique() > 5
             for c in vl
         ]
         if sum(is_num) == 2:
@@ -480,7 +502,7 @@ def pred_plot_sk(
             )
 
         if isinstance(min_max, tuple) and len(min_max) == 2 and sum(is_num) < 2:
-            ax[row, col].set(ylim=tuple(min_max))
+            ax[row, col].set(ylim=min_max)
         if sum(is_num) < 2 and hline != False:
             ax[row, col].axhline(y=hline, linestyle="--")
 
