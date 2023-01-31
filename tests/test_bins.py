@@ -22,9 +22,9 @@ def test_xtile_nan():
     x = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, np.NaN])
     bins = xtile(x, 5)
     assert all(
-        bins[:9] == np.array([1, 1, 2, 2, 3, 4, 4, 5, 5])
+        bins.iloc[:9] == np.array([1, 1, 2, 2, 3, 4, 4, 5, 5])
     ), "Incorrect bins with NaN returned"
-    assert np.isnan(bins[-1]), "No missing value returned"
+    assert np.isnan(bins.iloc[-1]), "No missing value returned"
 
 
 def test_bincode_nan():
