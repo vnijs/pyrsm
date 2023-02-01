@@ -104,6 +104,13 @@ def extract_evars(model, cn):
     return [v for i, v in enumerate(evars) if v not in evars[:i]]
 
 
+def pred_plot(fitted, df):
+    if type(fitted) == sm.regression.linear_model.RegressionResults:
+        pred_plot_sm(fitted=fitted, df=df)
+    else:
+        pred_plot_sk(fitted=fitted, df=df)
+
+
 def pred_plot_sm(
     fitted,
     df,
