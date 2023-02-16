@@ -152,7 +152,63 @@ def scale_df(df, wt=None, sf=2, excl=None, train=None, ddof=0):
         Weights to use during scaling. The length of the vector should
         be the same as the number of rows in the df
     sf : float
-        Scale factor to use (default is 2)
+        Scale factor to use (default is 2).
+    excl : None or list
+        Provide list of column names to exclude when applying standardization
+    train : bool
+        A series of True and False values. Values that are True are
+        used to calculate the mean and standard deviation
+    ddof : int, default 0
+        Delta Degrees of Freedom. The divisor used in calculations is N - ddof,
+        where N represents the number of elements. The default value 0, is
+        the same as used by Numpy and sklearn for StandardScaler
+
+    Returns
+    -------
+    Pandas dataframe with all numeric variables standardized
+
+    Examples
+    --------
+    df = pd.DataFrame({"x": [0, 1, 1, 1, 0, 3, 0]})
+    df = scale_df(df)
+    """
+    df = df.copy()
+    isNum = [
+        col
+        for col in df.columns
+        if pd.api.types.is_numeric_dtype(df[col].dtype)
+        and not (df[col].nunique() == 2 and df[col].min() == 0 and df[col].max() == 1)
+    ]
+
+    if excl is not None:
+        isNum = setdiff(isNum, excl)
+    dfs = df[isNum]
+    if train is None:
+        train = np.array([True] * df.shape[0])
+    if wt is None:
+        df[isNum] = (dfs - dfs[train].mean().values) / (
+            sf * dfs[train].std(ddof=ddof).values
+        )
+    else:
+        wt = np.array(wt)
+        df[isNum] = (dfs - weighted_mean(dfs[train], wt[train])) / (
+            sf * weighted_sd(dfs[train], wt[train], ddof=ddof)
+        )
+    return df
+
+
+def scale_pred(df, wt=None, sf=2, excl=None, train=None, ddof=0):
+    """
+    Scale the numeric variables in a Pandas dataframe
+
+    Parameters
+    ----------
+    df : Pandas dataframe with numeric variables
+    wt : Pandas series or None
+        Weights to use during scaling. The length of the vector should
+        be the same as the number of rows in the df
+    sf : float
+        Scale factor to use (default is 2).
     excl : None or list
         Provide list of column names to exclude when applying standardization
     train : bool

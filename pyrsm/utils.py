@@ -6,6 +6,7 @@ from datetime import date, datetime
 from math import ceil
 from IPython.display import display, Markdown
 from sys import modules
+import json
 
 from math import log
 
@@ -361,6 +362,34 @@ def md(x: str) -> None:
     md("./path-to-markdown-file.md")
     """
     display(Markdown(x))
+
+
+def md_notebook(nb: str, type="python") -> None:
+    """
+    Print code from another notebook in markdown format
+    This can be useful when you are using the %run magick
+    in a notebook to source other notebooks. This way you
+    both the notebook output and the code
+
+    Parameters
+    ----------
+    nb : Path to a Jupyter Notebook file
+
+    Returns
+    -------
+    None - Markdown output is printed
+
+    Examples
+    --------
+    md("./path-to-notebook-file.ipynb")
+    """
+    with open(nb) as f:
+        data = json.load(f)
+
+    source_cells = [
+        "".join(cell["source"]) for cell in data["cells"] if cell["cell_type"] == "code"
+    ]
+    md(f"```{type}\n{source_cells[0]}\n```")
 
 
 def odir(obj, private: bool = False) -> dict:

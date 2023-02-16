@@ -1,8 +1,9 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mtick
 import seaborn as sns
-from pyrsm import xtile
+from pyrsm import xtile, bincode
 from pyrsm.utils import ifelse
 from sklearn import metrics
 from scipy.stats import rankdata
@@ -32,7 +33,7 @@ def calc_qnt(df, rvar, lev, pred, qnt=10):
 
     df = df.loc[:, (rvar, pred)]
     df["bins"] = xtile(df[pred], qnt)
-    df["rvar_int"] = np.where(df[rvar] == lev, 1, 0)
+    df["rvar_int"] = ifelse(df[rvar] == lev, 1, ifelse(df[rvar].isna(), np.nan, 0))
     perf_df = df.groupby("bins").rvar_int.agg(nr_obs="count", nr_resp=sum).reset_index()
 
     # flip if needed
@@ -150,6 +151,216 @@ def confusion(df, rvar, lev, pred, cost=1, margin=2):
     return TP, FP, TN, FN, contact
 
 
+def uplift_tab(df, rvar, lev, pred, tvar, tlev, qnt=10):
+    """
+    Calculate an Uplift table
+
+    Parameters
+    ----------
+    df : Pandas dataframe
+    rvar : str
+        Name of the response variable column in df
+    lev : str
+        Name of the 'success' level in rvar
+    pred : str
+        Name of the column in df with model predictions
+    tvar : str
+        Name of the treatment variable column in df
+    tlev : str
+        Name of the 'success' level in tvar
+    qnt : int
+        Number of quantiles to create
+
+    Returns
+    -------
+    Pandas dataframe
+        Incremental uplift per quantile. Input for uplift charts
+    """
+
+    def local_xtile(x, treatment, n=qnt, rev=True):
+        x = np.array(x)
+        treatment = np.array(treatment)
+        breaks = (
+            [-np.inf]
+            + list(np.quantile(x[treatment], np.arange(0, n + 1) / n)[1:])
+            + [np.inf]
+        )
+
+        if len(np.unique(breaks)) == len(breaks):
+            bins = pd.cut(x, breaks, include_lowest=True, labels=False) + 1
+        else:
+            bins = bincode(x, breaks)
+
+        if rev is True:
+            bins = (n + 1) - bins
+
+        return bins
+
+    df = df.copy()
+    df[rvar] = df[rvar] == lev
+    df[tvar] = df[tvar] == tlev
+
+    df["bins"] = local_xtile(df[pred], df[tvar], n=qnt, rev=True)
+    df["T_resp"] = df[tvar] & df[rvar]
+    df["C_resp"] = ~df[tvar] & df[rvar]
+    df["C_n"] = ~df[tvar]
+    tab = (
+        (
+            (
+                df.groupby("bins").agg(
+                    nr_obs=("bins", "count"),
+                    nr_resp=(rvar, "sum"),
+                    T_resp=("T_resp", "sum"),
+                    T_n=(tvar, "sum"),
+                    C_resp=("C_resp", "sum"),
+                    C_n=("C_n", "sum"),
+                )
+            )
+            .assign(
+                uplift=lambda x: x.T_resp / x.T_n - x.C_resp / x.C_n,
+                cum_prop=lambda x: x.index / qnt,
+                T_resp=lambda x: x.T_resp.cumsum(),
+                T_n=lambda x: x.T_n.cumsum(),
+                C_resp=lambda x: x.C_resp.cumsum(),
+                C_n=lambda x: x.C_n.cumsum(),
+                incremental_resp=lambda x: x.T_resp - x.C_resp * x.T_n / x.C_n,
+            )
+            .assign(
+                inc_uplift=lambda x: x.incremental_resp / x.T_n.max() * 100, pred=pred
+            )
+        )
+        .reset_index()
+        .loc[
+            :,
+            [
+                "pred",
+                "bins",
+                "cum_prop",
+                "T_resp",
+                "T_n",
+                "C_resp",
+                "C_n",
+                "incremental_resp",
+                "inc_uplift",
+                "uplift",
+            ],
+        ]
+    )
+    return tab
+
+
+def inc_uplift_plot(df, rvar, lev, pred, tvar, tlev, qnt=10, marker="o", **kwargs):
+    """
+    Plot an Incremental Uplift chart
+
+    Parameters
+    ----------
+    df : Pandas dataframe or a dictionary of dataframes with keys to show multiple curves for different models or data samples
+    rvar : str
+        Name of the response variable column in df
+    lev : str
+        Name of the 'success' level in rvar
+    pred : str
+        Name of the column in df with model predictions
+    tvar : str
+        Name of the treatment variable column in df
+    tlev : str
+        Name of the 'success' level in tvar
+    qnt : int
+        Number of quantiles to create
+    **kwargs : Named arguments to be passed to the seaborn lineplot function
+
+    Returns
+    -------
+    Seaborn object
+        Plot of Incremental Uplift per quantile
+    """
+    dct = ifelse(type(df) is dict, df, {"": df})
+    pred = ifelse(type(pred) is list, pred, [pred])
+    group = ifelse(len(pred) > 1 or len(dct.keys()) > 1, "pred", None)
+
+    rd = [
+        pd.concat(
+            [
+                pd.DataFrame({"cum_prop": [0], "inc_uplift": [0], "pred": p}),
+                uplift_tab(dct[k], rvar, lev, p, tvar, tlev, qnt=qnt).assign(
+                    predictor=p + ifelse(k == "", k, f" ({k})")
+                )[["cum_prop", "inc_uplift", "pred"]],
+            ]
+        )
+        for k in dct.keys()
+        for p in pred
+    ]
+
+    yend = rd[0].inc_uplift.iloc[-1]
+    rd = pd.concat(rd).reset_index(drop=True)
+    fig = sns.lineplot(
+        x="cum_prop", y="inc_uplift", data=rd, hue=group, marker=marker, **kwargs
+    )
+    fig.yaxis.set_major_formatter(
+        mtick.FuncFormatter(lambda y, _: "{:.0%}".format(y / 100))
+    )
+    fig.xaxis.set_major_formatter(mtick.FuncFormatter(lambda x, _: "{:.0%}".format(x)))
+
+    fig.set(ylabel="Incremental Uplift", xlabel="Proportion of customers")
+    plt.plot([0, 1], [0, yend], linestyle="--", linewidth=1, color=plt.cm.Blues(0.7))
+    if len(dct) > 1 or len(pred) > 1:
+        fig.legend(title=None)
+    return fig
+
+
+def uplift_plot(df, rvar, lev, pred, tvar, tlev, qnt=10, marker="o", **kwargs):
+    """
+    Plot an Uplift bar chart
+
+    Parameters
+    ----------
+    df : Pandas dataframe or a dictionary of dataframes with keys to show multiple curves for different models or data samples
+    rvar : str
+        Name of the response variable column in df
+    lev : str
+        Name of the 'success' level in rvar
+    pred : str
+        Name of the column in df with model predictions
+    tvar : str
+        Name of the treatment variable column in df
+    tlev : str
+        Name of the 'success' level in tvar
+    qnt : int
+        Number of quantiles to create
+    **kwargs : Named arguments to be passed to the seaborn lineplot function
+
+    Returns
+    -------
+    Seaborn object
+        Plot of Incremental Uplift per quantile
+    """
+    dct = ifelse(type(df) is dict, df, {"": df})
+    pred = ifelse(type(pred) is list, pred, [pred])
+    group = ifelse(len(pred) > 1 or len(dct.keys()) > 1, "predictor", plt.cm.Blues(0.7))
+
+    rd = [
+        uplift_tab(dct[k], rvar, lev, p, tvar, tlev, qnt=qnt).assign(
+            predictor=p + ifelse(k == "", k, f" ({k})")
+        )
+        for k in dct.keys()
+        for p in pred
+    ]
+
+    rd = pd.concat(rd).reset_index(drop=True)
+    if group == "predictor":
+        fig = sns.barplot(x="cum_prop", y="uplift", data=rd, hue=group, **kwargs)
+    else:
+        fig = sns.barplot(x="cum_prop", y="uplift", data=rd, color=group, **kwargs)
+    fig.set(ylabel="Uplift", xlabel="Proportion of customers")
+    fig.yaxis.set_major_formatter(mtick.FuncFormatter(lambda y, _: "{:.0%}".format(y)))
+    # fig.xaxis.set_major_formatter(mtick.FuncFormatter(lambda x, _: "{:.0%}".format(x)))
+
+    if len(dct) > 1 or len(pred) > 1:
+        fig.legend(title=None)
+    return fig
+
+
 def profit_max(df, rvar, lev, pred, cost=1, margin=2):
     """
     Calculate the maximum profit using a dataframe as input
@@ -171,7 +382,7 @@ def profit_max(df, rvar, lev, pred, cost=1, margin=2):
     Returns
     -------
     float
-        Measure of optimal performace (e.g., profit) based on the specified cost and margin information
+        Measure of optimal performance (e.g., profit) based on the specified cost and margin information
     """
 
     TP, FP, TN, FN, contact = confusion(df, rvar, lev, pred, cost=cost, margin=margin)
@@ -781,6 +992,7 @@ def auc(rvar, pred, lev=1):
     auc(dvd.buy, np.random.uniform(size=20000), "yes")
     auc(dvd.buy, rsm.ifelse(dvd.buy == "yes", 1, 0), "yes")
     """
+    rvar = np.array(rvar)
     if type(rvar[0]) != bool or lev is not None:
         rvar = rvar == lev
 
