@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from sklearn import metrics
 import seaborn as sns
 from scipy import stats
-import statsmodels as sm
+import statsmodels.api as sm
 import statsmodels.formula.api as smf
 from statsmodels.regression.linear_model import RegressionResults as rrs
 from math import ceil
@@ -193,7 +193,7 @@ def reg_dashboard(fitted, nobs: int = 1000):
     sns.lineplot(x="order", y="resid", data=data, ax=axes[1, 0]).set(
         title="Residuals vs Row order", ylabel="Residuals", xlabel=None
     )
-    smf.qqplot(data.resid, line="s", ax=axes[1, 1])
+    sm.qqplot(data.resid, line="s", ax=axes[1, 1])
     axes[1, 1].title.set_text("Normal Q-Q plot")
     pdp = data.resid.plot.hist(
         ax=axes[2, 0],
@@ -204,7 +204,7 @@ def reg_dashboard(fitted, nobs: int = 1000):
     )
     pdp.set_xlabel("Residuals")
     sns.kdeplot(
-        data.std_resid, color="green", shade=True, ax=axes[2, 1], common_norm=True
+        data.std_resid, color="green", fill=True, ax=axes[2, 1], common_norm=True
     )
 
     # from https://stackoverflow.com/a/52925509/1974918

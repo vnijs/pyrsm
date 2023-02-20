@@ -1,5 +1,33 @@
 ## set up for testing without needing to build!!!
 
+## in a jupyter notebook setup pyrsm for 
+## autoreload when you edit code and save
+## code in the pyrsm repo
+## nothing else needed!
+%reload_ext autoreload
+%autoreload 2
+%aimport pyrsm
+
+## select commands to run and use the Command Palette to send to open terminal
+# use python build to install locally testing 
+sudo pip uninstall -y pyrsm
+sudo rm -rf ~/gh/pyrsm/dist
+sudo python3 -m build
+
+# try sending to pypi testing ground first
+python3 -m twine check dist/*
+python3 -m twine upload --repository testpypi dist/*
+
+# if all goes well push to main pypi
+python3 -m twine upload dist/*
+
+## now install in "editable" mode
+sudo pip install -e ~/gh/pyrsm
+
+
+
+
+
 ## assuming you are using conda
 ## remove all version pyrsm you might be using
 conda activate base
@@ -16,6 +44,8 @@ sudo pip install -e ~/gh/pyrsm
 %reload_ext autoreload
 %autoreload 2
 %aimport pyrsm
+
+usethis::usecourse("https://www.dropbox.com/sh/qn6jf7qiek7aicm/AAD9FA5vQxq6Hkkk5EfDLxvaa?dl=1")
 
 ## select commands to run and use the Command Palette to send to open terminal
 
