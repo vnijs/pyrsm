@@ -33,6 +33,8 @@ python3 -c "import pyrsm; print(pyrsm.__file__)"
 # use pip to add to base (or other) environment
 conda activate base
 sudo pip uninstall -y pyrsm
+sudo rm -rf ~/gh/pyrsm/dist
+sudo python3 -m build
 sudo pip install dist/pyrsm-*.tar.gz
 
 ## might be useful when testing

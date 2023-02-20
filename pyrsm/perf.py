@@ -180,10 +180,12 @@ def uplift_tab(df, rvar, lev, pred, tvar, tlev, qnt=10):
     def local_xtile(x, treatment, n=qnt, rev=True):
         x = np.array(x)
         treatment = np.array(treatment)
-        breaks = (
-            [-np.inf]
-            + list(np.quantile(x[treatment], np.arange(0, n + 1) / n)[1:])
-            + [np.inf]
+        breaks = np.concatenate(
+            (
+                np.array([-np.inf]),
+                np.quantile(x[treatment], np.arange(0, n + 1) / n)[1:-1],
+                np.array([np.inf]),
+            )
         )
 
         if len(np.unique(breaks)) == len(breaks):
