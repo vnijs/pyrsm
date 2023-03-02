@@ -151,7 +151,7 @@ def confusion(df, rvar, lev, pred, cost=1, margin=2):
     return TP, FP, TN, FN, contact
 
 
-def uplift_tab(df, rvar, lev, pred, tvar, tlev, qnt=10):
+def uplift_tab(df, rvar, lev, pred, tvar, tlev, scale=1, qnt=10):
     """
     Calculate an Uplift table
 
@@ -183,7 +183,9 @@ def uplift_tab(df, rvar, lev, pred, tvar, tlev, qnt=10):
         breaks = np.concatenate(
             (
                 np.array([-np.inf]),
-                np.quantile(x[treatment], np.arange(0, n + 1) / n)[1:-1],
+                np.quantile(x[treatment], np.arange(0, n + 1) / n, method="linear")[
+                    1:-1
+                ],
                 np.array([np.inf]),
             )
         )
@@ -221,10 +223,10 @@ def uplift_tab(df, rvar, lev, pred, tvar, tlev, qnt=10):
             .assign(
                 uplift=lambda x: x.T_resp / x.T_n - x.C_resp / x.C_n,
                 cum_prop=lambda x: x.index / qnt,
-                T_resp=lambda x: x.T_resp.cumsum(),
-                T_n=lambda x: x.T_n.cumsum(),
-                C_resp=lambda x: x.C_resp.cumsum(),
-                C_n=lambda x: x.C_n.cumsum(),
+                T_resp=lambda x: x.T_resp.cumsum() * scale,
+                T_n=lambda x: x.T_n.cumsum() * scale,
+                C_resp=lambda x: x.C_resp.cumsum() * scale,
+                C_n=lambda x: x.C_n.cumsum() * scale,
                 incremental_resp=lambda x: x.T_resp - x.C_resp * x.T_n / x.C_n,
             )
             .assign(
@@ -303,11 +305,97 @@ def inc_uplift_plot(df, rvar, lev, pred, tvar, tlev, qnt=10, marker="o", **kwarg
         mtick.FuncFormatter(lambda y, _: "{:.0%}".format(y / 100))
     )
     fig.xaxis.set_major_formatter(mtick.FuncFormatter(lambda x, _: "{:.0%}".format(x)))
-
-    fig.set(ylabel="Incremental Uplift", xlabel="Proportion of customers")
+    fig.set(ylabel="Incremental Uplift", xlabel="Percentage of population targeted")
     plt.plot([0, 1], [0, yend], linestyle="--", linewidth=1, color=plt.cm.Blues(0.7))
     if len(dct) > 1 or len(pred) > 1:
         fig.legend(title=None)
+    return fig
+
+
+def inc_profit_plot(
+    df,
+    rvar,
+    lev,
+    pred,
+    tvar,
+    tlev,
+    cost=1,
+    margin=2,
+    scale=1,
+    qnt=10,
+    marker="o",
+    **kwargs,
+):
+    """
+    Plot an Incremental Profit chart for Uplift modeling
+
+    Parameters
+    ----------
+    df : Pandas dataframe or a dictionary of dataframes with keys to show multiple curves for different models or data samples
+    rvar : str
+        Name of the response variable column in df
+    lev : str
+        Name of the 'success' level in rvar
+    pred : str
+        Name of the column in df with model predictions
+    tvar : str
+        Name of the treatment variable column in df
+    tlev : str
+        Name of the 'success' level in tvar
+    qnt : int
+        Number of quantiles to create
+    **kwargs : Named arguments to be passed to the seaborn lineplot function
+
+    Returns
+    -------
+    Seaborn object
+        Plot of Incremental Uplift per quantile
+    """
+
+    return "Work in progress - Check back soon"
+    dct = ifelse(type(df) is dict, df, {"": df})
+    pred = ifelse(type(pred) is list, pred, [pred])
+    group = ifelse(len(pred) > 1 or len(dct.keys()) > 1, "predictor", None)
+    df = [
+        uplift_tab(  # profit_tab(
+            dct[k], rvar, lev, p, qnt=qnt, cost=cost, margin=margin, scale=scale
+        ).assign(predictor=p + ifelse(k == "", k, f" ({k})"))
+        for k in dct.keys()
+        for p in pred
+    ]
+    df = pd.concat(df).reset_index(drop=True)
+    fig = sns.lineplot(
+        x="cum_prop", y="cum_profit", data=df, hue=group, marker=marker, **kwargs
+    )
+    fig.set(ylabel="Profit", xlabel="Percentage of population targeted")
+    fig.yaxis.set_major_formatter(mtick.FuncFormatter(lambda y, _: format(int(y), ",")))
+    fig.xaxis.set_major_formatter(mtick.FuncFormatter(lambda x, _: "{:.0%}".format(x)))
+    fig.axhline(1, linestyle="--", linewidth=1)
+    if contact:
+        cnf = [
+            confusion(dct[k], rvar, lev, p, cost=cost, margin=margin)[-1]
+            for k in dct.keys()
+            for p in pred
+        ]
+        prof = [
+            profit_max(dct[k], rvar, lev, p, cost=cost, margin=margin, scale=scale)
+            for k in dct.keys()
+            for p in pred
+        ]
+        [
+            [
+                fig.axvline(
+                    l, linestyle="--", linewidth=1, color=sns.color_palette()[i]
+                ),
+                fig.axhline(
+                    prof[i], linestyle="--", linewidth=1, color=sns.color_palette()[i]
+                ),
+            ]
+            for i, l in enumerate(filter(lambda x: x < 1, cnf))
+        ]
+    if len(dct) > 1 or len(pred) > 1:
+        fig.legend(title=None)
+
     return fig
 
 
@@ -354,7 +442,7 @@ def uplift_plot(df, rvar, lev, pred, tvar, tlev, qnt=10, marker="o", **kwargs):
         fig = sns.barplot(x="cum_prop", y="uplift", data=rd, hue=group, **kwargs)
     else:
         fig = sns.barplot(x="cum_prop", y="uplift", data=rd, color=group, **kwargs)
-    fig.set(ylabel="Uplift", xlabel="Proportion of customers")
+    fig.set(ylabel="Uplift", xlabel="Percentage of population targeted")
     fig.yaxis.set_major_formatter(mtick.FuncFormatter(lambda y, _: "{:.0%}".format(y)))
     # fig.xaxis.set_major_formatter(mtick.FuncFormatter(lambda x, _: "{:.0%}".format(x)))
 
@@ -363,7 +451,7 @@ def uplift_plot(df, rvar, lev, pred, tvar, tlev, qnt=10, marker="o", **kwargs):
     return fig
 
 
-def profit_max(df, rvar, lev, pred, cost=1, margin=2):
+def profit_max(df, rvar, lev, pred, cost=1, margin=2, scale=1):
     """
     Calculate the maximum profit using a dataframe as input
 
@@ -388,7 +476,7 @@ def profit_max(df, rvar, lev, pred, cost=1, margin=2):
     """
 
     TP, FP, TN, FN, contact = confusion(df, rvar, lev, pred, cost=cost, margin=margin)
-    return margin * TP - cost * (TP + FP)
+    return scale * (margin * TP - cost * (TP + FP))
 
 
 def profit(rvar, pred, lev=1, cost=1, margin=2):
@@ -482,7 +570,7 @@ def ROME(pred, rvar, lev, cost=1, margin=2):
     return profit / (cost * (TP + FP))
 
 
-def profit_tab(df, rvar, lev, pred, qnt=10, cost=1, margin=2):
+def profit_tab(df, rvar, lev, pred, qnt=10, cost=1, margin=2, scale=1):
     """
     Calculate table with profit per quantile
 
@@ -509,7 +597,7 @@ def profit_tab(df, rvar, lev, pred, qnt=10, cost=1, margin=2):
     """
 
     df = calc_qnt(df, rvar, lev, pred, qnt=qnt)
-    df["cum_profit"] = margin * df.cum_resp - cost * df.cum_obs
+    df["cum_profit"] = margin * df.cum_resp * scale - cost * df.cum_obs * scale
     df0 = pd.DataFrame({"cum_prop": [0], "cum_profit": [0]})
     df = pd.concat([df0, df], sort=False)
     df.index = range(df.shape[0])
@@ -551,7 +639,17 @@ def ROME_tab(df, rvar, lev, pred, qnt=10, cost=1, margin=2):
 
 
 def profit_plot(
-    df, rvar, lev, pred, qnt=10, cost=1, margin=2, contact=False, marker="o", **kwargs
+    df,
+    rvar,
+    lev,
+    pred,
+    qnt=10,
+    cost=1,
+    margin=2,
+    contact=False,
+    scale=1,
+    marker="o",
+    **kwargs,
 ):
     """
     Plot a profit curve
@@ -595,9 +693,9 @@ def profit_plot(
     pred = ifelse(type(pred) is list, pred, [pred])
     group = ifelse(len(pred) > 1 or len(dct.keys()) > 1, "predictor", None)
     df = [
-        profit_tab(dct[k], rvar, lev, p, qnt=qnt, cost=cost, margin=margin).assign(
-            predictor=p + ifelse(k == "", k, f" ({k})")
-        )
+        profit_tab(
+            dct[k], rvar, lev, p, qnt=qnt, cost=cost, margin=margin, scale=scale
+        ).assign(predictor=p + ifelse(k == "", k, f" ({k})"))
         for k in dct.keys()
         for p in pred
     ]
@@ -605,7 +703,9 @@ def profit_plot(
     fig = sns.lineplot(
         x="cum_prop", y="cum_profit", data=df, hue=group, marker=marker, **kwargs
     )
-    fig.set(ylabel="Profit", xlabel="Proportion of customers")
+    fig.set(ylabel="Profit", xlabel="Percentage of population targeted")
+    fig.yaxis.set_major_formatter(mtick.FuncFormatter(lambda y, _: format(int(y), ",")))
+    fig.xaxis.set_major_formatter(mtick.FuncFormatter(lambda x, _: "{:.0%}".format(x)))
     fig.axhline(1, linestyle="--", linewidth=1)
     if contact:
         cnf = [
@@ -614,7 +714,7 @@ def profit_plot(
             for p in pred
         ]
         prof = [
-            profit_max(dct[k], rvar, lev, p, cost=cost, margin=margin)
+            profit_max(dct[k], rvar, lev, p, cost=cost, margin=margin, scale=scale)
             for k in dct.keys()
             for p in pred
         ]
@@ -636,7 +736,7 @@ def profit_plot(
 
 
 def expected_profit_plot(
-    df, rvar, lev, pred, cost=1, margin=2, contact=False, **kwargs
+    df, rvar, lev, pred, cost=1, margin=2, scale=1, contact=False, **kwargs
 ):
     """
     Plot an expected profit curve
@@ -682,7 +782,7 @@ def expected_profit_plot(
         return pd.DataFrame(
             {
                 "cum_prop": np.arange(1, df.shape[0] + 1) / df.shape[0],
-                "cum_profit": np.cumsum(profit),
+                "cum_profit": np.cumsum(profit) * scale,
             }
         )
 
@@ -695,7 +795,9 @@ def expected_profit_plot(
     ]
     df = pd.concat(df).reset_index(drop=True)
     fig = sns.lineplot(x="cum_prop", y="cum_profit", data=df, hue=group, **kwargs)
-    fig.set(ylabel="Profit", xlabel="Proportion of customers")
+    fig.set(ylabel="Expected Profit", xlabel="Percentage of population targeted")
+    fig.yaxis.set_major_formatter(mtick.FuncFormatter(lambda y, _: format(int(y), ",")))
+    fig.xaxis.set_major_formatter(mtick.FuncFormatter(lambda x, _: "{:.0%}".format(x)))
     fig.axhline(1, linestyle="--", linewidth=1)
     if contact:
         cnf = [
@@ -704,7 +806,7 @@ def expected_profit_plot(
             for p in pred
         ]
         prof = [
-            profit_max(dct[k], rvar, lev, p, cost=cost, margin=margin)
+            profit_max(dct[k], rvar, lev, p, cost=cost, margin=margin, scale=scale)
             for k in dct.keys()
             for p in pred
         ]
@@ -776,7 +878,7 @@ def ROME_plot(df, rvar, lev, pred, qnt=10, cost=1, margin=2, marker="o", **kwarg
     )
     fig.set(
         ylabel="Return on Marketing Expenditures (ROME)",
-        xlabel="Proportion of customers",
+        xlabel="Percentage of population targeted",
     )
     fig.axhline(0, linestyle="--", linewidth=1)
     if len(dct) > 1 or len(pred) > 1:
@@ -833,8 +935,10 @@ def gains_plot(df, rvar, lev, pred, qnt=10, marker="o", **kwargs):
     fig = sns.lineplot(
         x="cum_prop", y="cum_gains", data=rd, hue=group, marker=marker, **kwargs
     )
-    fig.set(ylabel="Cumulative gains", xlabel="Proportion of customers")
+    fig.set(ylabel="Percentage Buyers", xlabel="Percentage of population targeted")
     plt.plot([0, 1], [0, 1], linestyle="--", linewidth=1, color=plt.cm.Blues(0.7))
+    fig.yaxis.set_major_formatter(mtick.FuncFormatter(lambda y, _: "{:.0%}".format(y)))
+    fig.xaxis.set_major_formatter(mtick.FuncFormatter(lambda x, _: "{:.0%}".format(x)))
     if len(dct) > 1 or len(pred) > 1:
         fig.legend(title=None)
     return fig
@@ -889,14 +993,14 @@ def lift_plot(df, rvar, lev, pred, qnt=10, marker="o", **kwargs):
     fig = sns.lineplot(
         x="cum_prop", y="cum_lift", data=rd, hue=group, marker=marker, **kwargs
     )
-    fig.set(ylabel="Cumulative lift", xlabel="Proportion of customers")
+    fig.set(ylabel="Cumulative lift", xlabel="Percentage of population targeted")
     fig.axhline(1, linestyle="--", linewidth=1)
     if len(dct) > 1 or len(pred) > 1:
         fig.legend(title=None)
     return fig
 
 
-def evalbin(df, rvar, lev, pred, cost=1, margin=2, dec=3):
+def evalbin(df, rvar, lev, pred, cost=1, margin=2, scale=1, dec=3):
     """
     Evaluate binary classification models. Calculates TP, FP, TN, FN, contact, total,
     TPR, TNR, precision, Fscore, accuracy, profit, ROME, AUC, kappa, and profit index

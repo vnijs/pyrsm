@@ -12,21 +12,17 @@
 # use python build to install locally testing 
 sudo pip uninstall -y pyrsm
 sudo rm -rf ~/gh/pyrsm/dist
-sudo python3 -m build
+sudo python -m build
 
 # try sending to pypi testing ground first
-python3 -m twine check dist/*
-python3 -m twine upload --repository testpypi dist/*
+python -m twine check dist/*
+python -m twine upload --repository testpypi dist/*
 
 # if all goes well push to main pypi
-python3 -m twine upload dist/*
+python -m twine upload dist/*
 
 ## now install in "editable" mode
 sudo pip install -e ~/gh/pyrsm
-
-
-
-
 
 ## assuming you are using conda
 ## remove all version pyrsm you might be using
@@ -62,7 +58,7 @@ python3 -c "import pyrsm; print(pyrsm.__file__)"
 
 # use pip to add to base (or other) environment
 conda activate base
-sudo pip uninstall -y pyrsm
+sudo pip uninstall
 sudo rm -rf ~/gh/pyrsm/dist
 sudo python3 -m build
 sudo pip install dist/pyrsm-*.tar.gz

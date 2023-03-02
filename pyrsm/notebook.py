@@ -1,8 +1,7 @@
 import pickle
-import ipynbname
 
 
-def save_state(dct, path=None):
+def save_state(dct, path):
     """
     Store the (partial) state of a Jupyter notebook
 
@@ -11,8 +10,8 @@ def save_state(dct, path=None):
     dct : dict
         Dictionary of python objects to store (e.g., globals())
     path : str
-        File path to use to store state. If none, (try) to use the notebook name
-        If the notebook name cannot be determined, uses 'notebook.state.pkl'
+        File path to use to store state. Use .state.pkl as
+        the file name extension
 
     Examples
     --------
@@ -50,15 +49,6 @@ def save_state(dct, path=None):
             and (str(type(val)) not in remove_types)
         )
     }
-    if path is None:
-        try:
-            path = ipynbname.name() + ".state.pkl"
-        except Exception as err:
-            print(err)
-            print("\nCould not determine the notebook name")
-            print("Using 'notebook.state.pkl' instead")
-            path = "notebook.state.pkl"
-
     try:
         with open(path, "wb") as f:
             pickle.dump(state, f)
@@ -69,31 +59,22 @@ def save_state(dct, path=None):
         print("a dictionary with the objects you want to store")
 
 
-def load_state(dct=None, path=None):
+def load_state(path, dct=None):
     """
     Re-store the (partial) state of a Jupyter notebook
 
     Parameters
     ----------
+    path : str
+        Path to state file location
     dct : dict
         Dictionary to add python objects to (e.g., globals()).
-        If None, a dictionary with objects will be returned
-    path : str
-        Path to use to store state. If none, (try) to use the current notebook name.
-        If the notebook name cannot be determined, uses 'notebook.state.pkl'
+        If None, a dictionary of objects will be returned
 
     Examples
     --------
-    load_state(globals(), path="my-notebook.state.pkl")
+    load_state("my-notebook.state.pkl", globals())
     """
-    if path is None:
-        try:
-            path = ipynbname.name() + ".state.pkl"
-        except Exception as err:
-            print(err)
-            print("\nCould not determine the notebook name")
-            print("Loading 'notebook.state.pkl' if available")
-            path = "notebook.state.pkl"
 
     try:
         with open(path, "rb") as f:

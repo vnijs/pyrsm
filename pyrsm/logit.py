@@ -272,6 +272,13 @@ def model_fit(fitted, dec=3, prn=True):
         If prn is True, print output, else return a Pandas dataframe with the results
     """
 
+    if hasattr(fitted, "df_resid"):
+        weighted_nobs = (
+            fitted.df_resid + fitted.df_model + int(hasattr(fitted.params, "Intercept"))
+        )
+        if weighted_nobs > fitted.nobs:
+            fitted.nobs = weighted_nobs
+
     mfit = pd.DataFrame().assign(
         pseudo_rsq_mcf=[1 - fitted.llf / fitted.llnull],
         pseudo_rsq_mcf_adj=[1 - (fitted.llf - fitted.df_model) / fitted.llnull],
