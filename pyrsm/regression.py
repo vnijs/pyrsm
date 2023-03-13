@@ -48,7 +48,7 @@ def coef_plot(
         df = df.query('index != "Intercept"')
 
     if incl is not None:
-        incl = ifelse(isinstance(incl, list), incl, [incl])
+        incl = ifelse(isinstance(incl, str), [incl], incl)
         rx = "(" + "|".join([f"^\b{v}|^{v}\\[" for v in incl]) + ")"
         incl = df["index"].str.match(rf"{rx}")
         if intercept:
@@ -56,7 +56,7 @@ def coef_plot(
         df = df[incl]
 
     if excl is not None:
-        excl = ifelse(isinstance(excl, list), excl, [excl])
+        excl = ifelse(isinstance(excl, str), [excl], excl)
         rx = "(" + "|".join([f"^\b{v}|^{v}\\[" for v in excl]) + ")"
         excl = df["index"].str.match(rf"{rx}")
         if intercept:
@@ -136,8 +136,8 @@ def evalreg(df, rvar: str, pred: str, dec: int = 3):
     --------
     """
 
-    dct = ifelse(type(df) is dict, df, {"All": df})
-    pred = ifelse(type(pred) is list, pred, [pred])
+    dct = ifelse(isinstance(df, dict), df, {"All": df})
+    pred = ifelse(isinstance(pred, str), [pred], pred)
 
     def calculate_metrics(key, dfm, pm):
         return pd.DataFrame().assign(
@@ -249,13 +249,13 @@ def sim_prediction(
 
     dct = {c: [fix_value(df[c])] for c in df.columns}
     dt = df.dtypes
-    if type(vary) is dict:
+    if isinstance(vary, dict):
         # user provided values and ranges
         for key, val in vary.items():
             dct[key] = val
     else:
         # auto derived values and ranges
-        vary = ifelse(type(vary) is list, vary, [vary])
+        vary = ifelse(isinstance(vary, str), [vary], vary)
         for v in vary:
             if pd.api.types.is_numeric_dtype(df[v].dtype):
                 nu = df[v].nunique()

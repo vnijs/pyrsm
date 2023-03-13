@@ -20,41 +20,47 @@ def test_seprop():
 
 
 # create example df and wt vector for testing
-df = pd.DataFrame({"x": [0, 1, 1, 1, 0, 0, 0], "y": [2, 1, 1, 1, 2, 2, 10]})
+df = pd.DataFrame(
+    {
+        "x": [0, 1, 1, 1, 0, 0, 0],
+        "y": [2, 1, 1, 1, 6, 2, 10],
+        "z": [2, 1, 1, 1, 2, 2, 10],
+    }
+)
 wt = np.array([1, 10, 1, 10, 1, 10, 1])
 
 
 def test_weighted_mean():
     assert all(
-        weighted_mean(df, wt).round(5) == np.array([0.61765, 1.617650])
+        weighted_mean(df, wt).round(5) == np.array([0.61765, 1.73529, 1.617650])
     ), "Weighted means incorrect"
 
 
 def test_weighted_sd():
     assert all(
-        weighted_sd(df, wt).round(5) == np.array([0.48596, 1.53421])
+        weighted_sd(df, wt).round(5) == np.array([0.48596, 1.70309, 1.53421])
     ), "Weighted standard deviations incorrect"
 
 
 def test_scale_df():
     assert all(
-        scale_df(df, ddof=1).round(5).loc[0, ["x", "y"]].values
-        == np.array([-0.40089, -0.10984])
+        scale_df(df, ddof=1).round(5).loc[0, ["x", "y", "z"]].values
+        == np.array([0, -0.18632, -0.10984])
     ), "Scaled pandas dataframe incorrect"
     assert all(
-        scale_df(df, ddof=1).round(5).loc[1, ["x", "y"]].values
-        == np.array([0.53452, -0.26362])
+        scale_df(df, ddof=1).round(5).loc[1, ["x", "y", "z"]].values
+        == np.array([1, -0.33123, -0.26362])
     ), "Scaled pandas dataframe incorrect"
 
 
 def test_weighted_scale_df():
     assert all(
-        scale_df(df, wt, ddof=0).round(5).loc[0, ["x", "y"]].values
-        == np.array([-0.63549, 0.12461])
+        scale_df(df, wt, ddof=0).round(5).loc[0, ["x", "y", "z"]].values
+        == np.array([0, 0.07771, 0.12461])
     ), "Weighted scaled pandas dataframe incorrect"
     assert all(
-        scale_df(df, wt, ddof=0).round(5).loc[1, ["x", "y"]].values
-        == np.array([0.3934, -0.20129])
+        scale_df(df, wt, ddof=0).round(5).loc[1, ["x", "y", "z"]].values
+        == np.array([1, -0.21587, -0.20129])
     ), "Weighted scaled pandas dataframe incorrect"
 
 

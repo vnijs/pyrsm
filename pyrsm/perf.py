@@ -137,7 +137,8 @@ def confusion(df, rvar, lev, pred, cost=1, margin=2):
         Proportion of cases to act on based on the cost/margin ratio
     """
 
-    if isinstance(pred, list) and len(pred) > 1:
+    if pd.api.types.is_list_like(pred) and len(pred) > 1:
+        # if isinstance(pred, list) and len(pred) > 1:
         return "This function can only take one predictor variables at time"
 
     break_even = cost / margin
@@ -279,8 +280,8 @@ def inc_uplift_plot(df, rvar, lev, pred, tvar, tlev, qnt=10, marker="o", **kwarg
     Seaborn object
         Plot of Incremental Uplift per quantile
     """
-    dct = ifelse(type(df) is dict, df, {"": df})
-    pred = ifelse(type(pred) is list, pred, [pred])
+    dct = ifelse(isinstance(df, dict), df, {"": df})
+    pred = ifelse(isinstance(pred, str), [pred], pred)
     group = ifelse(len(pred) > 1 or len(dct.keys()) > 1, "pred", None)
 
     rd = [
@@ -353,8 +354,8 @@ def inc_profit_plot(
     """
 
     return "Work in progress - Check back soon"
-    dct = ifelse(type(df) is dict, df, {"": df})
-    pred = ifelse(type(pred) is list, pred, [pred])
+    dct = ifelse(isinstance(df, dict), df, {"": df})
+    pred = ifelse(isinstance(pred, str), [pred], pred)
     group = ifelse(len(pred) > 1 or len(dct.keys()) > 1, "predictor", None)
     df = [
         uplift_tab(  # profit_tab(
@@ -425,8 +426,8 @@ def uplift_plot(df, rvar, lev, pred, tvar, tlev, qnt=10, marker="o", **kwargs):
     Seaborn object
         Plot of Incremental Uplift per quantile
     """
-    dct = ifelse(type(df) is dict, df, {"": df})
-    pred = ifelse(type(pred) is list, pred, [pred])
+    dct = ifelse(isinstance(df, dict), df, {"": df})
+    pred = ifelse(isinstance(pred, str), [pred], pred)
     group = ifelse(len(pred) > 1 or len(dct.keys()) > 1, "predictor", plt.cm.Blues(0.7))
 
     rd = [
@@ -689,8 +690,8 @@ def profit_plot(
     dct = {"Training": df.query("training == 1"), "Test": df.query("training == 0")}
     profit_plot(dct, "buyer", "yes", "pred_a", cost=0.5, margin=6)
     """
-    dct = ifelse(type(df) is dict, df, {"": df})
-    pred = ifelse(type(pred) is list, pred, [pred])
+    dct = ifelse(isinstance(df, dict), df, {"": df})
+    pred = ifelse(isinstance(pred, str), [pred], pred)
     group = ifelse(len(pred) > 1 or len(dct.keys()) > 1, "predictor", None)
     df = [
         profit_tab(
@@ -772,8 +773,8 @@ def expected_profit_plot(
     dct = {"Training": df.query("training == 1"), "Test": df.query("training == 0")}
     expected_profit_plot(dct, "buyer", "yes", "pred_a", cost=0.5, margin=6)
     """
-    dct = ifelse(type(df) is dict, df, {"": df})
-    pred = ifelse(type(pred) is list, pred, [pred])
+    dct = ifelse(isinstance(df, dict), df, {"": df})
+    pred = ifelse(isinstance(pred, str), [pred], pred)
     group = ifelse(len(pred) > 1 or len(dct.keys()) > 1, "predictor", None)
 
     def calc_exp_profit(df, pred, cost, margin):
@@ -862,8 +863,8 @@ def ROME_plot(df, rvar, lev, pred, qnt=10, cost=1, margin=2, marker="o", **kwarg
     dct = {"Training": df.query("training == 1"), "Test": df.query("training == 0")}
     ROME_plot(dct, "buyer", "yes", "pred_a", cost=0.5, margin=6)
     """
-    dct = ifelse(type(df) is dict, df, {"": df})
-    pred = ifelse(type(pred) is list, pred, [pred])
+    dct = ifelse(isinstance(df, dict), df, {"": df})
+    pred = ifelse(isinstance(pred, str), [pred], pred)
     group = ifelse(len(pred) > 1 or len(dct.keys()) > 1, "predictor", None)
     rd = [
         ROME_tab(dct[k], rvar, lev, p, qnt=qnt, cost=cost, margin=margin).assign(
@@ -921,8 +922,8 @@ def gains_plot(df, rvar, lev, pred, qnt=10, marker="o", **kwargs):
     dct = {"Training": df.query("training == 1"), "Test": df.query("training == 0")}
     gains_plot(dct, "buyer", "yes", "pred_a")
     """
-    dct = ifelse(type(df) is dict, df, {"": df})
-    pred = ifelse(type(pred) is list, pred, [pred])
+    dct = ifelse(isinstance(df, dict), df, {"": df})
+    pred = ifelse(isinstance(pred, str), [pred], pred)
     group = ifelse(len(pred) > 1 or len(dct.keys()) > 1, "predictor", None)
     rd = [
         gains_tab(dct[k], rvar, lev, p, qnt=qnt).assign(
@@ -979,8 +980,8 @@ def lift_plot(df, rvar, lev, pred, qnt=10, marker="o", **kwargs):
     lift = {"Training": df.query("training == 1"), "Test": df.query("training == 0")}
     lift_plot(dct, "buyer", "yes", "pred_a")
     """
-    dct = ifelse(type(df) is dict, df, {"": df})
-    pred = ifelse(type(pred) is list, pred, [pred])
+    dct = ifelse(isinstance(df, dict), df, {"": df})
+    pred = ifelse(isinstance(pred, str), [pred], pred)
     group = ifelse(len(pred) > 1 or len(dct.keys()) > 1, "predictor", None)
     rd = [
         lift_tab(dct[k], rvar, lev, p, qnt=qnt).assign(
@@ -1026,8 +1027,8 @@ def evalbin(df, rvar, lev, pred, cost=1, margin=2, scale=1, dec=3):
     --------
     """
 
-    dct = ifelse(type(df) is dict, df, {"All": df})
-    pred = ifelse(type(pred) is list, pred, [pred])
+    dct = ifelse(isinstance(df, dict), df, {"All": df})
+    pred = ifelse(isinstance(pred, str), [pred], pred)
 
     def calculate_metrics(key, dfm, pm):
         TP, FP, TN, FN, contact = confusion(dfm, rvar, lev, pm, cost, margin)
@@ -1099,7 +1100,7 @@ def auc(rvar, pred, lev=1):
     auc(dvd.buy, rsm.ifelse(dvd.buy == "yes", 1, 0), "yes")
     """
     rvar = np.array(rvar)
-    if type(rvar[0]) != bool or lev is not None:
+    if not isinstance(rvar[0], bool) or lev is not None:
         rvar = rvar == lev
 
     n1 = np.sum(np.logical_not(rvar))

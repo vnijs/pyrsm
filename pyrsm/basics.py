@@ -104,7 +104,7 @@ class cross_tabs:
         ct.summary()
         """
 
-        output = ifelse(type(output) is list, output, [output])
+        output = ifelse(isinstance(output, str), [output], output)
         prn = f"""
 Cross-tabs
 Variables: {self.var1}, {self.var2}
@@ -183,7 +183,7 @@ Chi-squared: {round(self.chisq_test[0], dec)} df({int(self.chisq_test[2])}), p.v
         ct = rsm.cross_tabs(newspaper, "Income", "Newspaper")
         ct.plot()
         """
-        output = ifelse(type(output) is list, output, [output])
+        output = ifelse(isinstance(output, str), [output], output)
 
         args = {"rot": False}
         if "observed" in output:

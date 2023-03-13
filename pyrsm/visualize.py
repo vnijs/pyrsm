@@ -111,7 +111,7 @@ def pred_plot_sm(
     excl=[],
     incl_int=[],
     fix=True,
-    hline=True,
+    hline=False,
     nnv=20,
     minq=0.025,
     maxq=0.975,
@@ -185,10 +185,10 @@ def pred_plot_sm(
     if incl is None:
         incl = extract_evars(model, df.columns)
     else:
-        incl = ifelse(isinstance(incl, list), incl, [incl])
+        incl = ifelse(isinstance(incl, str), [incl], incl)
 
-    excl = ifelse(isinstance(excl, list), excl, [excl])
-    incl_int = ifelse(isinstance(incl_int, list), incl_int, [incl_int])
+    excl = ifelse(isinstance(excl, str), [excl], excl)
+    incl_int = ifelse(isinstance(incl_int, str), [incl_int], incl_int)
 
     if len(excl) > 0:
         incl = [i for i in incl if i not in excl]
@@ -299,7 +299,7 @@ def pred_plot_sk(
     excl=[],
     incl_int=[],
     fix=True,
-    hline=True,
+    hline=False,
     nnv=20,
     minq=0.025,
     maxq=0.975,
@@ -371,7 +371,7 @@ def pred_plot_sk(
     if incl is None:
         incl = not_transformed + transformed
     else:
-        incl = ifelse(type(incl) is list, incl, [incl])
+        incl = ifelse(isinstance(incl, str), [incl], incl)
 
     def dummify(df, trs):
         if len(trs) > 0:
@@ -404,8 +404,8 @@ def pred_plot_sk(
         else:
             return False
 
-    excl = ifelse(isinstance(excl, list), excl, [excl])
-    incl_int = ifelse(isinstance(incl_int, list), incl_int, [incl_int])
+    excl = ifelse(isinstance(excl, str), [excl], excl)
+    incl_int = ifelse(isinstance(incl_int, str), [incl_int], incl_int)
 
     if len(excl) > 0:
         incl = [i for i in incl if i not in excl]
@@ -521,7 +521,7 @@ def pred_plot_sk(
         ax[-1, -1].remove()
 
 
-def vimp_plot_sm(fitted, df, rep=5):
+def vimp_plot_sm(fitted, df, rep=5, ax=None, ret=False):
     """
     Creates permutation importance plots for models estimated using the
     statsmodels library
@@ -532,6 +532,8 @@ def vimp_plot_sm(fitted, df, rep=5):
     df : Pandas DataFrame with data used for estimation
     rep: int
         The number of times to resample and calculate the permutation importance
+    ret: bool
+        Return the variable importance table as a sorted DataFrame
     """
     if hasattr(fitted, "model"):
         model = fitted.model
@@ -591,13 +593,20 @@ def vimp_plot_sm(fitted, df, rep=5):
     sorted_idx = pd.DataFrame(importance_values).transpose()
     sorted_idx = sorted_idx.sort_values(0, ascending=True)
     fig = sorted_idx.plot.barh(
-        color="slateblue", legend=None, figsize=(6, max(5, len(sorted_idx) * 0.5))
+        color="slateblue",
+        legend=None,
+        figsize=(6, max(5, len(sorted_idx) * 0.4)),
+        ax=ax,
     )
     plt.xlabel(xlab)
     plt.title("Permutation Importance")
 
+    if ret:
+        sorted_idx.columns = ["Importance"]
+        return sorted_idx[::-1]
 
-def vimp_plot_sk(fitted, X, y, rep=5):
+
+def vimp_plot_sk(fitted, X, y, rep=5, ax=None, ret=False):
     """
     Creates permutation importance plots for models estimated using the
     sklearn library
@@ -609,6 +618,8 @@ def vimp_plot_sk(fitted, X, y, rep=5):
     y : Series with data for the response variable (target) used for estimation
     rep: int
         The number of times to resample and calculate permutation importance
+    ret: bool
+        Return the variable importance table as a sorted DataFrame
     """
 
     if hasattr(fitted, "classes_"):
@@ -623,13 +634,15 @@ def vimp_plot_sk(fitted, X, y, rep=5):
     )
     data = pd.DataFrame(imp.importances.T)
     data.columns = fitted.feature_names_in_
-    order = data.agg("mean").sort_values(ascending=False).index
-    plt.figure(figsize=(6, max(5, data.shape[0] * 1.5)))
-    fig = sns.barplot(
-        x="value",
-        y="variable",
+    sorted_idx = pd.DataFrame(data.mean().sort_values())
+    fig = sorted_idx.plot.barh(
         color="slateblue",
-        errorbar=None,
-        data=pd.melt(data[order]),
+        legend=None,
+        figsize=(6, max(5, len(sorted_idx) * 0.4)),
+        ax=ax,
     )
     fig = fig.set(title="Permutation Importance", xlabel=xlab, ylabel=None)
+
+    if ret:
+        sorted_idx.columns = ["Importance"]
+        return sorted_idx[::-1]

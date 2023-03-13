@@ -113,7 +113,7 @@ def or_plot(fitted, alpha=0.05, intercept=False, incl=None, excl=None, figsize=N
     df = or_ci(fitted, alpha=alpha, intercept=intercept, dec=100).dropna().iloc[::-1]
 
     if incl is not None:
-        incl = ifelse(isinstance(incl, list), incl, [incl])
+        incl = ifelse(isinstance(incl, str), [incl], incl)
         rx = "(" + "|".join([f"^{v}$|^{v}\\[" for v in incl]) + ")"
         incl = df["index"].str.match(rf"{rx}")
         if intercept:
@@ -121,7 +121,7 @@ def or_plot(fitted, alpha=0.05, intercept=False, incl=None, excl=None, figsize=N
         df = df[incl]
 
     if excl is not None:
-        excl = ifelse(isinstance(excl, list), excl, [excl])
+        excl = ifelse(isinstance(excl, str), [excl], excl)
         rx = "(" + "|".join([f"^{v}$|^{v}\\[" for v in excl]) + ")"
         excl = df["index"].str.match(rf"{rx}")
         if intercept:
