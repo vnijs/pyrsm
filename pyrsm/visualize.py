@@ -550,7 +550,7 @@ def vimp_plot_sm(fitted, df, rep=5, ax=None, ret=False):
         )
 
     def imp_calc_reg(base, pred):
-        return pd.DataFrame({"y": model.endog, "yhat": pred}).corr().iloc[0, 1] ** 2
+        return 1 - pd.DataFrame({"y": model.endog, "yhat": pred}).corr().iloc[0, 1] ** 2
 
     def imp_calc_logit(base, pred):
         return base - auc(model.endog, pred)

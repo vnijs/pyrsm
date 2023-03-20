@@ -138,7 +138,6 @@ def confusion(df, rvar, lev, pred, cost=1, margin=2):
     """
 
     if pd.api.types.is_list_like(pred) and len(pred) > 1:
-        # if isinstance(pred, list) and len(pred) > 1:
         return "This function can only take one predictor variables at time"
 
     break_even = cost / margin
@@ -169,6 +168,8 @@ def uplift_tab(df, rvar, lev, pred, tvar, tlev, scale=1, qnt=10):
         Name of the treatment variable column in df
     tlev : str
         Name of the 'success' level in tvar
+    scale : float
+        Scaling factor to use in calculations
     qnt : int
         Number of quantiles to create
 
@@ -254,7 +255,9 @@ def uplift_tab(df, rvar, lev, pred, tvar, tlev, scale=1, qnt=10):
     return tab
 
 
-def inc_uplift_plot(df, rvar, lev, pred, tvar, tlev, qnt=10, marker="o", **kwargs):
+def inc_uplift_plot(
+    df, rvar, lev, pred, tvar, tlev, scale=1, qnt=10, marker="o", **kwargs
+):
     """
     Plot an Incremental Uplift chart
 
@@ -271,6 +274,8 @@ def inc_uplift_plot(df, rvar, lev, pred, tvar, tlev, qnt=10, marker="o", **kwarg
         Name of the treatment variable column in df
     tlev : str
         Name of the 'success' level in tvar
+    scale : float
+        Scaling factor to use in calculations
     qnt : int
         Number of quantiles to create
     **kwargs : Named arguments to be passed to the seaborn lineplot function
@@ -288,9 +293,11 @@ def inc_uplift_plot(df, rvar, lev, pred, tvar, tlev, qnt=10, marker="o", **kwarg
         pd.concat(
             [
                 pd.DataFrame({"cum_prop": [0], "inc_uplift": [0], "pred": p}),
-                uplift_tab(dct[k], rvar, lev, p, tvar, tlev, qnt=qnt).assign(
-                    predictor=p + ifelse(k == "", k, f" ({k})")
-                )[["cum_prop", "inc_uplift", "pred"]],
+                uplift_tab(
+                    dct[k], rvar, lev, p, tvar, tlev, scale=scale, qnt=qnt
+                ).assign(predictor=p + ifelse(k == "", k, f" ({k})"))[
+                    ["cum_prop", "inc_uplift", "pred"]
+                ],
             ]
         )
         for k in dct.keys()
@@ -313,6 +320,73 @@ def inc_uplift_plot(df, rvar, lev, pred, tvar, tlev, qnt=10, marker="o", **kwarg
     return fig
 
 
+def inc_profit_tab(
+    df,
+    rvar,
+    lev,
+    pred,
+    tvar,
+    tlev,
+    cost=1,
+    margin=2,
+    scale=1,
+    qnt=10,
+):
+    """
+    Plot an Incremental Profit chart for Uplift modeling
+
+    Parameters
+    ----------
+    df : Pandas dataframe or a dictionary of dataframes with keys to show multiple curves for different models or data samples
+    rvar : str
+        Name of the response variable column in df
+    lev : str
+        Name of the 'success' level in rvar
+    pred : str
+        Name of the column in df with model predictions
+    tvar : str
+        Name of the treatment variable column in df
+    tlev : str
+        Name of the 'success' level in tvar
+    cost : int
+        Cost of an action
+    margin : int
+        Benefit of an action if a successful outcome results from the action
+    scale : float
+        Scaling factor to use in calculations
+    qnt : int
+        Number of quantiles to create
+
+    Returns
+    -------
+    Seaborn object
+        Plot of Incremental Uplift per quantile
+    """
+
+    dct = ifelse(isinstance(df, dict), df, {"": df})
+    pred = ifelse(isinstance(pred, str), [pred], pred)
+
+    rd = [
+        pd.concat(
+            [
+                pd.DataFrame(
+                    {"cum_prop": [0], "incremental_resp": [0], "T_n": [0], "pred": p}
+                ),
+                uplift_tab(
+                    dct[k], rvar, lev, p, tvar, tlev, scale=scale, qnt=qnt
+                ).assign(predictor=p + ifelse(k == "", k, f" ({k})"))[
+                    ["cum_prop", "incremental_resp", "T_n", "pred"]
+                ],
+            ]
+        )
+        for k in dct.keys()
+        for p in pred
+    ]
+
+    rd = pd.concat(rd).reset_index(drop=True)
+    return rd.assign(inc_profit=(rd.incremental_resp * margin - rd.T_n * cost))
+
+
 def inc_profit_plot(
     df,
     rvar,
@@ -324,6 +398,7 @@ def inc_profit_plot(
     margin=2,
     scale=1,
     qnt=10,
+    contact=True,
     marker="o",
     **kwargs,
 ):
@@ -343,8 +418,18 @@ def inc_profit_plot(
         Name of the treatment variable column in df
     tlev : str
         Name of the 'success' level in tvar
+    cost : int
+        Cost of an action
+    margin : int
+        Benefit of an action if a successful outcome results from the action
+    scale : float
+        Scaling factor to use in calculations
     qnt : int
         Number of quantiles to create
+    contact : bool
+        Plot a vertical line that shows the optimal contact level.
+    marker : str
+        Marker to use for line plot
     **kwargs : Named arguments to be passed to the seaborn lineplot function
 
     Returns
@@ -353,45 +438,33 @@ def inc_profit_plot(
         Plot of Incremental Uplift per quantile
     """
 
-    return "Work in progress - Check back soon"
     dct = ifelse(isinstance(df, dict), df, {"": df})
     pred = ifelse(isinstance(pred, str), [pred], pred)
-    group = ifelse(len(pred) > 1 or len(dct.keys()) > 1, "predictor", None)
-    df = [
-        uplift_tab(  # profit_tab(
-            dct[k], rvar, lev, p, qnt=qnt, cost=cost, margin=margin, scale=scale
-        ).assign(predictor=p + ifelse(k == "", k, f" ({k})"))
-        for k in dct.keys()
-        for p in pred
-    ]
-    df = pd.concat(df).reset_index(drop=True)
+    group = ifelse(len(pred) > 1 or len(dct.keys()) > 1, "pred", None)
+
+    rd = inc_profit_tab(df, rvar, lev, pred, tvar, tlev, cost, margin, scale, qnt)
     fig = sns.lineplot(
-        x="cum_prop", y="cum_profit", data=df, hue=group, marker=marker, **kwargs
+        x="cum_prop", y="inc_profit", data=rd, hue=group, marker=marker, **kwargs
     )
-    fig.set(ylabel="Profit", xlabel="Percentage of population targeted")
+    fig.set(ylabel="Incremental Profit", xlabel="Percentage of population targeted")
     fig.yaxis.set_major_formatter(mtick.FuncFormatter(lambda y, _: format(int(y), ",")))
     fig.xaxis.set_major_formatter(mtick.FuncFormatter(lambda x, _: "{:.0%}".format(x)))
     fig.axhline(1, linestyle="--", linewidth=1)
     if contact:
         cnf = [
-            confusion(dct[k], rvar, lev, p, cost=cost, margin=margin)[-1]
-            for k in dct.keys()
-            for p in pred
-        ]
-        prof = [
-            profit_max(dct[k], rvar, lev, p, cost=cost, margin=margin, scale=scale)
+            confusion(
+                dct[k].query(f"{tvar} == {tlev}"),
+                rvar,
+                lev,
+                p,
+                cost=cost,
+                margin=margin,
+            )[-1]
             for k in dct.keys()
             for p in pred
         ]
         [
-            [
-                fig.axvline(
-                    l, linestyle="--", linewidth=1, color=sns.color_palette()[i]
-                ),
-                fig.axhline(
-                    prof[i], linestyle="--", linewidth=1, color=sns.color_palette()[i]
-                ),
-            ]
+            [fig.axvline(l, linestyle="--", linewidth=1, color=sns.color_palette()[i])]
             for i, l in enumerate(filter(lambda x: x < 1, cnf))
         ]
     if len(dct) > 1 or len(pred) > 1:
@@ -469,6 +542,8 @@ def profit_max(df, rvar, lev, pred, cost=1, margin=2, scale=1):
         Cost of an action
     margin : int
         Benefit of an action if a successful outcome results from the action
+    scale : float
+        Scaling factor to use in calculations
 
     Returns
     -------
@@ -480,7 +555,7 @@ def profit_max(df, rvar, lev, pred, cost=1, margin=2, scale=1):
     return scale * (margin * TP - cost * (TP + FP))
 
 
-def profit(rvar, pred, lev=1, cost=1, margin=2):
+def profit(rvar, pred, lev=1, cost=1, margin=2, scale=1):
     """
     Calculate the maximum profit using series as input. Provides the same results as profit_max
 
@@ -496,6 +571,8 @@ def profit(rvar, pred, lev=1, cost=1, margin=2):
         Cost of an action
     margin : int
         Benefit of an action if a successful outcome results from the action
+    scale : float
+        Scaling factor to use in calculations
 
     Returns
     -------
@@ -506,7 +583,7 @@ def profit(rvar, pred, lev=1, cost=1, margin=2):
     break_even = cost / margin
     TP = ((rvar == lev) & (pred > break_even)).sum()
     FP = ((rvar != lev) & (pred > break_even)).sum()
-    return margin * TP - cost * (TP + FP)
+    return scale * (margin * TP - cost * (TP + FP))
 
 
 def ROME_max(df, rvar, lev, pred, cost=1, margin=2):
@@ -590,6 +667,8 @@ def profit_tab(df, rvar, lev, pred, qnt=10, cost=1, margin=2, scale=1):
         Cost of an action
     margin : int
         Benefit of an action if a successful outcome results from the action
+    scale : float
+        Scaling factor to use in calculations
 
     Returns
     -------
@@ -598,7 +677,7 @@ def profit_tab(df, rvar, lev, pred, qnt=10, cost=1, margin=2, scale=1):
     """
 
     df = calc_qnt(df, rvar, lev, pred, qnt=qnt)
-    df["cum_profit"] = margin * df.cum_resp * scale - cost * df.cum_obs * scale
+    df["cum_profit"] = (margin * df.cum_resp - cost * df.cum_obs) * scale
     df0 = pd.DataFrame({"cum_prop": [0], "cum_profit": [0]})
     df = pd.concat([df0, df], sort=False)
     df.index = range(df.shape[0])
@@ -647,8 +726,8 @@ def profit_plot(
     qnt=10,
     cost=1,
     margin=2,
-    contact=False,
     scale=1,
+    contact=True,
     marker="o",
     **kwargs,
 ):
@@ -670,6 +749,8 @@ def profit_plot(
         Cost of an action
     margin : int
         Benefit of an action if a successful outcome results from the action
+    scale : float
+        Scaling factor to use in calculations
     contact : bool
         Plot a vertical line that shows the optimal contact level. Requires
         that `pred` is a series of probabilities. Values equal to 1 (100% contact)
@@ -737,7 +818,7 @@ def profit_plot(
 
 
 def expected_profit_plot(
-    df, rvar, lev, pred, cost=1, margin=2, scale=1, contact=False, **kwargs
+    df, rvar, lev, pred, cost=1, margin=2, scale=1, contact=True, **kwargs
 ):
     """
     Plot an expected profit curve
@@ -806,18 +887,14 @@ def expected_profit_plot(
             for k in dct.keys()
             for p in pred
         ]
-        prof = [
-            profit_max(dct[k], rvar, lev, p, cost=cost, margin=margin, scale=scale)
-            for k in dct.keys()
-            for p in pred
-        ]
+        eprof = df.groupby("predictor").cum_profit.max()
         [
             [
                 fig.axvline(
                     l, linestyle="--", linewidth=1, color=sns.color_palette()[i]
                 ),
                 fig.axhline(
-                    prof[i], linestyle="--", linewidth=1, color=sns.color_palette()[i]
+                    eprof[i], linestyle="--", linewidth=1, color=sns.color_palette()[i]
                 ),
             ]
             for i, l in enumerate(filter(lambda x: x < 1, cnf))

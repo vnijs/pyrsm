@@ -2,13 +2,14 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
-from statsmodels.stats.outliers_influence import variance_inflation_factor
+import statsmodels as sm
 import statsmodels.formula.api as smf
+from statsmodels.stats.outliers_influence import variance_inflation_factor
 from scipy import stats
 from scipy.special import expit
-from pyrsm.utils import ifelse
-from pyrsm.stats import weighted_mean, weighted_sd
-from pyrsm.perf import auc
+from .utils import ifelse
+from .stats import weighted_mean, weighted_sd
+from .perf import auc
 
 
 def sig_stars(pval):
@@ -254,7 +255,7 @@ def predict_ci(fitted, df, alpha=0.05):
     )
 
 
-def model_fit(fitted, dec=3, prn=True):
+def model_fit_lr(fitted, dec: int = 3, prn: bool = True):
     """
     Compute various model fit statistics for a fitted logistic regression model
 
@@ -305,3 +306,28 @@ Nr obs: {mfit.nobs.values[0]:,}
         print(output)
     else:
         return mfit
+
+
+def model_fit(fitted, dec: int = 3, prn: bool = True):
+    """
+    Compute various model fit statistics for a fitted linear or logistic regression model
+
+    Parameters
+    ----------
+    fitted : statmodels ols or glm object
+        Regression model fitted using statsmodels
+    dec : int
+        Number of decimal places to use in rounding
+    prn : bool
+        If True, print output, else return a Pandas dataframe with the results
+
+    Returns
+    -------
+        If prn is True, print output, else return a Pandas dataframe with the results
+    """
+    if isinstance(fitted, sm.genmod.generalized_linear_model.GLMResultsWrapper):
+        model_fit_lr(fitted, dec=dec, prn=prn)
+    elif isinstance(fitted, sm.regression.linear_model.RegressionResultsWrapper):
+        model_fit_reg(fitted, dec=dec, prn=prn)
+    else:
+        return "Only linear and logistic regression models are currently supported."

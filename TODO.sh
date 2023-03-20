@@ -22,6 +22,8 @@ python -m twine upload --repository testpypi dist/*
 python -m twine upload dist/*
 
 ## now install in "editable" mode
+sudo pip uninstall -y pyrsm
+sudo rm -rf ~/gh/pyrsm/dist
 sudo pip install -e ~/gh/pyrsm
 
 ## assuming you are using conda
