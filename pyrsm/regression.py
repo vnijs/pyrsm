@@ -9,8 +9,14 @@ import statsmodels.api as sm
 import statsmodels.formula.api as smf
 from statsmodels.regression.linear_model import RegressionResults as rrs
 from math import ceil
-from .logit import sig_stars
 from .utils import setdiff, format_nr, expand_grid, ifelse, group_categorical
+
+
+def sig_stars(pval):
+    pval = np.nan_to_num(pval, nan=1.0)
+    cutpoints = np.array([0.001, 0.01, 0.05, 0.1, np.Inf])
+    symbols = np.array(["***", "**", "*", ".", " "])
+    return [symbols[p < cutpoints][0] for p in pval]
 
 
 def coef_plot(

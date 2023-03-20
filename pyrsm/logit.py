@@ -10,13 +10,7 @@ from scipy.special import expit
 from .utils import ifelse
 from .stats import weighted_mean, weighted_sd
 from .perf import auc
-
-
-def sig_stars(pval):
-    pval = np.nan_to_num(pval, nan=1.0)
-    cutpoints = np.array([0.001, 0.01, 0.05, 0.1, np.Inf])
-    symbols = np.array(["***", "**", "*", ".", " "])
-    return [symbols[p < cutpoints][0] for p in pval]
+from .regression import sig_stars, model_fit_reg
 
 
 def or_ci(fitted, alpha=0.05, intercept=False, importance=False, data=None, dec=3):
