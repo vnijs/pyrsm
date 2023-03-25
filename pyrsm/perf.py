@@ -3,8 +3,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
 import seaborn as sns
-from pyrsm import xtile, bincode
-from pyrsm.utils import ifelse
+
+# from pyrsm import xtile, bincode
+from .bins import xtile, bincode
+from .utils import ifelse, table2data
 from sklearn import metrics
 from scipy.stats import rankdata
 
@@ -1151,7 +1153,7 @@ def evalbin(df, rvar, lev, pred, cost=1, margin=2, scale=1, dec=3):
     return result.round(dec)
 
 
-def auc(rvar, pred, lev=1):
+def auc(rvar, pred, lev=1, weights=None):
     """
     Calculate area under the RO curve (AUC)
 
@@ -1180,9 +1182,18 @@ def auc(rvar, pred, lev=1):
     if not isinstance(rvar[0], bool) or lev is not None:
         rvar = rvar == lev
 
-    n1 = np.sum(np.logical_not(rvar))
-    n2 = np.sum(rvar)
+    if weights is None:
+        rd = np.sum(rankdata(pred)[np.logical_not(rvar)])
+        n1 = np.sum(np.logical_not(rvar))
+        n2 = np.sum(rvar)
+    else:
+        pred_df = table2data(
+            pd.DataFrame({"pred": pred, "rvar": rvar, "weights": weights}), "weights"
+        )
+        rd = np.sum(rankdata(pred_df.pred)[np.logical_not(pred_df.rvar)])
+        n1 = np.sum(weights[np.logical_not(rvar)])
+        n2 = np.sum(weights[rvar])
 
-    U = np.sum(rankdata(pred)[np.logical_not(rvar)]) - n1 * (n1 + 1) / 2
+    U = rd - n1 * (n1 + 1) / 2
     wt = U / n1 / n2
     return ifelse(wt < 0.5, 1 - wt, wt)

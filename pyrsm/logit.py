@@ -274,10 +274,15 @@ def model_fit_lr(fitted, dec: int = 3, prn: bool = True):
         if weighted_nobs > fitted.nobs:
             fitted.nobs = weighted_nobs
 
+    if fitted.model._has_freq_weights:
+        fw = fitted.model.freq_weights
+    else:
+        fw = None
+
     mfit = pd.DataFrame().assign(
         pseudo_rsq_mcf=[1 - fitted.llf / fitted.llnull],
         pseudo_rsq_mcf_adj=[1 - (fitted.llf - fitted.df_model) / fitted.llnull],
-        AUC=[auc(fitted.model.endog, fitted.fittedvalues)],
+        AUC=[auc(fitted.model.endog, fitted.fittedvalues, weights=fw)],
         log_likelihood=fitted.llf,
         BIC=[fitted.bic_llf],
         AIC=[fitted.aic],
@@ -293,7 +298,7 @@ Pseudo R-squared (McFadden adjusted): {mfit.pseudo_rsq_mcf_adj.values[0].round(d
 Area under the RO Curve (AUC): {mfit.AUC.values[0].round(dec)}
 Log-likelihood: {mfit.log_likelihood.values[0].round(dec)}, AIC: {mfit.AIC.values[0].round(dec)}, BIC: {mfit.BIC.values[0].round(dec)}
 Chi-squared: {mfit.chisq.values[0].round(dec)} df({mfit.chisq_df.values[0]}), p.value {np.where(mfit.chisq_pval.values[0] < .001, "< 0.001", mfit.chisq_pval.values[0].round(dec))} 
-Nr obs: {mfit.nobs.values[0]:,}
+Nr obs: {mfit.nobs.values[0]:,.0f}
 """
 
     if prn:

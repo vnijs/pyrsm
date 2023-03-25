@@ -12,6 +12,7 @@
 # use python build to install locally testing 
 sudo pip uninstall -y pyrsm
 sudo rm -rf ~/gh/pyrsm/dist
+# sudo rm -rf ~/gh/pyrsm/build/*
 sudo python -m build
 
 # try sending to pypi testing ground first

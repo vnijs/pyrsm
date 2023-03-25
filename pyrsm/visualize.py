@@ -311,8 +311,8 @@ def pred_plot_sk(
     Parameters
     ----------
     fitted : A fitted sklearn model
-    df : Pandas DataFrame with data used for estimatin. Should include categorical variables
-        in their original for (i.e., before using get_dummies)
+    df : Pandas DataFrame with data used for estimation. Should include categorical variables
+        in their original form (i.e., before using get_dummies)
     transformed : List of column names that were transformed using Pandas' get_dummies. If
         None, the function will try to determine which variables might have been transformed
     rvar : The column name for the response/target variable
@@ -342,10 +342,9 @@ def pred_plot_sk(
     not_transformed = [c for c in df.columns for f in fn if c == f]
     if transformed is None:
         transformed = list(
-            set([c for c in df.columns for f in fn if c in f and c != f])
+            set([c for c in df.columns for f in fn if f"{c}_" in f and c != f])
         )
 
-    not_transformed = [c for c in df.columns for f in fn if c == f]
     ints = intersect(transformed, not_transformed)
     if len(ints) > 0:
         trn = '", "'.join(transformed)
@@ -521,7 +520,7 @@ def pred_plot_sk(
         ax[-1, -1].remove()
 
 
-def vimp_plot_sm(fitted, df, rep=5, ax=None, ret=False):
+def vimp_plot_sm(fitted, df, rep=10, ax=None, ret=False):
     """
     Creates permutation importance plots for models estimated using the
     statsmodels library
@@ -532,11 +531,16 @@ def vimp_plot_sm(fitted, df, rep=5, ax=None, ret=False):
     df : Pandas DataFrame with data used for estimation
     rep: int
         The number of times to resample and calculate the permutation importance
+    ax : axis object
+        Add the plot to a the axis object from a matplotlib subplot
     ret: bool
         Return the variable importance table as a sorted DataFrame
     """
+    fw = None
     if hasattr(fitted, "model"):
         model = fitted.model
+        if model._has_freq_weights:
+            fw = model.freq_weights
     else:
         return "This function requires a fitted linear or logistic regression"
 
@@ -550,14 +554,16 @@ def vimp_plot_sm(fitted, df, rep=5, ax=None, ret=False):
         )
 
     def imp_calc_reg(base, pred):
-        return 1 - pd.DataFrame({"y": model.endog, "yhat": pred}).corr().iloc[0, 1] ** 2
+        return (
+            base - pd.DataFrame({"y": model.endog, "yhat": pred}).corr().iloc[0, 1] ** 2
+        )
 
     def imp_calc_logit(base, pred):
-        return base - auc(model.endog, pred)
+        return base - auc(model.endog, pred, weights=fw)
 
     # Calculate the baseline performance
     if isinstance(fitted, sm.genmod.generalized_linear_model.GLMResultsWrapper):
-        baseline_fit = auc(model.endog, fitted.predict(df[evars]))
+        baseline_fit = auc(model.endog, fitted.predict(df[evars]), weights=fw)
         imp_calc = imp_calc_logit  # specifying the function to use
         xlab = "Importance (AUC decrease)"
     elif isinstance(fitted, sm.regression.linear_model.RegressionResultsWrapper):
@@ -618,6 +624,8 @@ def vimp_plot_sk(fitted, X, y, rep=5, ax=None, ret=False):
     y : Series with data for the response variable (target) used for estimation
     rep: int
         The number of times to resample and calculate permutation importance
+    ax : axis object
+        Add the plot to a the axis object from a matplotlib subplot
     ret: bool
         Return the variable importance table as a sorted DataFrame
     """
