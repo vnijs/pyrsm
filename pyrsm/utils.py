@@ -1,15 +1,18 @@
 import numpy as np
 import pandas as pd
+from scipy import stats
 import inspect as ins
 from itertools import product
 from datetime import date, datetime
 from math import ceil
 from IPython.display import display, Markdown
 from sys import modules
+from typing import Optional, Tuple
+import statsmodels as sm
 import json
-
 from math import log
 
+from .perf import auc
 
 def add_description(df, md="", path=""):
     """
@@ -445,6 +448,43 @@ def group_categorical(
     categorical_grouped_df = pd.concat(series_list, axis=1)
     return categorical_grouped_df, True
 
+def get_mfit_kwargs(fitted) -> Tuple[Optional[dict], Optional[str]]:
+    mfit_kwargs = None
+    model_type = None
+    if isinstance(fitted, sm.genmod.generalized_linear_model.GLMResultsWrapper):
+        fw = None
+        if fitted.model._has_freq_weights:
+            fw = fitted.model.freq_weights
+
+        mfit_kwargs = {
+            "pseudo_rsq_mcf": [1 - fitted.llf / fitted.llnull],
+            "pseudo_rsq_mcf_adj": [1 - (fitted.llf - fitted.df_model) / fitted.llnull],
+            "AUC": [auc(fitted.model.endog, fitted.fittedvalues, weights=fw)],
+            "log_likelihood": fitted.llf,
+            "AIC": [fitted.aic],
+            "BIC": [fitted.bic_llf],
+            "chisq": [fitted.pearson_chi2],
+            "chisq_df": [fitted.df_model],
+            "chisq_pval": [1 - stats.chi2.cdf(fitted.pearson_chi2, fitted.df_model)],
+            "nobs": [fitted.nobs]
+        }
+
+        model_type = "lr"
+
+    elif isinstance(fitted, sm.regression.linear_model.RegressionResultsWrapper):
+        mfit_kwargs = {
+            "rsq": [fitted.rsquared],
+            "rsq_adj": [fitted.rsquared_adj],
+            "fvalue": [fitted.fvalue],
+            "ftest_df_model": [fitted.df_model],
+            "ftest_df_resid": [fitted.df_resid],
+            "ftest_pval": [fitted.f_pvalue],
+            "nobs": [fitted.nobs],
+        }
+
+        model_type = "reg"
+
+    return mfit_kwargs, model_type
 
 # class Transform:
 #     def __init__(

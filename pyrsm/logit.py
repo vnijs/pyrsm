@@ -1,13 +1,13 @@
+from typing import Union
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
-import statsmodels as sm
 import statsmodels.formula.api as smf
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from scipy import stats
 from scipy.special import expit
-from .utils import ifelse
+from .utils import ifelse, get_mfit_kwargs
 from .stats import weighted_mean, weighted_sd
 from .perf import auc
 from .regression import sig_stars, model_fit_reg
@@ -248,66 +248,7 @@ def predict_ci(fitted, df, alpha=0.05):
         }
     )
 
-
-def model_fit_lr(fitted, dec: int = 3, prn: bool = True):
-    """
-    Compute various model fit statistics for a fitted logistic regression model
-
-    Parameters
-    ----------
-    fitted : statmodels glm object
-        Logistic regression model fitted using statsmodels
-    dec : int
-        Number of decimal places to use in rounding
-    prn : bool
-        If True, print output, else return a Pandas dataframe with the results
-
-    Returns
-    -------
-        If prn is True, print output, else return a Pandas dataframe with the results
-    """
-
-    if hasattr(fitted, "df_resid"):
-        weighted_nobs = (
-            fitted.df_resid + fitted.df_model + int(hasattr(fitted.params, "Intercept"))
-        )
-        if weighted_nobs > fitted.nobs:
-            fitted.nobs = weighted_nobs
-
-    if fitted.model._has_freq_weights:
-        fw = fitted.model.freq_weights
-    else:
-        fw = None
-
-    mfit = pd.DataFrame().assign(
-        pseudo_rsq_mcf=[1 - fitted.llf / fitted.llnull],
-        pseudo_rsq_mcf_adj=[1 - (fitted.llf - fitted.df_model) / fitted.llnull],
-        AUC=[auc(fitted.model.endog, fitted.fittedvalues, weights=fw)],
-        log_likelihood=fitted.llf,
-        BIC=[fitted.bic_llf],
-        AIC=[fitted.aic],
-        chisq=[fitted.pearson_chi2],
-        chisq_df=[fitted.df_model],
-        chisq_pval=[1 - stats.chi2.cdf(fitted.pearson_chi2, fitted.df_model)],
-        nobs=[fitted.nobs],
-    )
-
-    output = f"""
-Pseudo R-squared (McFadden): {mfit.pseudo_rsq_mcf.values[0].round(dec)}
-Pseudo R-squared (McFadden adjusted): {mfit.pseudo_rsq_mcf_adj.values[0].round(dec)}
-Area under the RO Curve (AUC): {mfit.AUC.values[0].round(dec)}
-Log-likelihood: {mfit.log_likelihood.values[0].round(dec)}, AIC: {mfit.AIC.values[0].round(dec)}, BIC: {mfit.BIC.values[0].round(dec)}
-Chi-squared: {mfit.chisq.values[0].round(dec)} df({mfit.chisq_df.values[0]}), p.value {np.where(mfit.chisq_pval.values[0] < .001, "< 0.001", mfit.chisq_pval.values[0].round(dec))} 
-Nr obs: {mfit.nobs.values[0]:,.0f}
-"""
-
-    if prn:
-        print(output)
-    else:
-        return mfit
-
-
-def model_fit(fitted, dec: int = 3, prn: bool = True):
+def model_fit(fitted, dec: int = 3, prn: bool = True) -> Union[str, pd.DataFrame]:
     """
     Compute various model fit statistics for a fitted linear or logistic regression model
 
@@ -324,9 +265,35 @@ def model_fit(fitted, dec: int = 3, prn: bool = True):
     -------
         If prn is True, print output, else return a Pandas dataframe with the results
     """
-    if isinstance(fitted, sm.genmod.generalized_linear_model.GLMResultsWrapper):
-        model_fit_lr(fitted, dec=dec, prn=prn)
-    elif isinstance(fitted, sm.regression.linear_model.RegressionResultsWrapper):
-        model_fit_reg(fitted, dec=dec, prn=prn)
-    else:
+    if hasattr(fitted, "df_resid"):
+        weighted_nobs = (
+            fitted.df_resid + fitted.df_model + int(hasattr(fitted.params, "Intercept"))
+        )
+        if weighted_nobs > fitted.nobs:
+            fitted.nobs = weighted_nobs
+    mfit_kwargs, model_type = get_mfit_kwargs(fitted)
+    if not mfit_kwargs:
         return "Only linear and logistic regression models are currently supported."
+    
+    mfit = pd.DataFrame().assign(**mfit_kwargs)
+    
+    if prn:
+        output = None
+        if model_type == "lr":
+            output = f"""
+            Pseudo R-squared (McFadden): {mfit.pseudo_rsq_mcf.values[0].round(dec)}
+            Pseudo R-squared (McFadden adjusted): {mfit.pseudo_rsq_mcf_adj.values[0].round(dec)}
+            Area under the RO Curve (AUC): {mfit.AUC.values[0].round(dec)}
+            Log-likelihood: {mfit.log_likelihood.values[0].round(dec)}, AIC: {mfit.AIC.values[0].round(dec)}, BIC: {mfit.BIC.values[0].round(dec)}
+            Chi-squared: {mfit.chisq.values[0].round(dec)}, df({mfit.chisq_df.values[0]}), p.value {np.where(mfit.chisq_pval.values[0] < .001, "< 0.001", mfit.chisq_pval.values[0].round(dec))} 
+            Nr obs: {mfit.nobs.values[0]:,.0f}
+            """
+        elif model_type == "reg":
+            output = f"""
+            R-squared: {mfit.rsq.values[0].round(dec)}, Adjusted R-squared: {mfit.rsq_adj.values[0].round(dec)}
+            F-statistic: {mfit.fvalue[0].round(dec)} df({mfit.ftest_df_model.values[0]:.0f}, {mfit.ftest_df_resid.values[0]:.0f}), p.value {np.where(mfit.ftest_pval.values[0] < .001, "< 0.001", mfit.ftest_pval.values[0].round(dec))}
+            Nr obs: {mfit.nobs.values[0]:,.0f}
+            """
+        print(output)
+    else:
+        return mfit
