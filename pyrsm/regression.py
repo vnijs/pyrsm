@@ -122,54 +122,6 @@ def coef_ci(fitted, alpha: float = 0.05, intercept: bool = True, dec: int = 3):
 
     return df
 
-
-def model_fit_reg(fitted, dec: int = 3, prn: bool = True):
-    """
-    Compute various model fit statistics for a fitted linear regression model
-
-    Parameters
-    ----------
-    fitted : statmodels ols object
-        Linear regression (OLS) model fitted using statsmodels
-    dec : int
-        Number of decimal places to use in rounding
-    prn : bool
-        If True, print output, else return a Pandas dataframe with the results
-
-    Returns
-    -------
-        If prn is True, print output, else return a Pandas dataframe with the results
-    """
-
-    if hasattr(fitted, "df_resid"):
-        weighted_nobs = (
-            fitted.df_resid + fitted.df_model + int(hasattr(fitted.params, "Intercept"))
-        )
-        if weighted_nobs > fitted.nobs:
-            fitted.nobs = weighted_nobs
-
-        mfit = pd.DataFrame().assign(
-            rsq=[fitted.rsquared],
-            rsq_adj=[fitted.rsquared_adj],
-            fvalue=[fitted.fvalue],
-            ftest_df_model=[fitted.df_model],
-            ftest_df_resid=[fitted.df_resid],
-            ftest_pval=[fitted.f_pvalue],
-            nobs=[fitted.nobs],
-        )
-
-        output = f"""
-    R-squared: {mfit.rsq.values[0].round(dec)}, Adjusted R-squared: {mfit.rsq_adj.values[0].round(dec)}
-    F-statistic: {mfit.fvalue[0].round(dec)} df({mfit.ftest_df_model.values[0]:.0f}, {mfit.ftest_df_resid.values[0]:.0f}), p.value {np.where(mfit.ftest_pval.values[0] < .001, "< 0.001", mfit.ftest_pval.values[0].round(dec))}
-    Nr obs: {mfit.nobs.values[0]:,.0f}
-    """
-
-    if prn:
-        print(output)
-    else:
-        return mfit
-
-
 def evalreg(df, rvar: str, pred: str, dec: int = 3):
     """
     Evaluate regression models. Calculates R-squared, MSE, and MAE
