@@ -27,6 +27,12 @@ sudo pip uninstall -y pyrsm
 sudo rm -rf ~/gh/pyrsm/dist
 sudo pip install -e ~/gh/pyrsm
 
+
+pip uninstall --user pyrsm
+pip install --user -e ~/gh/pyrsm
+
+
+
 ## assuming you are using conda
 ## remove all version pyrsm you might be using
 conda activate base

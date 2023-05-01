@@ -7,12 +7,8 @@ from datetime import date, datetime
 from math import ceil
 from IPython.display import display, Markdown
 from sys import modules
-from typing import Optional, Tuple
-import statsmodels as sm
 import json
-from math import log
 
-from .perf import auc
 
 def add_description(df, md="", path=""):
     """
@@ -203,7 +199,7 @@ def table2data(df, freq):
     return df.loc[df.index.repeat(df[freq])]
 
 
-def setdiff(x, y):
+def setdiff(x, y, sort=False):
     """
     Returns a numpy array of unique elements in x that are not in y
 
@@ -212,6 +208,8 @@ def setdiff(x, y):
 
     x : List type or that can be converted to a list
     y : List type or that can be converted to a list
+    sort : boolean
+        Sort the output
 
     Returns
     -------
@@ -225,7 +223,7 @@ def setdiff(x, y):
 
     x = np.unique(np.array(x))
     y = np.unique(np.array(y))
-    return list(np.setdiff1d(x, y, assume_unique=True))
+    return list(np.setdiff1d(x, y, assume_unique=sort))
 
 
 def union(x, y):
@@ -448,43 +446,6 @@ def group_categorical(
     categorical_grouped_df = pd.concat(series_list, axis=1)
     return categorical_grouped_df, True
 
-def get_mfit_kwargs(fitted) -> Tuple[Optional[dict], Optional[str]]:
-    mfit_kwargs = None
-    model_type = None
-    if isinstance(fitted, sm.genmod.generalized_linear_model.GLMResultsWrapper):
-        fw = None
-        if fitted.model._has_freq_weights:
-            fw = fitted.model.freq_weights
-
-        mfit_kwargs = {
-            "pseudo_rsq_mcf": [1 - fitted.llf / fitted.llnull],
-            "pseudo_rsq_mcf_adj": [1 - (fitted.llf - fitted.df_model) / fitted.llnull],
-            "AUC": [auc(fitted.model.endog, fitted.fittedvalues, weights=fw)],
-            "log_likelihood": fitted.llf,
-            "AIC": [fitted.aic],
-            "BIC": [fitted.bic_llf],
-            "chisq": [fitted.pearson_chi2],
-            "chisq_df": [fitted.df_model],
-            "chisq_pval": [1 - stats.chi2.cdf(fitted.pearson_chi2, fitted.df_model)],
-            "nobs": [fitted.nobs]
-        }
-
-        model_type = "lr"
-
-    elif isinstance(fitted, sm.regression.linear_model.RegressionResultsWrapper):
-        mfit_kwargs = {
-            "rsq": [fitted.rsquared],
-            "rsq_adj": [fitted.rsquared_adj],
-            "fvalue": [fitted.fvalue],
-            "ftest_df_model": [fitted.df_model],
-            "ftest_df_resid": [fitted.df_resid],
-            "ftest_pval": [fitted.f_pvalue],
-            "nobs": [fitted.nobs],
-        }
-
-        model_type = "reg"
-
-    return mfit_kwargs, model_type
 
 # class Transform:
 #     def __init__(

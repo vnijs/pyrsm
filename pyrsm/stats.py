@@ -186,12 +186,12 @@ def scale_df(df, wt=None, sf=2, excl=None, train=None, ddof=0):
     if train is None:
         train = np.array([True] * df.shape[0])
     if wt is None:
-        df[isNum] = (dfs - dfs[train].mean().values) / (
+        df.loc[:, isNum] = (dfs - dfs[train].mean().values) / (
             sf * dfs[train].std(ddof=ddof).values
         )
     else:
         wt = np.array(wt)
-        df[isNum] = (dfs - weighted_mean(dfs[train], wt[train])) / (
+        df.loc[:, isNum] = (dfs - weighted_mean(dfs[train], wt[train])) / (
             sf * weighted_sd(dfs[train], wt[train], ddof=ddof)
         )
     return df

@@ -104,6 +104,14 @@ def extract_evars(model, cn):
     return [v for i, v in enumerate(evars) if v not in evars[:i]]
 
 
+def extract_rvar(model, cn):
+    """
+    Extract name of the response variable in a statsmodels model
+    """
+    pattern = r"\b\w+\b"
+    return re.findall(pattern, model.formula)[0]
+
+
 def pred_plot_sm(
     fitted,
     df,
@@ -173,12 +181,13 @@ def pred_plot_sm(
             return False
 
     rvar = model.endog_names
-    if isinstance(hline, bool) and hline == True:
-        hline = df[rvar].mean()
-
-    if not isinstance(hline, float) and not isinstance(hline, int):
-        hline = False
-        min_max = (np.Inf, -np.Inf)
+    if isinstance(hline, bool):
+        if hline:
+            hline = df[rvar].mean()
+            min_max = (hline - plot_margin * hline, hline + plot_margin * hline)
+        else:
+            hline = False
+            min_max = (np.Inf, -np.Inf)
     else:
         min_max = (hline - plot_margin * hline, hline + plot_margin * hline)
 
@@ -342,7 +351,14 @@ def pred_plot_sk(
     not_transformed = [c for c in df.columns for f in fn if c == f]
     if transformed is None:
         transformed = list(
-            set([c for c in df.columns for f in fn if f"{c}_" in f and c != f])
+            set(
+                [
+                    c
+                    for c in df.columns
+                    for f in fn
+                    if f"{c}_" in f and c != f and f"{c}_" not in df.columns
+                ]
+            )
         )
 
     ints = intersect(transformed, not_transformed)
@@ -378,15 +394,16 @@ def pred_plot_sk(
         else:
             return df
 
-    if rvar is not None and isinstance(hline, bool) and hline == True:
-        hline = df[rvar].mean()
-
     # margin to add above and below in plots
     plot_margin = 0.025
 
-    if not isinstance(hline, float) and not isinstance(hline, int):
-        hline = False
-        min_max = (np.Inf, -np.Inf)
+    if isinstance(hline, bool):
+        if hline and rvar is not None:
+            hline = df[rvar].mean()
+            min_max = (hline - plot_margin * hline, hline + plot_margin * hline)
+        else:
+            hline = False
+            min_max = (np.Inf, -np.Inf)
     else:
         min_max = (hline - plot_margin * hline, hline + plot_margin * hline)
 
@@ -539,12 +556,12 @@ def vimp_plot_sm(fitted, df, rep=10, ax=None, ret=False):
     fw = None
     if hasattr(fitted, "model"):
         model = fitted.model
-        if model._has_freq_weights:
+        if hasattr(model, "_has_freq_weights") and model._has_freq_weights:
             fw = model.freq_weights
     else:
         return "This function requires a fitted linear or logistic regression"
 
-    rvar = model.endog_names
+    rvar = extract_rvar(model, df.columns)
     evars = extract_evars(model, df.columns)
     df = df[[rvar] + evars].copy().reset_index(drop=True).dropna()
 

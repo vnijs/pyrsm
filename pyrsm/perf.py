@@ -335,7 +335,7 @@ def inc_profit_tab(
     qnt=10,
 ):
     """
-    Plot an Incremental Profit chart for Uplift modeling
+    Tabulate Incremental Profit for Uplift modeling
 
     Parameters
     ----------
@@ -437,7 +437,7 @@ def inc_profit_plot(
     Returns
     -------
     Seaborn object
-        Plot of Incremental Uplift per quantile
+        Plot of Incremental Profit per quantile
     """
 
     dct = ifelse(isinstance(df, dict), df, {"": df})
@@ -1136,7 +1136,7 @@ def evalbin(df, rvar, lev, pred, cost=1, margin=2, scale=1, dec=3):
             Fscore=[2 * (precision * TPR) / (precision + TPR)],
             accuracy=[(TP + TN) / total],
             kappa=[metrics.cohen_kappa_score(pos, gtbe)],
-            profit=[profit],
+            profit=[profit * scale],
             index=[0],
             ROME=[profit / (cost * (TP + FP))],
             contact=[contact],
