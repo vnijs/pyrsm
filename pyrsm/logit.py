@@ -385,9 +385,8 @@ class logistic:
         df["OR%"] = 100 * ifelse(df["OR"] < 1, -(1 - df["OR"]), df["OR"] - 1)
         df["coefficient"] = self.fitted.params
         df["std.error"] = self.fitted.params / self.fitted.tvalues
-        df[
-            "z.value"
-        ] = self.fitted.tvalues  # wierd but this is what statsmodels uses in summary
+        # wierd but this is what statsmodels uses in summary
+        df["z.value"] = self.fitted.tvalues
         df["p.value"] = self.fitted.pvalues
         df["  "] = sig_stars(self.fitted.pvalues)
         self.coef = df.reset_index()

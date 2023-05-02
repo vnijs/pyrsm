@@ -4,6 +4,7 @@ import pyrsm as rsm
 import io
 from contextlib import redirect_stdout
 
+st.set_page_config(layout="wide")
 st.set_option("deprecation.showPyplotGlobalUse", False)
 
 tab1, tab2, tab3 = st.tabs(["Data", "Summary", "Plot"])
