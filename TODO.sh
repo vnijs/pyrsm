@@ -37,6 +37,7 @@ pip install --user -e ~/gh/pyrsm
 ## remove all version pyrsm you might be using
 conda activate base
 sudo pip uninstall -y pyrsm
+sudo pip uninstall --user -y pyrsm
 conda remove -y --force pyrsm
 
 ## now install in "editable" mode

@@ -396,9 +396,10 @@ class logistic:
         Summarize output from a logistic regression model
         """
 
-        data_name = ""
         if hasattr(self.dataset, "description"):
             data_name = self.dataset.description.split("\n")[0].split()[1].lower()
+        else:
+            data_name = "Not available"
 
         print("Logistic regression (GLM)")
         print(f"Data                 : {data_name}")

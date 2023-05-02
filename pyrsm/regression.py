@@ -122,6 +122,7 @@ def coef_ci(fitted, alpha: float = 0.05, intercept: bool = True, dec: int = 3):
 
     return df
 
+
 def evalreg(df, rvar: str, pred: str, dec: int = 3):
     """
     Evaluate regression models. Calculates R-squared, MSE, and MAE
@@ -309,9 +310,10 @@ def regress(
 
     res = model.fit()
 
-    data_name = ""
     if hasattr(dataset, "description"):
         data_name = dataset.description.split("\n")[0].split()[1].lower()
+    else:
+        data_name = "Not available"
 
     print("Data: ", data_name)
     print("Response variable    :", rvar)

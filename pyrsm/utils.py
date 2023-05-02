@@ -445,31 +445,3 @@ def group_categorical(
             series_list.append(df[col])
     categorical_grouped_df = pd.concat(series_list, axis=1)
     return categorical_grouped_df, True
-
-
-# class Transform:
-#     def __init__(
-#         self, data: pd.DataFrame, cols: list[str], transform_type: str
-#     ) -> None:
-#         self.transform_type = transform_type
-#         self.data = data
-#         self.cols = cols
-
-#     def transform(self) -> pd.DataFrame:
-#         if self.transform_type == "ln":
-#             return self.transform_log()
-#         elif self.transform_type == "log2":
-#             return self.transform_log(base=2)
-
-#     def transform_log(self, base: int = None) -> pd.DataFrame:
-#         new_cols = {
-#             col: col + "_ln" if col in self.cols else col for col in self.data.columns
-#         }
-#         for old_col in self.cols:
-#             if base != None:
-#                 self.data[old_col] = self.data[old_col].transform(log, base)
-#             else:
-#                 self.data[old_col] = self.data[old_col].transform(log)
-
-#         self.data.rename(new_cols, axis=1, inplace=True)
-#         return self.data

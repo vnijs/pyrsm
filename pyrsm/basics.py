@@ -473,7 +473,7 @@ class prob_calc:
         self.__dict__.update(params)
         print("Probability calculator")
 
-    def calculate(self):
+    def summary(self):
         print(f"Distribution: {self.distribution}")
 
         def calc_f_dist(
@@ -689,12 +689,7 @@ class single_mean:
         self.alt_hypo = alt_hypo
         self.conf = conf
         self.comparison_value = comparison_value
-        self.t_val = None
-        self.p_val = None
 
-        print("Single mean test")
-
-    def calculate(self) -> None:
         result = stats.ttest_1samp(
             a=self.data[self.variable],
             popmean=self.comparison_value,
@@ -712,20 +707,19 @@ class single_mean:
         self.se = self.data[self.variable].sem()
         z_score = stats.norm.ppf((1 + self.conf) / 2)
 
-        self.me = z_score * self.sd / sqrt(self.n)
+        self.me = (z_score * self.sd / sqrt(self.n)).real
         self.diff = self.mean - self.comparison_value
         self.df = self.n - 1
         self.x_percent = self.mean - stats.t.ppf(self.conf, self.df) * self.se
         self.hundred_percent = self.mean - stats.t.ppf(0, self.df) * self.se
 
     def summary(self, dec=3) -> None:
-        if self.t_val == None:
-            self.calculate()
-        data_name = ""
+        print("Single mean test")
         if hasattr(self.data, "description"):
             data_name = self.data.description.split("\n")[0].split()[1].lower()
-        if len(data_name) > 0:
-            print(f"Data: {data_name}")
+        else:
+            data_name = "Not available"
+        print(f"Data: {data_name}")
         print(f"Variable: {self.variable}")
         print(f"Confidence: {self.conf}")
 
@@ -841,8 +835,6 @@ class compare_means:
         self.t_val = None
         self.p_val = None
 
-        print(f"Pairwise mean comparisons {self.test_type}")
-
         def welch_dof(v1: str, v2: str) -> float:
             x = self.data[self.data[self.var1] == v1][self.var2]
             y = self.data[self.data[self.var1] == v2][self.var2]
@@ -938,13 +930,12 @@ class compare_means:
         )
 
     def summary(self, dec=3) -> None:
-        if self.t_val == None:
-            self.calculate()
-        data_name = ""
+        print(f"Pairwise mean comparisons {self.test_type}")
         if hasattr(self.data, "description"):
             data_name = self.data.description.split("\n")[0].split()[1].lower()
-        if len(data_name) > 0:
-            print(f"Data: {data_name}")
+        else:
+            data_name = "Not available"
+        print(f"Data: {data_name}")
         print(f"Variables: {self.var1}, {self.var2}")
         print(f"Confidence: {self.conf}")
         print(f"Adjustment: {self.multiple_comp_adjustment}")
@@ -972,19 +963,14 @@ class single_prop:
         self.comparison_value = comparison_value
         self.test_type = test_type
 
-        self.p_val = None
-
-        print(f"Single proportion ({self.test_type})")
-
-    def calculate(self) -> None:
         self.ns = len(self.data[self.data[self.variable] == self.level])
         self.n_missing = self.data[self.variable].isna().sum()
         self.n = len(self.data) - self.n_missing
         self.p = self.ns / self.n
-        self.sd = sqrt(self.p * (1 - self.p))
-        self.se = self.sd / sqrt(self.n)
+        self.sd = sqrt(self.p * (1 - self.p)).real
+        self.se = (self.sd / sqrt(self.n)).real
 
-        z_score = stats.norm.ppf((1 + self.conf) / 2)
+        z_score = stats.norm.ppf((1 + self.conf) / 2).real
 
         self.me = z_score * self.se
 
@@ -998,14 +984,13 @@ class single_prop:
         self.x_percent = proportion_ci.high
 
     def summary(self) -> None:
-        if self.p_val == None:
-            self.calculate()
-        data_name = ""
+        print(f"Single proportion ({self.test_type})")
         if hasattr(self.data, "description"):
             data_name = self.data.description.split("\n")[0].split()[1].lower()
-        if len(data_name) > 0:
-            print(f"Data: {data_name}")
+        else:
+            data_name = "Not available"
 
+        print(f"Data: {data_name}")
         print(f"Variable: {self.variable}")
         print(f"Level: {self.level} in {self.variable}")
         print(f"Confidence: {self.conf}")
@@ -1064,11 +1049,11 @@ class compare_props:
         self.conf = conf
         self.multiple_comp_adjustment = multiple_comp_adjustment
 
-        self.p_val = None
+        # self.p_val = None
 
-        print("Pairwise proportion comparisons")
+        # print("Pairwise proportion comparisons")
 
-    def calculate(self) -> None:
+        # def calculate(self) -> None:
         combinations_elements = set()
         for combination in self.combinations:
             combinations_elements.add(combination[0])
@@ -1088,7 +1073,7 @@ class compare_props:
                 - n_missing
             )
             p = ns / n
-            print(f"ns: {ns}, n: {n}, p: {p}, nmissing: {n_missing}")
+            # print(f"ns: {ns}, n: {n}, p: {p}, nmissing: {n_missing}")
             sd = sqrt(p * (1 - p))
             se = sd / sqrt(n)
             z_score = stats.norm.ppf((1 + self.conf) / 2)
@@ -1150,7 +1135,15 @@ class compare_props:
 
             diff = p1 - p2
 
-            chisq, self.p_val, df, _ = stats.chi2_contingency()  # unsure about this
+            observed = pd.crosstab(
+                self.data[v1], columns=self.data[v2], margins=True, margins_name="Total"
+            )
+            chisq, self.p_val, df, _ = stats.chi2_contingency(
+                self.observed.drop(columns="Total").drop("Total", axis=0),
+                correction=False,
+            )
+            # chisq, self.p_val, df, _ = stats.chi2_contingency()  # unsure about this
+
             # print(f"chisq: {chisq}")
 
             row = [
@@ -1180,21 +1173,15 @@ class compare_props:
         )
 
     def summary(self, dec: int = 3) -> None:
-        if self.p_val == None:
-            self.calculate()
-        data_name = ""
         if hasattr(self.data, "description"):
             data_name = self.data.description.split("\n")[0].split()[1].lower()
-        if len(data_name) > 0:
-            print(f"Data: {data_name}")
-
+        else:
+            data_name = "Not available"
+        print(f"Data: {data_name}")
         print(f"Variables: {self.grouping_var}, {self.var}")
         print(f"Level: {self.level} in {self.var}")
         print(f"Confidence: {self.conf}")
-        print(f"Adjustment: {self.multiple_comp_adjustment}")
-
-        print()
-
+        print(f"Adjustment: {self.multiple_comp_adjustment}\n")
         print(self.table1.round(dec).to_string(index=False))
         print(self.table2.round(dec).to_string(index=False))
 
@@ -1404,11 +1391,12 @@ class goodness_of_fit:
 
     def summary(self) -> None:
         print("Goodness of fit test")
-        data_name = ""
         if hasattr(self.data, "description"):
             data_name = self.data.description.split("\n")[0].split()[1].lower()
-        print(f"Data: {data_name}")
+        else:
+            data_name = "Not available"
 
+        print(f"Data: {data_name}")
         if self.variable not in self.data.columns:
             print(f"{self.variable} does not exist in chosen dataset")
             return
