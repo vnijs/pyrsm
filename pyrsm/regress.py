@@ -6,7 +6,7 @@ import statsmodels.formula.api as smf
 from typing import Optional
 from statsmodels.regression.linear_model import RegressionResults as rrs
 from shiny import App
-from pyrsm.radiant.regress import model_regress
+from .radiant.regress import model_regress
 from .utils import ifelse, format_nr, setdiff
 from .visualize import pred_plot_sm, vimp_plot_sm
 from .model import (

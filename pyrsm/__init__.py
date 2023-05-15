@@ -1,4 +1,4 @@
-__version__ = "0.8.0"
+__version__ = "0.8.1"
 from .bins import *
 from .perf import *
 from .stats import *
@@ -6,6 +6,7 @@ from .utils import *
 from .props import *
 from .model import *
 from .logit import *
+from .radiant.regress import *
 from .regress import *
 from .basics import *
 from .visualize import *
