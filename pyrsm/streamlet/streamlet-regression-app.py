@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import statsmodels.formula.api as smf
 import pyrsm as rsm
+from datetime import datetime
 
 
 def view_df(df):
@@ -9,6 +10,7 @@ def view_df(df):
     st.write(df)
 
 
+# @st.cache
 def run_regression(df):
     st.write("### Select variables for linear Regression:")
     y = st.selectbox("Response variable:", df.columns)
@@ -20,6 +22,8 @@ def run_regression(df):
 
         st.write("### Summary of Linear regression (OLS):")
         st.write(model.summary())
+        dt_string = datetime.now.strftime("%d/%m/%Y %H:%M:%S")
+        st.write(f"Date and time: {dt_string}")
 
 
 def sample_df(df):

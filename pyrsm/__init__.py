@@ -1,11 +1,12 @@
-__version__ = "0.7.9.2"
+__version__ = "0.8.0"
 from .bins import *
 from .perf import *
 from .stats import *
 from .utils import *
 from .props import *
+from .model import *
 from .logit import *
-from .regression import *
+from .regress import *
 from .basics import *
 from .visualize import *
 from .notebook import *

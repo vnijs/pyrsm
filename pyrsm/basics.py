@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 import seaborn as sns
-from .logit import sig_stars
+from .model import sig_stars
 from .utils import ifelse
 from typing import Any, Optional
 from scipy.stats import chisquare
@@ -461,7 +461,7 @@ class correlation:
                         cor_text(cmat[j, i], pmat[j, i], axes[i, j], dec=2)
 
             plt.subplots_adjust(wspace=0.04, hspace=0.04)
-            plt.show()
+            # plt.show()
 
         cor_mat(self.df, self.cr, self.cp, dec=dec, nobs=nobs, figsize=figsize)
 
@@ -477,18 +477,17 @@ class prob_calc:
         print(f"Distribution: {self.distribution}")
 
         def calc_f_dist(
-            dfn: int, dfd: int, lb: float = 0, ub: float = 0.95, decimals: int = 3
+            df1: int, df2: int, lb: float = 0, ub: float = 0.95, decimals: int = 3
         ) -> tuple[float, float]:
-            print(f"Df 1:\t{dfn}")
-            print(f"Df 2:\t{dfd}")
-
-            print(f"Mean:\t{round(stats.f.mean(dfn, dfd, loc=lb), decimals)}")
-            print(f"Variance:\t{round(stats.f.var(dfn, dfd, loc=lb), decimals)}")
-            print(f"Lower bound:\t{lb}")
-            print(f"Upper bound:\t{ub}\n")
+            print(f"Df 1        : {df1}")
+            print(f"Df 2        : {df2}")
+            print(f"Mean        : {round(stats.f.mean(df1, df2, loc=lb), decimals)}")
+            print(f"Variance    : {round(stats.f.var(df1, df2, loc=lb), decimals)}")
+            print(f"Lower bound : {lb}")
+            print(f"Upper bound : {ub}\n")
 
             if lb == 0:
-                critical_f = round(stats.f.ppf(q=ub, dfn=dfn, dfd=dfd), decimals)
+                critical_f = round(stats.f.ppf(q=ub, dfn=df1, dfd=df2), decimals)
 
                 _num_decimal_places_in_ub = len(str(ub).split(".")[-1])
 
@@ -498,7 +497,7 @@ class prob_calc:
                 )
                 return (0, critical_f)
 
-            critical_f_lower = round(stats.f.ppf(q=lb, dfn=dfn, dfd=dfd), decimals)
+            critical_f_lower = round(stats.f.ppf(q=lb, dfn=df1, dfd=df2), decimals)
 
             _num_decimal_places_in_lb = len(str(lb).split(".")[-1])
 
@@ -507,7 +506,7 @@ class prob_calc:
                 f"P(X > {critical_f_lower}) = {round(1 - lb, _num_decimal_places_in_lb)}"
             )
             ########################################################################################
-            critical_f_upper = round(stats.f.ppf(q=ub, dfn=dfn, dfd=dfd), decimals)
+            critical_f_upper = round(stats.f.ppf(q=ub, dfn=df1, dfd=df2), decimals)
 
             _num_decimal_places_in_ub = len(str(ub).split(".")[-1])
 
@@ -532,12 +531,11 @@ class prob_calc:
         def calc_t_dist(
             df: int, lb: float = 0, ub: float = 0.95, decimals: int = 3
         ) -> tuple[float, float]:
-            print(f"Df:\t{df}")
-            print(f"Mean:\t{round(stats.t.mean(df), decimals)}")
-            print(f"St. dev:\t{round(stats.t.std(df), decimals)}")
-            print(f"Lower bound:\t{lb}")
-            print(f"Upper bound:\t{ub}")
-            print()
+            print(f"Df          : {df}")
+            print(f"Mean        : {round(stats.t.mean(df), decimals)}")
+            print(f"St. dev     : {round(stats.t.std(df), decimals)}")
+            print(f"Lower bound : {lb}")
+            print(f"Upper bound : {ub}\n")
 
             if lb == 0:
                 critical_t = round(stats.t.ppf(q=ub, df=df), decimals)
@@ -576,7 +574,7 @@ class prob_calc:
                 f"P({critical_t_lower} < X < {critical_t_upper}) = {round((ub - lb), _num_decimal_places)}"
             )
             print(
-                f"1 - P({critical_t_lower} < X < {critical_t_upper} = {round(1 - (ub - lb), _num_decimal_places)}"
+                f"1 - P({critical_t_lower} < X < {critical_t_upper}) = {round(1 - (ub - lb), _num_decimal_places)}"
             )
 
             return (critical_t_lower, critical_t_upper)
@@ -584,10 +582,10 @@ class prob_calc:
         if self.distribution == "F":
             lb = self.lb if "lb" in self.__dict__ else 0
             ub = self.ub if "ub" in self.__dict__ else 0.95
-            dfn = self.dfn
-            dfd = self.dfd
+            df1 = self.df1
+            df2 = self.df2
             decimals = self.decimals if "decimals" in self.__dict__ else 3
-            calc_f_dist(dfn, dfd, lb, ub, decimals)
+            calc_f_dist(df1, df2, lb, ub, decimals)
 
         elif self.distribution == "t":
             lb = self.lb if "lb" in self.__dict__ else 0
@@ -598,22 +596,19 @@ class prob_calc:
 
     def plot(self):
         def plot_f_dist(
-            dfn: int, dfd: int, lb: float = 0, ub: float = 0.95, decimals: int = 3
+            df1: int, df2: int, lb: float = 0, ub: float = 0.95, decimals: int = 3
         ):
-            x = np.linspace(stats.f.ppf(0, dfn, dfd), stats.f.ppf(0.99, dfn, dfd), 200)
-
-            plt.grid()
-            pdf = stats.f.pdf(x, dfn, dfd)
-
+            x = np.linspace(stats.f.ppf(0, df1, df2), stats.f.ppf(0.99, df1, df2), 200)
+            pdf = stats.f.pdf(x, df1, df2)
             plt.plot(x, pdf, "black", lw=1, alpha=0.6, label="f pdf")
 
             if lb == 0:
-                critical_f = round(stats.f.ppf(q=ub, dfn=dfn, dfd=dfd), decimals)
+                critical_f = round(stats.f.ppf(q=ub, dfn=df1, dfd=df2), decimals)
                 plt.fill_between(x, pdf, where=(x < critical_f), color="slateblue")
                 plt.fill_between(x, pdf, where=(x > critical_f), color="salmon")
             else:
-                critical_f_lower = round(stats.f.ppf(q=lb, dfn=dfn, dfd=dfd), decimals)
-                critical_f_upper = round(stats.f.ppf(q=ub, dfn=dfn, dfd=dfd), decimals)
+                critical_f_lower = round(stats.f.ppf(q=lb, dfn=df1, dfd=df2), decimals)
+                critical_f_upper = round(stats.f.ppf(q=ub, dfn=df1, dfd=df2), decimals)
 
                 plt.fill_between(
                     x,
@@ -632,10 +627,7 @@ class prob_calc:
             df: int, lb: float = 0.025, ub: float = 0.975, decimals: int = 3
         ):
             x = np.linspace(stats.t.ppf(0.01, df), stats.t.ppf(0.99, df), 200)
-
-            plt.grid()
             pdf = stats.t.pdf(x, df)
-
             plt.plot(x, pdf, "black", lw=1, alpha=0.6, label="t pdf")
 
             if lb == 0:
@@ -662,10 +654,10 @@ class prob_calc:
         if self.distribution == "F":
             lb = self.lb if "lb" in self.__dict__ else 0
             ub = self.ub if "ub" in self.__dict__ else 0.95
-            dfn = self.dfn
-            dfd = self.dfd
+            df1 = self.df1
+            df2 = self.df2
             decimals = self.decimals if "decimals" in self.__dict__ else 3
-            plot_f_dist(dfn, dfd, lb, ub, decimals)
+            plot_f_dist(df1, df2, lb, ub, decimals)
 
         elif self.distribution == "t":
             lb = self.lb if "lb" in self.__dict__ else 0
@@ -1282,7 +1274,7 @@ class central_limit_theorem:
             x=sample_means, x_label="Density of sample means", density_plot=True
         ).plot()
 
-        plt.show()
+        # plt.show()
 
     def _plot_distribution(
         self, x: list[np.ndarray], x_label: str, density_plot: bool = False
@@ -1565,4 +1557,4 @@ class goodness_of_fit:
 
             barplot.plot()
 
-        plt.show()
+        # plt.show()

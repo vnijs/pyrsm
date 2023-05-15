@@ -1,5 +1,4 @@
 import math
-import re
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
@@ -7,7 +6,7 @@ import seaborn as sns
 import statsmodels as sm
 from sklearn.inspection import permutation_importance
 from .utils import ifelse, intersect, setdiff
-from .regression import sim_prediction
+from .model import sim_prediction, extract_evars, extract_rvar
 from .perf import auc
 
 
@@ -77,39 +76,7 @@ def distr_plot(df: pd.DataFrame, cols: list = None, nint: int = 25, **kwargs):
     elif df.shape[1] % 2 == 1:
         axes[-1, -1].remove()
 
-    plt.show()
-
-
-def scatter(
-    df: pd.DataFrame,
-    col1: str,
-    col2: str,
-    figsize: tuple[int, int] = (10, 10),
-) -> None:
-    _, ax = plt.subplots(figsize=figsize)
-    ax.set_xlabel(col1)
-    ax.set_ylabel(col2)
-    ax.scatter(df[col1], df[col2])
-
-    plt.show()
-
-
-def extract_evars(model, cn):
-    """
-    Extract a list of the names of the explanatory variables in a statsmodels model
-    """
-    pattern = r"\b\w+\b"
-    evars = re.findall(pattern, model.formula)[1:]
-    evars = [v for v in evars if v in cn]
-    return [v for i, v in enumerate(evars) if v not in evars[:i]]
-
-
-def extract_rvar(model, cn):
-    """
-    Extract name of the response variable in a statsmodels model
-    """
-    pattern = r"\b\w+\b"
-    return re.findall(pattern, model.formula)[0]
+    # plt.show()
 
 
 def pred_plot_sm(
