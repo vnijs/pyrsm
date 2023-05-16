@@ -1,6 +1,5 @@
 import uvicorn, nest_asyncio, webbrowser
-import io, os, signal
-import black, pyperclip
+import io, os, signal, black, pyperclip
 from pathlib import Path
 import pyrsm as rsm
 from contextlib import redirect_stdout
@@ -8,9 +7,7 @@ from shiny import App, render, ui, reactive, Inputs, Outputs, Session
 from datetime import datetime
 
 ## next steps
-## Find way to stop server process https://github.com/rstudio/py-shiny/issues/490
-## adjust plot window height
-## render table https://shiny.rstudio.com/py/api/ui.output_table.html#shiny.ui.output_table
+## try qgrid for interactive data table
 ## shown description as markdown https://shinylive.io/py/examples/#extra-packages
 
 
@@ -53,7 +50,7 @@ class model_regress:
                             ui.input_checkbox_group(
                                 "controls",
                                 "Controls:",
-                                {"vif": "VIF", "ssq": "Sum of Squares"},
+                                {"ssq": "Sum of Squares", "vif": "VIF"},
                             )
                         ),
                     ),
@@ -129,7 +126,10 @@ class model_regress:
     def shiny_server(self, input: Inputs, output: Outputs, session: Session):
         def code_formatter(code):
             cmd = black.format_str(code, mode=black.Mode())
-            pyperclip.copy(cmd)
+            try:
+                pyperclip.copy(cmd)
+            except pyperclip.PyperclipException:
+                pass
             cmd = f"""<pre><details><summary>Code</summary>{cmd}</details></pre>"""
             return ui.HTML(cmd)
 
@@ -267,7 +267,7 @@ class model_regress:
 
 ## uncomment for development and testing
 # if __file__ == "app.py":
-# load_data(pkg="data", name="diamonds", dct=globals())
+# rsm.load_data(pkg="data", name="diamonds", dct=globals())
 # mr = model_regress({"diamonds": diamonds, "diamonds100": diamonds.sample(100)})
 # app = App(mr.shiny_ui(), mr.shiny_server)
 
@@ -278,5 +278,5 @@ def regress(data_dct):
     """
     mr = model_regress(data_dct)
     nest_asyncio.apply()
-    webbrowser.open("http://127.0.0.1:8000")
-    uvicorn.run(App(mr.shiny_ui(), mr.shiny_server), port=8000)
+    webbrowser.open("http://0.0.0.0:8000")
+    uvicorn.run(App(mr.shiny_ui(), mr.shiny_server), host="0.0.0.0", port=8000)
