@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
-from pyrsm.regress import sim_prediction
-from pyrsm.regress import reg_dashboard
+from pyrsm.model import sim_prediction
 
 np.random.seed(1234)
 nr = 100

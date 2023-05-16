@@ -1,49 +1,18 @@
 from pathlib import Path
-import pandas as pd
-import pyrsm as rsm
+import uvicorn
+import nest_asyncio
+import webbrowser
 import io
 from pathlib import Path
 from contextlib import redirect_stdout
 from shiny import App, render, ui, reactive, Inputs, Outputs, Session
+import pyrsm as rsm
 from datetime import datetime
-
-# from shiny.types import NavSetArg
-
-# from shiny.ui import h4
-
-
-# def nav_controls() -> list[NavSetArg]:
-#     return [
-#         ui.nav("Data"),
-#         ui.nav("Model", "Linear regression (OLS)"),
-#         # ui.nav_control(
-#         #     ui.a(
-#         #         "Shiny",
-#         #         href="https://github.com/rstudio/shiny",
-#         #         target="_blank",
-#         #     )
-#         # ),
-#         # ui.nav_spacer(),
-#         ui.nav_menu(
-#             ui.nav_control(
-#                 ui.a(
-#                     "PyRSM",
-#                     href="https://github.com/vnijs/pyrsm",
-#                     target="_blank",
-#                 )
-#             ),
-#             align="right",
-#         ),
-#     ]
-
-
 import black
 import pyperclip
 
 ## next steps
-
-## add a close button (navbar?) and return something (code?) on close
-# https://shiny.rstudio.com/py/api/Session.html#shiny.Session
+## Find way to stop server process https://github.com/rstudio/py-shiny/issues/490
 ## adjust plot window height
 ## render table https://shiny.rstudio.com/py/api/ui.output_table.html#shiny.ui.output_table
 ## shown description as markdown https://shinylive.io/py/examples/#extra-packages
@@ -103,14 +72,6 @@ class model_regress:
                     ),
                     ui.panel_conditional(
                         "input.tabs_regress == 'Plot'",
-                        # ui.panel_well(
-                        #     ui.input_action_button(
-                        #         "plot",
-                        #         "Create plot",
-                        #         class_="btn-success",
-                        #         width="100%",
-                        #     ),
-                        # ),
                         ui.panel_well(
                             ui.input_select(
                                 id="regress_plots",
@@ -204,10 +165,7 @@ class model_regress:
         @render.ui
         def ui_rvar():
             data, _, _ = load_data()
-            if isinstance(data, str):
-                df_cols = []
-            else:
-                df_cols = {c: f"{c} ({data[c].dtype})" for c in data.columns}
+            df_cols = {c: f"{c} ({data[c].dtype})" for c in data.columns}
             return ui.input_select(
                 id="rvar",
                 label="Response Variable",
@@ -219,14 +177,11 @@ class model_regress:
         @render.ui
         def ui_evar():
             data, _, _ = load_data()
-            if isinstance(data, str):
-                df_cols = []
-            else:
-                df_cols = list(data.columns)
-                if (input.rvar() is not None) and (input.rvar() in df_cols):
-                    df_cols.remove(input.rvar())
+            df_cols = list(data.columns)
+            if (input.rvar() is not None) and (input.rvar() in df_cols):
+                df_cols.remove(input.rvar())
 
-                df_cols = {c: f"{c} ({data[c].dtype})" for c in df_cols}
+            df_cols = {c: f"{c} ({data[c].dtype})" for c in df_cols}
             return ui.input_select(
                 id="evar",
                 label="Explanatory Variables",
@@ -246,7 +201,6 @@ class model_regress:
 
         @output(id="regress_summary")
         @render.text
-        # @reactive.event(input.run, ignore_none=True)
         def regress_summary():
             out = io.StringIO()
             with redirect_stdout(out):
@@ -258,7 +212,6 @@ class model_regress:
 
         @output(id="show_summary_code")
         @render.text
-        # @reactive.event(input.run, ignore_none=True)
         def show_summary_code():
             rvar = input.rvar()
             evar = list(input.evar())
@@ -269,7 +222,6 @@ class model_regress:
 
         @output(id="regress_predict")
         @render.text
-        # @reactive.event(input.run, ignore_none=True)
         def regress_predict():
             return ui.HTML(
                 regress()
@@ -281,7 +233,6 @@ class model_regress:
 
         @output(id="show_predict_code")
         @render.text
-        # @reactive.event(input.predict, ignore_none=True)
         def show_predict_code():
             rvar = input.rvar()
             evar = list(input.evar())
@@ -291,13 +242,11 @@ class model_regress:
 
         @output(id="regress_plot")
         @render.plot()
-        # @reactive.event(input.plot, ignore_none=True)
         def regress_plot():
             return regress().plot(plots=input.regress_plots())
 
         @output(id="show_plot_code")
         @render.text
-        # @reactive.event(input.plot, ignore_none=True)
         def show_plot_code():
             rvar = input.rvar()
             evar = list(input.evar())
@@ -310,7 +259,7 @@ class model_regress:
         @reactive.Effect
         @reactive.event(input.stop, ignore_none=True)
         async def stop_app():
-            await session.close()
+            await session.app.stop()
 
 
 ## should work based on https://shinylive.io/py/examples/#static-content
@@ -321,6 +270,14 @@ class model_regress:
 
 ## uncomment for development and testing
 # if __file__ == "app.py":
-# rsm.load_data(pkg="data", name="diamonds", dct=globals())
+# load_data(pkg="data", name="diamonds", dct=globals())
 # mr = model_regress({"diamonds": diamonds, "diamonds100": diamonds.sample(100)})
 # app = App(mr.shiny_ui(), mr.shiny_server)
+
+
+def regress(data_dct):
+
+    mr = model_regress(data_dct)
+    nest_asyncio.apply()
+    webbrowser.open("http://127.0.0.1:8000")
+    uvicorn.run(App(mr.shiny_ui(), mr.shiny_server), port=8000)

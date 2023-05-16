@@ -7,7 +7,7 @@ from pyrsm.example_data import load_data
 def test_all_data():
     all_data = load_data()
     assert isinstance(all_data, dict), "Return value should be a dictionary"
-    assert len(all_data) == 28, "Where datasets added or removed?"
+    assert len(all_data) == 29, "Where datasets added or removed?"
 
 
 def test_package():

@@ -1,6 +1,3 @@
-import uvicorn
-import nest_asyncio
-import webbrowser
 import pandas as pd
 import statsmodels.formula.api as smf
 from typing import Optional
@@ -210,10 +207,3 @@ class regress:
         print(
             f"F-statistic: {round(out.fvalue, dec)} df ({out.df_num:,.0f}, {out.df_denom:,.0f}), p.value {pvalue}"
         )
-
-
-def radiant_regress(data):
-    mr = model_regress(data)
-    nest_asyncio.apply()
-    webbrowser.open("http://127.0.0.1:8000")
-    uvicorn.run(App(mr.shiny_ui(), mr.shiny_server), port=8000)
