@@ -1,15 +1,11 @@
+import uvicorn, nest_asyncio, webbrowser
+import io, os, signal
+import black, pyperclip
 from pathlib import Path
-import uvicorn
-import nest_asyncio
-import webbrowser
-import io
-from pathlib import Path
+import pyrsm as rsm
 from contextlib import redirect_stdout
 from shiny import App, render, ui, reactive, Inputs, Outputs, Session
-import pyrsm as rsm
 from datetime import datetime
-import black
-import pyperclip
 
 ## next steps
 ## Find way to stop server process https://github.com/rstudio/py-shiny/issues/490
@@ -260,6 +256,7 @@ class model_regress:
         @reactive.event(input.stop, ignore_none=True)
         async def stop_app():
             await session.app.stop()
+            os.kill(os.getpid(), signal.SIGTERM)
 
 
 ## should work based on https://shinylive.io/py/examples/#static-content
@@ -276,7 +273,9 @@ class model_regress:
 
 
 def regress(data_dct):
-
+    """
+    Launch a Shiny-for-Python app for regression analysis
+    """
     mr = model_regress(data_dct)
     nest_asyncio.apply()
     webbrowser.open("http://127.0.0.1:8000")
