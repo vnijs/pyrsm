@@ -6,11 +6,11 @@ Python functions and classes for Customer Analytics at the Rady School of Manage
 
 If you have python and pip3 install you can use the below to install the latest version of `pyrsm`:
 
-`pip3 install --user 'pyrsm>=0.7.9'`
+`pip3 install --user 'pyrsm>=0.8.1'`
 
 or 
 
-`conda install 'pyrsm>=0.7.9'`
+`conda install 'pyrsm>=0.8.1'`
 
 ## Example notebooks
 

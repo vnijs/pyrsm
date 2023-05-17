@@ -132,6 +132,8 @@ class model_regress:
                 pass
             cmd = f"""<pre><details><summary>Code</summary>{cmd}</details></pre>"""
             return ui.HTML(cmd)
+            # needs syntax highlighting but ui.markdown doesn't provide that yet
+            # return ui.markdown(f"""```python\n{cmd}\n```""")
 
         @reactive.Calc
         def load_data():
