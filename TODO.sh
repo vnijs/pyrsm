@@ -28,10 +28,17 @@ sudo rm -rf ~/gh/pyrsm/dist
 sudo pip install -e ~/gh/pyrsm
 
 
+conda activate base
 pip uninstall --user pyrsm
 pip install --user -e ~/gh/pyrsm
 
-
+# create a new 
+sudo rm -rf ~/testenv
+python -m venv ~/testenv
+conda deactivate
+source ~/testenv/bin/activate
+pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "pyrsm>=0.8.1.8"
+deactivate
 
 ## assuming you are using conda
 ## remove all version pyrsm you might be using

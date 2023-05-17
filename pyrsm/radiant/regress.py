@@ -1,5 +1,5 @@
-import uvicorn, nest_asyncio, webbrowser
-import io, os, signal, black, pyperclip
+import webbrowser, nest_asyncio, uvicorn
+import io, os, signal, black
 from pathlib import Path
 import pyrsm as rsm
 from contextlib import redirect_stdout
@@ -17,6 +17,7 @@ class model_regress:
             isinstance(datasets, dict), datasets, {"dataset": datasets}
         )
         self.dataset_list = list(datasets.keys())
+        self.stop_code = ""
 
     def shiny_ui(self):
         return ui.page_fluid(
@@ -125,15 +126,13 @@ class model_regress:
 
     def shiny_server(self, input: Inputs, output: Outputs, session: Session):
         def code_formatter(code):
-            cmd = black.format_str(code, mode=black.Mode())
-            try:
-                pyperclip.copy(cmd)
-            except pyperclip.PyperclipException:
-                pass
-            cmd = f"""<pre><details><summary>Code</summary>{cmd}</details></pre>"""
-            return ui.HTML(cmd)
+            cmd = self.stop_code = black.format_str(code, mode=black.Mode())
+            return ui.HTML(
+                f"""<pre><details><summary>Code</summary>{cmd}</details></pre>"""
+            )
             # needs syntax highlighting but ui.markdown doesn't provide that yet
             # return ui.markdown(f"""```python\n{cmd}\n```""")
+            # cmd = Markdown(f"\nGenerated code:\n\n```python\n{cmd}\n```")
 
         @reactive.Calc
         def load_data():
@@ -257,6 +256,7 @@ class model_regress:
         @reactive.Effect
         @reactive.event(input.stop, ignore_none=True)
         async def stop_app():
+            rsm.md(f"```python\n{self.stop_code}\n```")
             await session.app.stop()
             os.kill(os.getpid(), signal.SIGTERM)
 
@@ -274,11 +274,18 @@ class model_regress:
 # app = App(mr.shiny_ui(), mr.shiny_server)
 
 
-def regress(data_dct):
+def regress(
+    data_dct: dict, host: str = "0.0.0.0", port: int = 8000, log_level: str = "warning"
+):
     """
     Launch a Shiny-for-Python app for regression analysis
     """
     mr = model_regress(data_dct)
     nest_asyncio.apply()
-    webbrowser.open("http://0.0.0.0:8000")
-    uvicorn.run(App(mr.shiny_ui(), mr.shiny_server), host="0.0.0.0", port=8000)
+    webbrowser.open(f"http://{host}:{port}")
+    uvicorn.run(
+        App(mr.shiny_ui(), mr.shiny_server),
+        host=host,
+        port=port,
+        log_level=log_level,
+    )
