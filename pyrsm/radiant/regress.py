@@ -1,5 +1,10 @@
-import webbrowser, nest_asyncio, uvicorn
-import io, os, signal, black
+import webbrowser
+import nest_asyncio
+import uvicorn
+import io
+import os
+import signal
+import black
 from pathlib import Path
 import pyrsm as rsm
 from contextlib import redirect_stdout
@@ -139,7 +144,7 @@ class model_regress:
             return (
                 self.datasets[input.datasets()],
                 input.datasets(),
-                f"{input.datasets()} = pd.read_pickle('{input.datasets()}.pkl')",
+                f"# {input.datasets()} = pd.read_pickle('{input.datasets()}.pkl')",
             )
 
         @output(id="show_data")
@@ -185,6 +190,7 @@ class model_regress:
                 selected=None,
                 choices=df_cols,
                 multiple=True,
+                size=min(8, len(df_cols)),
                 selectize=False,
             )
 
