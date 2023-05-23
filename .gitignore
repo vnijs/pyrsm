@@ -2,6 +2,8 @@
 settings.json
 TODO
 
+# app testing
+pyrsm/testing/
 
 # from https://github.com/github/gitignore/blob/master/Python.gitignore
 # Byte-compiled / optimized / DLL files

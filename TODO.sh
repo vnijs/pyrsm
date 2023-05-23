@@ -11,7 +11,9 @@
 ## select commands to run and use the Command Palette to send to open terminal
 # use python build to install locally testing 
 sudo pip uninstall -y pyrsm
+# pip uninstall -y pyrsm
 sudo rm -rf ~/gh/pyrsm/dist
+rm -rf ~/gh/pyrsm/dist
 # sudo rm -rf ~/gh/pyrsm/build/*
 sudo python -m build
 
@@ -161,6 +163,7 @@ rm -rf /opt/conda/conda-bld/noarch/pyrsm*
 openssl sha256 dist/pyrsm-*.tar.gz
 
 # add the sha256 sequence to conda/meta.yaml file **before** building (huh?)
+conda install conda-build
 conda build ~/gh/pyrsm/conda/pyrsm
 
 # try the below, might work but
@@ -209,7 +212,7 @@ cd conda
 grayskull pypi pyrsm
 rm -rf /opt/conda/conda-bld/broken/pyrsm*
 rm -rf /opt/conda/conda-bld/pyrsm*
-conda build pyrsm/
+conda build --skip-existing pyrsm/
 conda install --use-local pyrsm
 conda build purge
 cp pyrsm/meta.yaml ~/gh/conda-packages/recipes/pyrsm/meta.yaml

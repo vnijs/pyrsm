@@ -170,6 +170,8 @@ def pred_plot_sm(
         incl = [i for i in incl if i not in excl]
 
     nr_plots = len(incl) + len(incl_int)
+    if nr_plots == 0:
+        return None
     fig, ax = plt.subplots(
         max(math.ceil(nr_plots / 2), 2), 2, figsize=(10, 2 * max(nr_plots, 4))
     )
@@ -222,7 +224,7 @@ def pred_plot_sm(
         if sum(is_num) == 2:
             plot_data = (
                 pred_dict[v]
-                .pivot(vl[0], vl[1], "prediction")
+                .pivot(index=vl[0], columns=vl[1], values="prediction")
                 .transpose()
                 .sort_values(vl[1], ascending=False)
             )

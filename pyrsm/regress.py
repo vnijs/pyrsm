@@ -15,6 +15,7 @@ from .model import (
     reg_dashboard,
     residual_plot,
     coef_plot,
+    coef_ci,
     predict_ci,
 )
 from .model import vif as calc_vif
@@ -28,6 +29,7 @@ class regress:
         dataset: pd.DataFrame,
         rvar: Optional[str] = None,
         evar: Optional[list[str]] = None,
+        int: Optional[list[str]] = None,
         form: Optional[str] = None,
     ) -> None:
 
@@ -44,6 +46,7 @@ class regress:
         self.dataset = dataset
         self.rvar = rvar
         self.evar = ifelse(isinstance(evar, str), [evar], evar)
+        self.int = ifelse(isinstance(int, str), [int], int)
         self.form = form
 
         if self.form:
@@ -52,6 +55,8 @@ class regress:
             self.rvar = extract_rvar(self.fitted.model, self.dataset.columns)
         else:
             self.form = f"{self.rvar} ~ {' + '.join(self.evar)}"
+            if self.int:
+                self.form += f"+ {' + '.join(self.int)}"
             self.fitted = smf.ols(self.form, data=self.dataset).fit()
 
         df = pd.DataFrame(self.fitted.params, columns=["coefficient"]).dropna()
@@ -61,7 +66,9 @@ class regress:
         df["  "] = sig_stars(self.fitted.pvalues)
         self.coef = df.reset_index()
 
-    def summary(self, ssq=False, vif=False, dec=3, name="Not provided") -> None:
+    def summary(
+        self, ssq=False, vif=False, ci=False, dec=3, name="Not provided", shiny=False
+    ) -> None:
         """
         Summarize output from a linear regression model
 
@@ -84,9 +91,15 @@ class regress:
         df["p.value"] = ifelse(
             df["p.value"] < 0.001, "< .001", df["p.value"].round(dec)
         )
-        print(f"\n{df.to_string(index=False)}")
+        df = df.set_index("index")
+        df.index.name = None
+        print(f"\n{df.to_string()}")
         print("\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1")
-        print(f"\n{model_fit(self.fitted)}")
+        print(f"\n{model_fit(self.fitted, shiny=shiny)}")
+
+        if ci:
+            print("\nConfidence intervals:")
+            print(f"\n{coef_ci(self.fitted).to_string()}")
 
         if ssq:
             print("\nSum of squares:")
@@ -111,7 +124,7 @@ class regress:
 
         if vif:
             print("\nVariance inflation factors:")
-            print(f"\n{calc_vif(self.fitted).to_string(index=False)}")
+            print(f"\n{calc_vif(self.fitted).to_string()}")
 
     def predict(self, df=None, ci=False, alpha=0.05) -> pd.DataFrame:
         """

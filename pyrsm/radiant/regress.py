@@ -1,15 +1,19 @@
-import webbrowser
-import nest_asyncio
-import uvicorn
-import io
-import os
-import signal
-import black
+from shiny import App, render, ui, reactive, Inputs, Outputs, Session
+
+# from htmltools import TagList, tags, div, css
+from faicons import icon_svg
+import webbrowser, nest_asyncio, uvicorn
+import io, os, signal, black
 from pathlib import Path
 import pyrsm as rsm
+import pandas as pd
 from contextlib import redirect_stdout
-from shiny import App, render, ui, reactive, Inputs, Outputs, Session
 from datetime import datetime
+from itertools import combinations
+from .utils import *
+
+# from itables import to_html_datatable as DT
+
 
 ## next steps
 ## try qgrid for interactive data table
@@ -27,6 +31,9 @@ class model_regress:
     def shiny_ui(self):
         return ui.page_fluid(
             ui.head_content(
+                ui.tags.script(
+                    (Path(__file__).parent / "www/returnTextAreaBinding.js").read_text()
+                ),
                 ui.tags.script((Path(__file__).parent / "www/copy.js").read_text()),
                 ui.tags.style((Path(__file__).parent / "www/style.css").read_text()),
                 # ui.tags.style("style.css"),  # not getting picked up for some reason
@@ -38,11 +45,42 @@ class model_regress:
                         width=3,
                     ),
                     ui.panel_conditional(
+                        "input.tabs_regress == 'Data'",
+                        ui.panel_well(
+                            ui.input_checkbox("show_filter", "Show data filter"),
+                            ui.panel_conditional(
+                                "input.show_filter == true",
+                                # ui.input_text_area(
+                                input_return_text_area(
+                                    "data_filter",
+                                    "Data Filter:",
+                                    rows=2,
+                                    placeholder="Provide a filter (e.g., price >  5000) and press return",
+                                ),
+                                # ui.input_text_area(
+                                input_return_text_area(
+                                    "data_arrange",
+                                    "Data arrange (sort):",
+                                    rows=2,
+                                    placeholder="Arrange (e.g., ['color', 'price'], ascending=[True, False])) and press return",
+                                ),
+                                # ui.input_text_area(
+                                input_return_text_area(
+                                    "data_slice",
+                                    "Data slice (rows):",
+                                    rows=1,
+                                    placeholder="e.g., 1:50 and press return",
+                                ),
+                            ),
+                        ),
+                    ),
+                    ui.panel_conditional(
                         "input.tabs_regress == 'Summary'",
                         ui.panel_well(
                             ui.input_action_button(
                                 "run",
                                 "Estimate model",
+                                icon=icon_svg("play"),
                                 class_="btn-success",
                                 width="100%",
                             ),
@@ -50,13 +88,27 @@ class model_regress:
                         ui.panel_well(
                             ui.output_ui("ui_rvar"),
                             ui.output_ui("ui_evar"),
+                            ui.input_radio_buttons(
+                                "show_interactions",
+                                "Interactions:",
+                                choices={0: "None", 2: "2-way", 3: "3-way"},
+                                inline=True,
+                            ),
+                            ui.panel_conditional(
+                                "input.show_interactions > 0",
+                                ui.output_ui("ui_interactions"),
+                            ),
                             width=3,
                         ),
                         ui.panel_well(
                             ui.input_checkbox_group(
                                 "controls",
                                 "Controls:",
-                                {"ssq": "Sum of Squares", "vif": "VIF"},
+                                {
+                                    "ci": "Confidence intervals",
+                                    "ssq": "Sum of Squares",
+                                    "vif": "VIF",
+                                },
                             )
                         ),
                     ),
@@ -88,6 +140,19 @@ class model_regress:
                                     "coef": "Coefficient plot",
                                 },
                             ),
+                            ui.panel_conditional(
+                                "input.regress_plots == 'corr'",
+                                ui.input_select(
+                                    "nobs",
+                                    "Number of data points plotted:",
+                                    {1000: "1,000", -1: "All"},
+                                ),
+                            ),
+                            ui.panel_conditional(
+                                "input.regress_plots == 'pred'",
+                                ui.output_ui("ui_incl_evar"),
+                                ui.output_ui("ui_incl_interactions"),
+                            ),
                             width=3,
                         ),
                     ),
@@ -95,6 +160,7 @@ class model_regress:
                         ui.input_action_button(
                             "stop",
                             "Stop app",
+                            icon=icon_svg("stop"),
                             class_="btn-danger",
                             width="100%",
                             onclick="window.close();",
@@ -107,6 +173,7 @@ class model_regress:
                             "Data",
                             ui.output_ui("show_data_code"),
                             ui.output_ui("show_data"),
+                            ui.output_ui("show_description"),
                         ),
                         ui.nav(
                             "Summary",
@@ -140,87 +207,215 @@ class model_regress:
             # cmd = Markdown(f"\nGenerated code:\n\n```python\n{cmd}\n```")
 
         @reactive.Calc
-        def load_data():
-            return (
-                self.datasets[input.datasets()],
-                input.datasets(),
-                f"# {input.datasets()} = pd.read_pickle('{input.datasets()}.pkl')",
-            )
+        def get_data():
+            data_name = input.datasets()
+            data = self.datasets[data_name]
+            if input.show_filter():
+                if not is_empty(input.data_filter()):
+                    data = data.query(input.data_filter())
+                if not is_empty(input.data_arrange()):
+                    data = eval(f"""data.sort_values({input.data_arrange()})""")
+                if not is_empty(input.data_slice()):
+                    data = eval(f"""data.iloc[{input.data_slice()}, :]""")
 
-        @output(id="show_data")
-        @render.ui
-        def show_data():
-            data, _, _ = load_data()
-            return ui.HTML(
-                data.head().to_html(
-                    classes="table table-striped data_preview", index=False
-                )
+            types = {c: [data[c].dtype, data[c].nunique()] for c in data.columns}
+            isNum = {
+                c: f"{c} ({t[0].name})"
+                for c, t in types.items()
+                if pd.api.types.is_numeric_dtype(t[0])
+            }
+            isBin = {c: f"{c} ({t[0].name})" for c, t in types.items() if t[1] == 2}
+            isCat = {
+                c: f"{c} ({t[0].name})"
+                for c, t in types.items()
+                if c in isBin or pd.api.types.is_categorical_dtype(t[0]) or t[1] < 10
+            }
+            var_types = {
+                "all": {c: f"{c} ({t[0].name})" for c, t in types.items()},
+                "isNum": isNum,
+                "isBin": isBin,
+                "isCat": isCat,
+            }
+
+            return (
+                data,
+                data_name,
+                var_types,
+                f"# {data_name} = pd.read_pickle('{data_name}.pkl')",
             )
 
         @output(id="show_data_code")
         @render.ui
         def show_data_code():
-            _, _, code = load_data()
+            fname, _, code = get_data()[1:]
+            if input.show_filter():
+                code += f"""\n{fname} = {fname}"""
+                if not is_empty(input.data_filter()):
+                    code += f""".query("{input.data_filter()}")"""
+                if not is_empty(input.data_arrange()):
+                    code += f""".sort_values({input.data_arrange()})"""
+                if not is_empty(input.data_slice()):
+                    code += f""".iloc[{input.data_slice()}, :]"""
             return code_formatter(code)
+
+        @output(id="show_data")
+        @render.ui
+        def show_data():
+            data = get_data()[0]
+            return (
+                ui.HTML(
+                    data.head(10).to_html(
+                        classes="table table-striped data_preview", index=False
+                    ),
+                ),
+                ui.p(f"Showing 10 rows out of {data.shape[0]:,}"),
+            )
+
+        @output(id="show_description")
+        @render.ui
+        def show_description():
+            data = get_data()[0]
+            if hasattr(data, "description"):
+                return ui.markdown(get_data()[0].description)
+            else:
+                return ui.h3("No data description available")
 
         @output(id="ui_rvar")
         @render.ui
         def ui_rvar():
-            data, _, _ = load_data()
-            df_cols = {c: f"{c} ({data[c].dtype})" for c in data.columns}
+            isNum = get_data()[2]["isNum"]
             return ui.input_select(
                 id="rvar",
                 label="Response Variable",
                 selected=None,
-                choices=df_cols,
+                choices=isNum,
             )
 
         @output(id="ui_evar")
         @render.ui
         def ui_evar():
-            data, _, _ = load_data()
-            df_cols = list(data.columns)
-            if (input.rvar() is not None) and (input.rvar() in df_cols):
-                df_cols.remove(input.rvar())
+            vars = get_data()[2]["all"]
+            if (input.rvar() is not None) and (input.rvar() in vars):
+                del vars[input.rvar()]
 
-            df_cols = {c: f"{c} ({data[c].dtype})" for c in df_cols}
             return ui.input_select(
                 id="evar",
                 label="Explanatory Variables",
                 selected=None,
-                choices=df_cols,
+                choices=vars,
                 multiple=True,
-                size=min(8, len(df_cols)),
+                size=min(8, len(vars)),
                 selectize=False,
             )
+
+        @output(id="ui_interactions")
+        @render.ui
+        def ui_interactions():
+            if len(input.evar()) > 1:
+                choices = []
+                nway = int(input.show_interactions())
+                isNum = rsm.intersect(
+                    list(input.evar()), list(get_data()[2]["isNum"].keys())
+                )
+                if len(isNum) > 0:
+                    choices += qterms(isNum, nway=int(input.show_interactions()[0]))
+                choices += iterms(input.evar(), nway=nway)
+                return ui.input_select(
+                    id="interactions",
+                    label="Interactions",
+                    selected=None,
+                    choices=choices,
+                    multiple=True,
+                    size=min(8, len(choices)),
+                    selectize=False,
+                )
+
+        @output(id="ui_incl_evar")
+        @render.ui
+        def ui_incl_evar():
+            if len(input.evar()) > 1:
+                return ui.input_select(
+                    id="incl_evar",
+                    label="Explanatory variables to include",
+                    selected=None,
+                    choices=input.evar(),
+                    multiple=True,
+                    size=min(8, len(input.evar())),
+                    selectize=False,
+                )
+
+        @output(id="ui_incl_interactions")
+        @render.ui
+        def ui_incl_interactions():
+            if len(input.evar()) > 1:
+                nway = int(input.show_interactions())
+                choices = iterms(input.evar(), nway=nway)
+                return ui.input_select(
+                    id="incl_interactions",
+                    label="Interactions to include",
+                    selected=None,
+                    choices=choices,
+                    multiple=True,
+                    size=min(8, len(choices)),
+                    selectize=False,
+                )
+
+        def model_code():
+            rvar = input.rvar()
+            evar = list(input.evar())
+            fname, _, code = get_data()[1:]
+            if int(input.show_interactions()) > 0 and len(input.interactions()) > 0:
+                return f"""{code}\nreg = rsm.regress(dataset={fname}, rvar="{rvar}", evar={evar}, int={list(input.interactions())})"""
+            else:
+                return f"""{code}\nreg = rsm.regress(dataset={fname}, rvar="{rvar}", evar={evar})"""
 
         @reactive.Calc
         @reactive.event(input.run, ignore_none=True)
         def regress():
             now = datetime.now().time().strftime("%H:%M:%S")
             print(f"Model estimated at: {now}")
-            data, _, _ = load_data()
-            return rsm.regress(dataset=data, rvar=input.rvar(), evar=list(input.evar()))
+            data = get_data()[0]
+            if int(input.show_interactions()) > 0:
+                return rsm.regress(
+                    dataset=data,
+                    rvar=input.rvar(),
+                    evar=list(input.evar()),
+                    int=list(input.interactions()),
+                )
+            else:
+                return rsm.regress(
+                    dataset=data,
+                    rvar=input.rvar(),
+                    evar=list(input.evar()),
+                )
+
+        def summary_code(shiny=False):
+            ctrl = input.controls()
+            cmd = f"""ci={"ci" in ctrl}, ssq={"ssq" in ctrl}, vif={"vif" in ctrl}"""
+            if shiny:
+                cmd += """, shiny=True"""
+            return f"""reg.summary({cmd})"""
+
+        @output(id="show_summary_code")
+        @render.text
+        def show_summary_code():
+            cmd = f"""{model_code()}\n{summary_code()}"""
+            return code_formatter(cmd)
 
         @output(id="regress_summary")
         @render.text
         def regress_summary():
             out = io.StringIO()
             with redirect_stdout(out):
-                ctrl = input.controls()
-                regress().summary(
-                    ssq="ssq" in ctrl, vif="vif" in ctrl, name=input.datasets()
-                )
+                reg = regress()  # get model object into local scope
+                cmd = f"""{summary_code(shiny=True)}"""
+                eval(cmd)
             return out.getvalue()
 
-        @output(id="show_summary_code")
+        @output(id="show_predict_code")
         @render.text
-        def show_summary_code():
-            rvar = input.rvar()
-            evar = list(input.evar())
-            ctrl = input.controls()
-            _, fname, code = load_data()
-            cmd = f"""{code}\nreg = rsm.regress(dataset={fname}, rvar="{rvar}", evar={evar})\nreg.summary(ssq={"ssq" in ctrl}, vif={"vif" in ctrl})"""
+        def show_predict_code():
+            cmd = f"""{model_code()}\npred = reg.predict(df={input.pred_datasets()}, ci=True)"""
             return code_formatter(cmd)
 
         @output(id="regress_predict")
@@ -230,34 +425,49 @@ class model_regress:
                 regress()
                 .predict(df=self.datasets[input.pred_datasets()], ci=True)
                 .round(3)
-                .head()
+                .head(10)
                 .to_html(classes="table table-striped data_preview", index=False)
             )
 
-        @output(id="show_predict_code")
-        @render.text
-        def show_predict_code():
-            rvar = input.rvar()
-            evar = list(input.evar())
-            _, fname, code = load_data()
-            cmd = f"""{code}\nreg = rsm.regress(dataset={fname}, rvar="{rvar}", evar={evar})\nreg.predict(df={input.pred_datasets()}, ci=True)"""
-            return code_formatter(cmd)
-
-        @output(id="regress_plot")
-        @render.plot()
-        def regress_plot():
-            return regress().plot(plots=input.regress_plots())
+        def plot_code():
+            plots = input.regress_plots()
+            if plots == "pred":
+                incl = list(input.incl_evar())
+                incl_int = list(input.incl_interactions())
+                cmd = f""", incl={incl}"""
+                if len(incl_int) > 0:
+                    cmd += f""", incl_int={incl_int}"""
+                cmd = f"""reg.plot(plots="{plots}" {cmd})"""
+            elif plots == "corr":
+                cmd = f"""reg.plot(plots="{plots}", nobs={input.nobs()})"""
+            else:
+                cmd = f"""reg.plot(plots="{plots}")"""
+            return cmd
 
         @output(id="show_plot_code")
         @render.text
         def show_plot_code():
-            rvar = input.rvar()
-            evar = list(input.evar())
-            plot_type = input.regress_plots()
-            if plot_type != "None":
-                _, fname, code = load_data()
-                cmd = f"""{code}\nreg = rsm.regress(dataset={fname}, rvar="{rvar}", evar={evar})\nreg.plot("{plot_type}")"""
+            plots = input.regress_plots()
+            if plots != "None":
+                cmd = f"""{model_code()}\n{plot_code()}"""
                 return code_formatter(cmd)
+
+        def plot_height():
+            plots = input.regress_plots()
+            if plots == "pred":
+                return "800px"
+            else:
+                return "1000px"
+
+        @output(id="regress_plot")
+        # @render.plot(height=plot_height)
+        @render.plot
+        def regress_plot():
+            plots = input.regress_plots()
+            if plots != "None":
+                reg = regress()  # get model object into local scope
+                cmd = f"""{plot_code()}"""
+                return eval(cmd)
 
         @reactive.Effect
         @reactive.event(input.stop, ignore_none=True)
@@ -275,13 +485,17 @@ class model_regress:
 
 ## uncomment for development and testing
 # if __file__ == "app.py":
+# if Path(__file__).name == "app.py":
 # rsm.load_data(pkg="data", name="diamonds", dct=globals())
 # mr = model_regress({"diamonds": diamonds, "diamonds100": diamonds.sample(100)})
 # app = App(mr.shiny_ui(), mr.shiny_server)
 
 
 def regress(
-    data_dct: dict, host: str = "0.0.0.0", port: int = 8000, log_level: str = "warning"
+    data_dct: dict,
+    host: str = "0.0.0.0",
+    port: int = 8000,
+    log_level: str = "warning",
 ):
     """
     Launch a Shiny-for-Python app for regression analysis
@@ -289,6 +503,7 @@ def regress(
     mr = model_regress(data_dct)
     nest_asyncio.apply()
     webbrowser.open(f"http://{host}:{port}")
+    print(f"Listening on http://{host}:{port}")
     uvicorn.run(
         App(mr.shiny_ui(), mr.shiny_server),
         host=host,

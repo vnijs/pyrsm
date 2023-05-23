@@ -260,27 +260,28 @@ def vif(fitted, dec=3):
             elif cat:
                 select = [f"{col}[T." in c for c in df.columns]
                 Vcorr = np.linalg.det(df.loc[:, select].corr().values)
-                drop = [lcl == False for lcl in select]
+                drop = [f"{col}[T." not in c for c in df.columns]
                 Ocorr = np.linalg.det(df.loc[:, drop].corr().values)
             else:
                 Vcorr = 1
                 Ocorr = np.linalg.det(df.drop(col, axis=1).corr().values)
 
             vif.append(Vcorr * Ocorr / Xcorr)
-        df = pd.DataFrame(evar, columns=[" "])
+        df = pd.DataFrame(evar, columns=["index"])
     else:
         vif = [
             variance_inflation_factor(model.exog, i) for i in range(model.exog.shape[1])
         ]
-        df = pd.DataFrame(model.exog_names, columns=[" "])
+        df = pd.DataFrame(model.exog_names, columns=["index"])
 
     df["vif"] = vif
     df["Rsq"] = 1 - 1 / df["vif"]
 
     if "Intercept" in model.exog_names:
-        df = df[df[" "] != "Intercept"]
+        df = df[df["index"] != "Intercept"]
 
-    df = df.sort_values("vif", ascending=False).reset_index(drop=True)
+    df = df.sort_values("vif", ascending=False).set_index("index")
+    df.index.name = None
 
     if dec is not None:
         df = df.round(dec)
@@ -361,7 +362,9 @@ def predict_ci(fitted, df, alpha=0.05):
         )
 
 
-def model_fit(fitted, dec: int = 3, prn: bool = True) -> Union[str, pd.DataFrame]:
+def model_fit(
+    fitted, dec: int = 3, prn: bool = True, shiny=False
+) -> Union[str, pd.DataFrame]:
     """
     Compute various model fit statistics for a fitted linear or logistic regression model
 
@@ -391,7 +394,6 @@ def model_fit(fitted, dec: int = 3, prn: bool = True) -> Union[str, pd.DataFrame
     mfit = pd.DataFrame(mfit_dct)
 
     if prn:
-        output = "Model type not supported"
         if model_type == "logistic":
             output = f"""Pseudo R-squared (McFadden): {mfit.pseudo_rsq_mcf.values[0].round(dec)}
 Pseudo R-squared (McFadden adjusted): {mfit.pseudo_rsq_mcf_adj.values[0].round(dec)}
@@ -403,7 +405,12 @@ Nr obs: {mfit.nobs.values[0]:,.0f}"""
             output = f"""R-squared: {mfit.rsq.values[0].round(dec)}, Adjusted R-squared: {mfit.rsq_adj.values[0].round(dec)}
 F-statistic: {mfit.fvalue[0].round(dec)} df({mfit.ftest_df_model.values[0]:.0f}, {mfit.ftest_df_resid.values[0]:.0f}), p.value {np.where(mfit.ftest_pval.values[0] < .001, "< 0.001", mfit.ftest_pval.values[0].round(dec))}
 Nr obs: {mfit.nobs.values[0]:,.0f}"""
-        return output
+        else:
+            output = "Model type not supported"
+        if shiny:
+            return output
+        else:
+            print(output)
     else:
         return mfit
 
@@ -504,10 +511,11 @@ def coef_ci(fitted, alpha: float = 0.05, intercept: bool = True, dec: int = 3):
         )
 
     df["  "] = sig_stars(fitted.pvalues)
-    df = df.reset_index()
-
     if intercept is False:
-        df = df.loc[df["index"] != "Intercept"]
+        df = df[df.index != "Intercept"]
+
+    # df = df.set_index("index")
+    # df.index.name = None
 
     return df
 
