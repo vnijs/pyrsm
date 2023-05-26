@@ -39,7 +39,11 @@ sudo rm -rf ~/testenv
 python -m venv ~/testenv
 conda deactivate
 source ~/testenv/bin/activate
-pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "pyrsm>=0.8.1.8"
+# pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "pyrsm>=0.8.3.1"
+pip install "pyrsm>=0.8.4"
+python
+import pyrsm
+import polars
 deactivate
 
 ## assuming you are using conda

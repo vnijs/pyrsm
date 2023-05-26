@@ -1,6 +1,4 @@
 from shiny import App, render, ui, reactive, Inputs, Outputs, Session
-
-# from htmltools import TagList, tags, div, css
 from faicons import icon_svg
 import webbrowser, nest_asyncio, uvicorn
 import io, os, signal, black
@@ -17,7 +15,6 @@ from .utils import *
 
 ## next steps
 ## try qgrid for interactive data table
-## shown description as markdown https://shinylive.io/py/examples/#extra-packages
 
 
 class model_regress:
@@ -50,21 +47,18 @@ class model_regress:
                             ui.input_checkbox("show_filter", "Show data filter"),
                             ui.panel_conditional(
                                 "input.show_filter == true",
-                                # ui.input_text_area(
                                 input_return_text_area(
                                     "data_filter",
                                     "Data Filter:",
                                     rows=2,
                                     placeholder="Provide a filter (e.g., price >  5000) and press return",
                                 ),
-                                # ui.input_text_area(
                                 input_return_text_area(
                                     "data_arrange",
                                     "Data arrange (sort):",
                                     rows=2,
                                     placeholder="Arrange (e.g., ['color', 'price'], ascending=[True, False])) and press return",
                                 ),
-                                # ui.input_text_area(
                                 input_return_text_area(
                                     "data_slice",
                                     "Data slice (rows):",
@@ -98,18 +92,17 @@ class model_regress:
                                 "input.show_interactions > 0",
                                 ui.output_ui("ui_interactions"),
                             ),
-                            width=3,
-                        ),
-                        ui.panel_well(
+                            ui.output_ui("ui_evar_test"),
                             ui.input_checkbox_group(
                                 "controls",
-                                "Controls:",
+                                "Additional output:",
                                 {
                                     "ci": "Confidence intervals",
                                     "ssq": "Sum of Squares",
                                     "vif": "VIF",
                                 },
-                            )
+                            ),
+                            width=3,
                         ),
                     ),
                     ui.panel_conditional(
@@ -241,7 +234,7 @@ class model_regress:
                 data,
                 data_name,
                 var_types,
-                f"# {data_name} = pd.read_pickle('{data_name}.pkl')",
+                f"import pyrsm as rsm\n# {data_name} = pd.read_pickle('{data_name}.pkl')",
             )
 
         @output(id="show_data_code")
@@ -330,13 +323,27 @@ class model_regress:
                     selectize=False,
                 )
 
+        @output(id="ui_evar_test")
+        @render.ui
+        def ui_evar_test():
+            choices = {e: e for e in input.evar()}
+            if int(input.show_interactions()[0]) > 1:
+                choices.update({e: e for e in input.interactions()})
+            return ui.input_selectize(
+                id="evar_test",
+                label="Variables to test:",
+                selected=None,
+                choices=choices,
+                multiple=True,
+            )
+
         @output(id="ui_incl_evar")
         @render.ui
         def ui_incl_evar():
             if len(input.evar()) > 1:
                 return ui.input_select(
                     id="incl_evar",
-                    label="Explanatory variables to include",
+                    label="Explanatory variables to include:",
                     selected=None,
                     choices=input.evar(),
                     multiple=True,
@@ -352,7 +359,7 @@ class model_regress:
                 choices = iterms(input.evar(), nway=nway)
                 return ui.input_select(
                     id="incl_interactions",
-                    label="Interactions to include",
+                    label="Interactions to include:",
                     selected=None,
                     choices=choices,
                     multiple=True,
@@ -504,6 +511,9 @@ def regress(
     nest_asyncio.apply()
     webbrowser.open(f"http://{host}:{port}")
     print(f"Listening on http://{host}:{port}")
+    print(
+        "Pyrsm and Radiant are opensource tools and free to use. If you\nare a student or instructor using pyrsm or Radiant for a class,\nas a favor to the developers, please send an email to\n<radiant@rady.ucsd.edu> with the name of the school and class."
+    )
     uvicorn.run(
         App(mr.shiny_ui(), mr.shiny_server),
         host=host,

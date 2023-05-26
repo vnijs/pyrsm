@@ -56,7 +56,7 @@ class regress:
         else:
             self.form = f"{self.rvar} ~ {' + '.join(self.evar)}"
             if self.int:
-                self.form += f"+ {' + '.join(self.int)}"
+                self.form += f" + {' + '.join(self.int)}"
             self.fitted = smf.ols(self.form, data=self.dataset).fit()
 
         df = pd.DataFrame(self.fitted.params, columns=["coefficient"]).dropna()
@@ -67,7 +67,14 @@ class regress:
         self.coef = df.reset_index()
 
     def summary(
-        self, ssq=False, vif=False, ci=False, dec=3, name="Not provided", shiny=False
+        self,
+        ssq=False,
+        vif=False,
+        ci=False,
+        test=None,
+        dec=3,
+        name="Not provided",
+        shiny=False,
     ) -> None:
         """
         Summarize output from a linear regression model
@@ -125,6 +132,49 @@ class regress:
         if vif:
             print("\nVariance inflation factors:")
             print(f"\n{calc_vif(self.fitted).to_string()}")
+
+        if test is not None and len(test) > 0:
+            evar = setdiff(self.evar, test)
+            if self.int is not None and len(self.int) > 0:
+                sint = [
+                    s for s in self.int for t in test if f"I({t}" in s or t not in s
+                ]
+            else:
+                sint = []
+
+            form = f"{self.rvar} ~ "
+            if len(evar) == 0 and len(sint) == 0:
+                form += "1"
+            else:
+                # if len(evar) > 0:
+                # form += f"{' + '.join(evar)}"
+                # if len(sint) > 0:
+                form += f"{' + '.join(evar + sint)}"
+
+                ###### need to keep I(carat**2) in the formula even if carat is in test ######
+
+                # if self.int is not None and len(self.int) > 0:
+                #     sint = [
+                #         s for s in self.int for t in test if f"I({t}" in s or t not in s
+                #     ]
+                #     if len(sint) > 0:
+                #         form += f" + {' + '.join(sint)}"
+
+            hypothesis = [
+                f"({c} = 0)"
+                for c in self.fitted.model.exog_names
+                for v in test
+                if f"{v}:" in c or f":{v}" in c or f"{v}[T." in c or v == c
+            ]
+            print(hypothesis)
+
+            print(f"\nModel 1: {form}")
+            print(f"Model 2: {self.form}")
+            out = self.fitted.f_test(hypothesis)
+            pvalue = ifelse(out.pvalue < 0.001, "< .001", round(out.pvalue, dec))
+            print(
+                f"F-statistic: {round(out.fvalue, dec)} df ({out.df_num:.0f}, {out.df_denom:.0f}), p.value {pvalue}"
+            )
 
     def predict(self, df=None, ci=False, alpha=0.05) -> pd.DataFrame:
         """
