@@ -36,14 +36,12 @@ pip install --user -e ~/gh/pyrsm
 
 # create a new 
 sudo rm -rf ~/testenv
+conda activate base
 python -m venv ~/testenv
 conda deactivate
 source ~/testenv/bin/activate
-# pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "pyrsm>=0.8.3.1"
-pip install "pyrsm>=0.8.4"
-python
-import pyrsm
-import polars
+# pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "pyrsm>=0.8.4.1"
+pip install "pyrsm>=0.8.4.1"
 deactivate
 
 ## assuming you are using conda

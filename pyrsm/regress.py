@@ -1,4 +1,5 @@
 import pandas as pd
+import re
 import statsmodels.formula.api as smf
 from typing import Optional
 from statsmodels.regression.linear_model import RegressionResults as rrs
@@ -26,7 +27,7 @@ from .basics import correlation
 class regress:
     def __init__(
         self,
-        dataset: pd.DataFrame,
+        data: pd.DataFrame,
         rvar: Optional[str] = None,
         evar: Optional[list[str]] = None,
         int: Optional[list[str]] = None,
@@ -38,26 +39,26 @@ class regress:
 
         Parameters
         ----------
-        dataset: pandas DataFrame; dataset
+        data: pandas DataFrame; dataset
         evar: List of strings; contains the names of the columns of data to be used as explanatory variables
         rvar: String; name of the column to be used as the response variable
         form: String; formula for the regression equation to use if evar and rvar are not provided
         """
-        self.dataset = dataset
+        self.data = data
         self.rvar = rvar
         self.evar = ifelse(isinstance(evar, str), [evar], evar)
         self.int = ifelse(isinstance(int, str), [int], int)
         self.form = form
 
         if self.form:
-            self.fitted = smf.ols(formula=self.form, data=self.dataset).fit()
-            self.evar = extract_evars(self.fitted.model, self.dataset.columns)
-            self.rvar = extract_rvar(self.fitted.model, self.dataset.columns)
+            self.fitted = smf.ols(formula=self.form, data=self.data).fit()
+            self.evar = extract_evars(self.fitted.model, self.data.columns)
+            self.rvar = extract_rvar(self.fitted.model, self.data.columns)
         else:
             self.form = f"{self.rvar} ~ {' + '.join(self.evar)}"
             if self.int:
                 self.form += f" + {' + '.join(self.int)}"
-            self.fitted = smf.ols(self.form, data=self.dataset).fit()
+            self.fitted = smf.ols(self.form, data=self.data).fit()
 
         df = pd.DataFrame(self.fitted.params, columns=["coefficient"]).dropna()
         df["std.error"] = self.fitted.params / self.fitted.tvalues
@@ -136,11 +137,48 @@ class regress:
         if test is not None and len(test) > 0:
             evar = setdiff(self.evar, test)
             if self.int is not None and len(self.int) > 0:
-                sint = [
-                    s for s in self.int for t in test if f"I({t}" in s or t not in s
-                ]
+                sint = setdiff(self.int, test)
+                print("setdiff sint")
+                print(sint)
+                # sint += set(
+                #     [
+                #         s
+                #         for s in sint
+                #         for t in test
+                #         if ":" not in t
+                #         and f"I({t}" in s
+                #         or (f"{t}:" not in s and f":{t}" not in s)
+                #     ]
+                # )
+                # sint = []
+                # for s in self.int:
+                #     print(s)
+                #     for t in test:
+                #         print(t)
+                #         if t not in s:
+                #             sint.append(s)
+                #         print(sint)
+
+                # sint = [
+                #     s
+                #     for s in self.int
+                #     for s in self.int
+                #     if f"I({t}" in s or all([si not in self.int for si in test])
+                # ]
+
+                # sint = [
+                #     t
+                #     for t in test
+                #     for s in self.int
+                #     if f"I({t}" in s or all([si not in self.int for si in test])
+                # ]
+
+                # print(sint)
+                # s for s in self.int for t in test if f"I({t}" in s or t not in s
             else:
                 sint = []
+
+            print(sint)
 
             form = f"{self.rvar} ~ "
             if len(evar) == 0 and len(sint) == 0:
@@ -160,11 +198,17 @@ class regress:
                 #     if len(sint) > 0:
                 #         form += f" + {' + '.join(sint)}"
 
+            pattern = r"(\[T\.[^\]]*\])\:"
+
             hypothesis = [
                 f"({c} = 0)"
                 for c in self.fitted.model.exog_names
                 for v in test
-                if f"{v}:" in c or f":{v}" in c or f"{v}[T." in c or v == c
+                if f"{v}:" in c
+                or f":{v}" in c
+                or f"{v}[T." in c
+                or v == c
+                or v == re.sub(pattern, ":", c)
             ]
             print(hypothesis)
 
@@ -181,7 +225,7 @@ class regress:
         Predict values for a linear regression model
         """
         if df is None:
-            df = self.dataset
+            df = self.data
         df = df.loc[:, self.evar].copy()
         if ci:
             return pd.concat([df, predict_ci(self.fitted, df, alpha=alpha)], axis=1)
@@ -205,22 +249,22 @@ class regress:
         """
         Plots for a linear regression model
         """
-        dataset = self.dataset[[self.rvar] + self.evar].copy()
+        data = self.data[[self.rvar] + self.evar].copy()
         if "dist" in plots:
-            distr_plot(dataset)
+            distr_plot(data)
         if "corr" in plots:
-            cr = correlation(dataset)
+            cr = correlation(data)
             cr.plot(nobs=nobs, figsize=figsize)
         if "scatter" in plots:
-            scatter_plot(self.fitted, dataset, nobs=nobs, figsize=figsize)
+            scatter_plot(self.fitted, data, nobs=nobs, figsize=figsize)
         if "dashboard" in plots:
             reg_dashboard(self.fitted, nobs=nobs)
         if "residual" in plots:
-            residual_plot(self.fitted, dataset, nobs=nobs, figsize=figsize)
+            residual_plot(self.fitted, data, nobs=nobs, figsize=figsize)
         if "pred" in plots:
             pred_plot_sm(
                 self.fitted,
-                self.dataset,
+                self.data,
                 incl=incl,
                 excl=excl,
                 incl_int=incl_int,
@@ -231,7 +275,7 @@ class regress:
                 maxq=0.975,
             )
         if "vimp" in plots:
-            vimp_plot_sm(self.fitted, self.dataset, rep=10, ax=None, ret=False)
+            vimp_plot_sm(self.fitted, self.data, rep=10, ax=None, ret=False)
         if "coef" in plots:
             coef_plot(
                 self.fitted,

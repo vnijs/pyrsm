@@ -9,6 +9,19 @@ from .model import sig_stars
 from .utils import ifelse
 from typing import Any, Optional
 from scipy.stats import chisquare
+from statsmodels.stats import multitest
+
+
+def ci_label(alt="two-sided", conf=0.95, dec=3):
+    if alt == "less":
+        return ["0%", f"{round(100 * conf, dec)}%"]
+    elif alt == "greater":
+        return [f"{round(100 * (1 - conf), dec)}%", "100%"]
+    elif alt == "two-sided":
+        val = 100 * (1 - conf) / 2
+        return [f"{round(v, dec)}%" for v in [val, 100 - val]]
+    else:
+        return "Error: alt_hyp must be one of 'less', 'greater', or 'two-sided'"
 
 
 class cross_tabs:
@@ -671,61 +684,58 @@ class single_mean:
     def __init__(
         self,
         data: pd.DataFrame,
-        variable: str,
-        alt_hypo: str,
-        conf: float,
-        comparison_value: float,
+        var: str,
+        alt_hyp: str = "two-sided",
+        conf: float = 0.95,
+        comp_value: float = 0,
     ):
         self.data = data
-        self.variable = variable
-        self.alt_hypo = alt_hypo
+        self.name = "Not provided"
+        self.var = var
+        self.alt_hyp = alt_hyp
         self.conf = conf
-        self.comparison_value = comparison_value
+        self.comp_value = comp_value
 
         result = stats.ttest_1samp(
-            a=self.data[self.variable],
-            popmean=self.comparison_value,
+            a=self.data[self.var],
+            popmean=self.comp_value,
             nan_policy="omit",
-            alternative=self.alt_hypo,
+            alternative=self.alt_hyp,
         )
 
         self.t_val, self.p_val = result.statistic, result.pvalue
+        self.ci = result.confidence_interval(confidence_level=conf)
 
-        self.mean = np.nanmean(self.data[self.variable])
-        self.n = len(self.data[self.variable])
-        self.n_missing = self.data[self.variable].isna().sum()
+        self.mean = np.nanmean(self.data[self.var])
+        self.n = len(self.data[self.var])
+        self.n_missing = self.data[self.var].isna().sum()
 
-        self.sd = self.data[self.variable].std()
-        self.se = self.data[self.variable].sem()
-        z_score = stats.norm.ppf((1 + self.conf) / 2)
+        self.sd = self.data[self.var].std()
+        self.se = self.data[self.var].sem()
+        tscore = stats.t.ppf((1 + self.conf) / 2, self.n - 1)
 
-        self.me = (z_score * self.sd / sqrt(self.n)).real
-        self.diff = self.mean - self.comparison_value
+        self.me = (tscore * self.se).real
+        self.diff = self.mean - self.comp_value
         self.df = self.n - 1
-        self.x_percent = self.mean - stats.t.ppf(self.conf, self.df) * self.se
-        self.hundred_percent = self.mean - stats.t.ppf(0, self.df) * self.se
 
     def summary(self, dec=3) -> None:
         print("Single mean test")
-        if hasattr(self.data, "description"):
-            data_name = self.data.description.split("\n")[0].split()[1].lower()
-        else:
-            data_name = "Not available"
-        print(f"Data: {data_name}")
-        print(f"Variable: {self.variable}")
+        print(f"Data      : {self.name}")
+        print(f"Variables : {self.var}")
         print(f"Confidence: {self.conf}")
+        print(f"Comparison: {self.comp_value}\n")
+        print(f"Null hyp. : the mean of {self.var} is equal to {self.comp_value}")
 
-        print(f"Null hyp.: the mean of {self.variable} = {self.comparison_value}")
+        if self.alt_hyp == "less":
+            alt_hyp = "less than"
+        elif self.alt_hyp == "two-sided":
+            alt_hyp = "not equal to"
+        else:
+            alt_hyp = "greater than"
 
-        alt_hypo = ">"
-        if self.alt_hypo == "lesser":
-            alt_hypo = "<"
-        elif self.alt_hypo == "two-sided":
-            alt_hypo = "!="
+        cl = ci_label(self.alt_hyp, self.conf, dec=dec)
 
-        print(
-            f"Alt. hyp.: the mean of {self.variable} is {alt_hypo} {self.comparison_value}\n"
-        )
+        print(f"Alt. hyp. : the mean of {self.var} is {alt_hyp} {self.comp_value}\n")
 
         row1 = [[self.mean, self.n, self.n_missing, self.sd, self.se, self.me]]
         row2 = [
@@ -735,70 +745,43 @@ class single_mean:
                 self.t_val,
                 ifelse(self.p_val < 0.001, "< .001", self.p_val),
                 self.df,
-                self.x_percent,
-                self.hundred_percent,
+                self.ci[0],
+                self.ci[1],
+                sig_stars([self.p_val])[0],
             ]
         ]
 
         col_names1 = ["mean", "n", "n_missing", "sd", "se", "me"]
-        col_names2 = [
-            "diff",
-            "se",
-            "t.value",
-            "p.value",
-            "df",
-            str(int((1 - self.conf) * 100)) + "%",
-            "100%",
-        ]
+        col_names2 = ["diff", "se", "t.value", "p.value", "df", cl[0], cl[1], ""]
 
         table1 = pd.DataFrame(row1, columns=col_names1).round(dec)
         table2 = pd.DataFrame(row2, columns=col_names2).round(dec)
 
         print(table1.to_string(index=False))
         print(table2.to_string(index=False))
+        print("\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1")
 
-    def plot(self, types: list[str], figsize: tuple[float, float] = (10, 10)) -> None:
-        numplots = 2
-        which_plot = ""
-        if isinstance(types, str):
-            numplots = 1
-            which_plot = types
-        elif isinstance(types, list):
-            assert len(types) == 2
-            assert "hist" in types and "sim" in types
-        else:
-            raise TypeError("`types` should be of list data type")
+    def plot(self, plots: str = "hist") -> None:
 
-        _, axes = plt.subplots(numplots, figsize=figsize)
-
-        if numplots == 1:
-            if which_plot == "hist":
-                self.data[self.variable].plot.hist(
-                    ax=axes, title=self.variable, color="slateblue"
-                )
-                plt.sca(axes)
-                plt.vlines(
-                    x=(self.comparison_value, self.x_percent, self.mean),
-                    ymin=axes.get_ylim()[0],
-                    ymax=axes.get_ylim()[1],
-                    colors=("r", "k", "k"),
-                    linestyles=("solid", "dashed", "solid"),
-                )
-            else:
-                # TODO: ask Prof. Nijs about this
-                pass
-        else:
-            self.data[self.variable].plot.hist(
-                ax=axes[0], title=self.variable, color="slateblue"
-            )
+        if plots == "hist":
+            fig = self.data[self.var].plot.hist(title=self.var, color="slateblue")
             plt.vlines(
-                x=[self.comparison_value, self.me, self.mean],
-                ymin=0,
-                ymax=axes.get_ylim(),
-                colors=["r", "k", "k"],
-                linestyles=["solid", "dashed", "dashed"],
+                x=(self.comp_value, self.ci[0], self.mean, self.ci[1]),
+                ymin=fig.get_ylim()[0],
+                ymax=fig.get_ylim()[1],
+                colors=("r", "k", "k", "k"),
+                linestyles=("solid", "dashed", "solid", "dashed"),
             )
-            # simulate plot here
+        elif plots == "sim":
+            print("Plot type not available yet")
+            # self.data[self.var].plot.hist(title=self.var, color="slateblue")
+            # plt.vlines(
+            #     x=[self.comp_value, self.me, self.mean],
+            #     colors=["r", "k", "k"],
+            #     linestyles=["solid", "dashed", "dashed"],
+            # )
+        else:
+            print("Invalid plot type")
 
 
 class compare_means:
@@ -808,26 +791,24 @@ class compare_means:
         var1: str,
         var2: str,
         combinations: list[tuple[str, str]] = None,
-        alt_hypo: str = "two-sided",
+        alt_hyp: str = "two-sided",
         conf: float = 0.95,
         sample_type: str = "independent",
-        multiple_comp_adjustment: str = "none",
-        test_type: str = "t-test",
+        adjust: str = None,
     ) -> None:
         self.data = data
+        self.name = "Not provided"
         self.var1 = var1
         self.var2 = var2
         self.combinations = combinations
-        self.alt_hypo = alt_hypo
+        self.alt_hyp = alt_hyp
         self.conf = conf
         self.sample_type = sample_type
-        self.multiple_comp_adjustment = multiple_comp_adjustment
-        self.test_type = test_type
-
-        self.t_val = None
-        self.p_val = None
+        self.adjust = adjust
 
         def welch_dof(v1: str, v2: str) -> float:
+            # stats.ttest_ind uses Welch's t-test when equal_var=False
+            # but does not return the degrees of freedom
             x = self.data[self.data[self.var1] == v1][self.var2]
             y = self.data[self.data[self.var1] == v2][self.var2]
             dof = (x.var() / x.size + y.var() / y.size) ** 2 / (
@@ -853,9 +834,8 @@ class compare_means:
             n = len(subset) - n_missing
             sd = subset.std()
             se = subset.sem()
-            z_score = stats.norm.ppf((1 + self.conf) / 2)
-            # was printing out imaginary part in som cases
-            me = np.real(z_score * sd / sqrt(n))
+            tscore = stats.t.ppf((1 + self.conf) / 2, n - 1)
+            me = (tscore * se).real
             row = [element, mean, n, n_missing, sd, se, me]
             rows1.append(row)
 
@@ -863,74 +843,98 @@ class compare_means:
             rows1, columns=[self.var1, "mean", "n", "n_missing", "sd", "se", "me"]
         )
 
-        alt_hypo_sign = " > "
-        if self.alt_hypo == "less":
-            alt_hypo_sign = " < "
-        elif self.alt_hypo == "two-sided":
-            alt_hypo_sign = " != "
+        if self.alt_hyp == "less":
+            alt_hyp_sign = " < "
+        elif self.alt_hyp == "two-sided":
+            alt_hyp_sign = " != "
+        else:
+            alt_hyp_sign = " > "
 
         rows2 = []
         for v1, v2 in self.combinations:
-            null_hypo = v1 + " = " + v2
-            alt_hypo = v1 + alt_hypo_sign + v2
+            null_hyp = v1 + " = " + v2
+            alt_hyp = v1 + alt_hyp_sign + v2
             diff = np.nanmean(
                 self.data[self.data[self.var1] == v1][self.var2]
             ) - np.nanmean(self.data[self.data[self.var1] == v2][self.var2])
 
-            result = stats.ttest_ind(
-                self.data[self.data[self.var1] == v1][self.var2],
-                self.data[self.data[self.var1] == v2][self.var2],
-                equal_var=False,
-                nan_policy="omit",
-                alternative=self.alt_hypo,
-            )
+            if self.sample_type == "independent":
+                result = stats.ttest_ind(
+                    self.data[self.data[self.var1] == v1][self.var2],
+                    self.data[self.data[self.var1] == v2][self.var2],
+                    equal_var=False,
+                    nan_policy="omit",
+                    alternative=self.alt_hyp,
+                )
+            else:
+                result = stats.ttest_rel(
+                    self.data[self.data[self.var1] == v1][self.var2],
+                    self.data[self.data[self.var1] == v2][self.var2],
+                    nan_policy="omit",
+                    alternative=self.alt_hyp,
+                )
 
-            self.t_val, self.p_val = result.statistic, result.pvalue
-            se = self.data[self.data[self.var1] == v2][self.var2].sem()
+            t_val, p_val = result.statistic, result.pvalue
+            se = diff / t_val
             df = welch_dof(v1, v2)
 
-            """
-            Not entirely sure how to calculate these
-            """
-            # zero_percent = mean - stats.t.ppf(1, df) * se
-            # x_percent = mean - stats.t.ppf(self.conf, df) * se
+            if self.alt_hyp == "two-sided":
+                tscore = stats.t.ppf((1 + self.conf) / 2, df)
+            else:
+                tscore = stats.t.ppf(self.conf, df)
+            me = (tscore * se).real
 
-            row = [
-                null_hypo,
-                alt_hypo,
-                diff,
-                self.t_val,
-                ifelse(self.p_val < 0.001, "< .001", self.p_val),
-                df,
-                # zero_percent,
-                # x_percent,
-            ]
-            rows2.append(row)
+            if self.alt_hyp == "less":
+                ci = [-np.inf, diff + me]
+            elif self.alt_hyp == "two-sided":
+                ci = [diff - me, diff + me]
+            else:
+                ci = [diff - me, np.inf]
 
+            rows2.append(
+                [
+                    null_hyp,
+                    alt_hyp,
+                    diff,
+                    ifelse(p_val < 0.001, "< .001", p_val),
+                    se,
+                    t_val,
+                    df,
+                    ci[0],
+                    ci[1],
+                    sig_stars([p_val])[0],
+                ]
+            )
+
+        cl = ci_label(self.alt_hyp, self.conf)
         self.table2 = pd.DataFrame(
             rows2,
             columns=[
                 "Null hyp.",
                 "Alt. hyp.",
                 "diff",
-                "t.value",
                 "p.value",
+                "se",
+                "t.value",
                 "df",
-                # "0%",
-                # str(self.conf * 100) + "%",
+                cl[0],
+                cl[1],
+                "",
             ],
         )
 
+        if self.adjust is not None:
+            self.table2["p.value"] = multitest.multipletests(
+                self.table2["p.value"], method=self.adjust
+            )[1]
+
     def summary(self, dec=3) -> None:
-        print(f"Pairwise mean comparisons {self.test_type}")
-        if hasattr(self.data, "description"):
-            data_name = self.data.description.split("\n")[0].split()[1].lower()
-        else:
-            data_name = "Not available"
-        print(f"Data: {data_name}")
-        print(f"Variables: {self.var1}, {self.var2}")
+        print(f"Pairwise mean comparisons ({self.test_type})")
+        print(f"Data      : {self.name}")
+        print(f"Variables : {self.var1}, {self.var2}")
+        print(f"Samples   : {self.sample_type}")
         print(f"Confidence: {self.conf}")
-        print(f"Adjustment: {self.multiple_comp_adjustment}")
+        print(f"Adjustment: {self.adjust}")
 
         print(self.table1.round(dec).to_string(index=False))
         print(self.table2.round(dec).to_string(index=False))
@@ -942,17 +946,18 @@ class single_prop:
         data: pd.DataFrame,
         variable: str,
         level: Any,
-        alt_hypo: str,
+        alt_hyp: str,
         conf: float,
-        comparison_value: float,
+        comp_value: float,
         test_type: str = "binomial",
     ) -> None:
         self.data = data
+        self.name = "Not provided"
         self.variable = variable
         self.level = level
-        self.alt_hypo = alt_hypo
+        self.alt_hyp = alt_hyp
         self.conf = conf
-        self.comparison_value = comparison_value
+        self.comp_value = comp_value
         self.test_type = test_type
 
         self.ns = len(self.data[self.data[self.variable] == self.level])
@@ -966,9 +971,9 @@ class single_prop:
 
         self.me = z_score * self.se
 
-        self.diff = self.p - self.comparison_value
+        self.diff = self.p - self.comp_value
 
-        results = stats.binomtest(self.ns, self.n, self.comparison_value, self.alt_hypo)
+        results = stats.binomtest(self.ns, self.n, self.comp_value, self.alt_hyp)
 
         self.p_val = results.pvalue
         proportion_ci = results.proportion_ci(self.conf)
@@ -977,27 +982,27 @@ class single_prop:
 
     def summary(self) -> None:
         print(f"Single proportion ({self.test_type})")
-        if hasattr(self.data, "description"):
-            data_name = self.data.description.split("\n")[0].split()[1].lower()
-        else:
-            data_name = "Not available"
+        # if hasattr(self.data, "description"):
+        #     data_name = self.data.description.split("\n")[0].split()[1].lower()
+        # else:
+        #     data_name = "Not available"
 
-        print(f"Data: {data_name}")
-        print(f"Variable: {self.variable}")
-        print(f"Level: {self.level} in {self.variable}")
+        print(f"Data      : {self.name}")
+        print(f"Variable  : {self.variable}")
+        print(f"Level     : {self.level} in {self.variable}")
         print(f"Confidence: {self.conf}")
         print(
-            f"Null hyp.: the proportion of {self.level} in {self.variable} = {self.comparison_value}"
+            f"Null hyp.: the proportion of {self.level} in {self.variable} = {self.comp_value}"
         )
 
-        alt_hypo_sign = ">"
-        if self.alt_hypo == "less":
-            alt_hypo_sign = "<"
-        elif self.alt_hypo == "two-sided":
-            alt_hypo_sign = "!="
+        alt_hyp_sign = ">"
+        if self.alt_hyp == "less":
+            alt_hyp_sign = "<"
+        elif self.alt_hyp == "two-sided":
+            alt_hyp_sign = "!="
 
         print(
-            f"Alt. hyp.: the proportion of {self.level} in {self.variable} {alt_hypo_sign} {self.comparison_value}"
+            f"Alt. hyp.: the proportion of {self.level} in {self.variable} {alt_hyp_sign} {self.comp_value}"
         )
 
         row1 = [[self.p, self.ns, self.n, self.n_missing, self.sd, self.se, self.me]]
@@ -1028,7 +1033,7 @@ class compare_props:
         var: str,
         level: str,
         combinations: list[tuple[str, str]],
-        alt_hypo: str,
+        alt_hyp: str,
         conf: float,
         multiple_comp_adjustment: str = "none",
     ) -> None:
@@ -1037,7 +1042,7 @@ class compare_props:
         self.var = var
         self.level = level
         self.combinations = combinations
-        self.alt_hypo = alt_hypo
+        self.alt_hyp = alt_hyp
         self.conf = conf
         self.multiple_comp_adjustment = multiple_comp_adjustment
 
@@ -1088,16 +1093,16 @@ class compare_props:
             ],
         )
 
-        alt_hypo_sign = " > "
-        if self.alt_hypo == "less":
-            alt_hypo_sign = " < "
-        elif self.alt_hypo == "two-sided":
-            alt_hypo_sign = " != "
+        alt_hyp_sign = " > "
+        if self.alt_hyp == "less":
+            alt_hyp_sign = " < "
+        elif self.alt_hyp == "two-sided":
+            alt_hyp_sign = " != "
 
         rows2 = []
         for v1, v2 in self.combinations:
-            null_hypo = v1 + " = " + v2
-            alt_hypo = v1 + alt_hypo_sign + v2
+            null_hyp = v1 + " = " + v2
+            alt_hyp = v1 + alt_hyp_sign + v2
 
             subset1 = self.data[
                 (self.data[self.var] == self.level)
@@ -1139,8 +1144,8 @@ class compare_props:
             # print(f"chisq: {chisq}")
 
             row = [
-                null_hypo,
-                alt_hypo,
+                null_hyp,
+                alt_hyp,
                 diff,
                 self.p_val,
                 chisq,
