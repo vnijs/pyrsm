@@ -250,7 +250,7 @@ class basics_single_mean:
                 comp_value=input.comp_value(),
             )
 
-        def summary_code(shiny=False):
+        def summary_code():
             return f"""sm.summary()"""
 
         @output(id="show_summary_code")

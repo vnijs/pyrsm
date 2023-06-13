@@ -91,6 +91,7 @@ def pred_plot_sm(
     minq=0.025,
     maxq=0.975,
 ):
+
     """
     Generate prediction plots for statsmodels regression models (OLS and Logistic).
     A faster alternative to PDP plots.
@@ -271,11 +272,11 @@ def pred_plot_sm(
 def pred_plot_sk(
     fitted,
     df,
-    transformed=None,
     rvar=None,
     incl=None,
     excl=[],
     incl_int=[],
+    transformed=None,
     fix=True,
     hline=False,
     nnv=20,
@@ -291,8 +292,6 @@ def pred_plot_sk(
     fitted : A fitted sklearn model
     df : Pandas DataFrame with data used for estimation. Should include categorical variables
         in their original form (i.e., before using get_dummies)
-    transformed : List of column names that were transformed using Pandas' get_dummies. If
-        None, the function will try to determine which variables might have been transformed
     rvar : The column name for the response/target variable
     incl : A list of column names to generate prediction plots for. If None, all
         variables will be plotted
@@ -300,6 +299,8 @@ def pred_plot_sk(
     incl_int : A list is ":" separated column names to plots interaction plots for.
         For example incl_int = ["a:b", "b:c"] would generate interaction plots for
         variables a x b and b x c
+    transformed : List of column names that were transformed using Pandas' get_dummies. If
+        None, the function will try to determine which variables might have been transformed
     fix : Logical or tuple
         Set the desired limited on yhat or have it calculated automatically.
         Set to False to have y-axis limits set by ggplot2 for each plot
@@ -315,7 +316,12 @@ def pred_plot_sk(
         Quantile to use for the maximum value of numeric variables
     """
     # features names used in the sklearn model
-    fn = fitted.feature_names_in_
+    if hasattr(fitted, "feature_names_in_"):
+        fn = fitted.feature_names_in_
+    else:
+        raise Exception(
+            "This function requires a fitted sklearn model with a named features. If you are using one-hot encoding, please use get_dummies on your dataset before fitting the model."
+        )
 
     not_transformed = [c for c in df.columns for f in fn if c == f]
     if transformed is None:

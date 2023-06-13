@@ -805,6 +805,7 @@ class compare_means:
         self.conf = conf
         self.sample_type = sample_type
         self.adjust = adjust
+        self.test_type = "t-test"
 
         def welch_dof(v1: str, v2: str) -> float:
             # stats.ttest_ind uses Welch's t-test when equal_var=False

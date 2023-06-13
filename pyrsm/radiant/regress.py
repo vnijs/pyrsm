@@ -268,6 +268,7 @@ class model_regress:
         @render.ui
         def show_description():
             data = get_data()[0]
+            print(type(data))
             if hasattr(data, "description"):
                 return ui.markdown(get_data()[0].description)
             else:
@@ -372,35 +373,35 @@ class model_regress:
             evar = list(input.evar())
             fname, _, code = get_data()[1:]
             if int(input.show_interactions()) > 0 and len(input.interactions()) > 0:
-                return f"""{code}\nreg = rsm.regress(dataset={fname}, rvar="{rvar}", evar={evar}, int={list(input.interactions())})"""
+                return f"""{code}\nreg = rsm.regress(data={fname}, rvar="{rvar}", evar={evar}, int={list(input.interactions())})"""
             else:
-                return f"""{code}\nreg = rsm.regress(dataset={fname}, rvar="{rvar}", evar={evar})"""
+                return f"""{code}\nreg = rsm.regress(data={fname}, rvar="{rvar}", evar={evar})"""
 
         @reactive.Calc
         @reactive.event(input.run, ignore_none=True)
         def regress():
             now = datetime.now().time().strftime("%H:%M:%S")
             print(f"Model estimated at: {now}")
-            data = get_data()[0]
+            data, name = get_data()[:2]
             if int(input.show_interactions()) > 0:
                 return rsm.regress(
-                    dataset=data,
+                    data={name: data},
                     rvar=input.rvar(),
                     evar=list(input.evar()),
                     int=list(input.interactions()),
                 )
             else:
                 return rsm.regress(
-                    dataset=data,
+                    data={name: data},
                     rvar=input.rvar(),
                     evar=list(input.evar()),
                 )
 
-        def summary_code(shiny=False):
+        def summary_code():
             ctrl = input.controls()
             cmd = f"""ci={"ci" in ctrl}, ssq={"ssq" in ctrl}, vif={"vif" in ctrl}"""
-            if shiny:
-                cmd += """, shiny=True"""
+            if input.evar_test() is not None and len(input.evar_test()) > 0:
+                cmd += f""", test={list(input.evar_test())}"""
             return f"""reg.summary({cmd})"""
 
         @output(id="show_summary_code")
@@ -415,7 +416,7 @@ class model_regress:
             out = io.StringIO()
             with redirect_stdout(out):
                 reg = regress()  # get model object into local scope
-                cmd = f"""{summary_code(shiny=True)}"""
+                cmd = summary_code()
                 eval(cmd)
             return out.getvalue()
 

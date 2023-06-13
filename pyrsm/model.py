@@ -362,9 +362,7 @@ def predict_ci(fitted, df, alpha=0.05):
         )
 
 
-def model_fit(
-    fitted, dec: int = 3, prn: bool = True, shiny=False
-) -> Union[str, pd.DataFrame]:
+def model_fit(fitted, dec: int = 3, prn: bool = True) -> Union[str, pd.DataFrame]:
     """
     Compute various model fit statistics for a fitted linear or logistic regression model
 
@@ -407,10 +405,7 @@ F-statistic: {mfit.fvalue[0].round(dec)} df({mfit.ftest_df_model.values[0]:.0f},
 Nr obs: {mfit.nobs.values[0]:,.0f}"""
         else:
             output = "Model type not supported"
-        if shiny:
-            return output
-        else:
-            print(output)
+        return output
     else:
         return mfit
 

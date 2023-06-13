@@ -5,7 +5,7 @@ from typing import Optional
 from statsmodels.regression.linear_model import RegressionResults as rrs
 from shiny import App
 from .radiant.regress import model_regress
-from .utils import ifelse, format_nr, setdiff
+from .utils import ifelse, format_nr, setdiff, odir
 from .visualize import pred_plot_sm, vimp_plot_sm
 from .model import (
     sig_stars,
@@ -27,7 +27,7 @@ from .basics import correlation
 class regress:
     def __init__(
         self,
-        data: pd.DataFrame,
+        data,
         rvar: Optional[str] = None,
         evar: Optional[list[str]] = None,
         int: Optional[list[str]] = None,
@@ -44,7 +44,12 @@ class regress:
         rvar: String; name of the column to be used as the response variable
         form: String; formula for the regression equation to use if evar and rvar are not provided
         """
-        self.data = data
+        if isinstance(data, dict):
+            self.name = list(data.keys())[0]
+            self.data = data[self.name]
+        else:
+            self.data = data
+            self.name = "Not provided"
         self.rvar = rvar
         self.evar = ifelse(isinstance(evar, str), [evar], evar)
         self.int = ifelse(isinstance(int, str), [int], int)
@@ -55,7 +60,10 @@ class regress:
             self.evar = extract_evars(self.fitted.model, self.data.columns)
             self.rvar = extract_rvar(self.fitted.model, self.data.columns)
         else:
-            self.form = f"{self.rvar} ~ {' + '.join(self.evar)}"
+            if self.evar is None or len(self.evar) == 0:
+                self.form = f"{self.rvar} ~ 1"
+            else:
+                self.form = f"{self.rvar} ~ {' + '.join(self.evar)}"
             if self.int:
                 self.form += f" + {' + '.join(self.int)}"
             self.fitted = smf.ols(self.form, data=self.data).fit()
@@ -74,8 +82,6 @@ class regress:
         ci=False,
         test=None,
         dec=3,
-        name="Not provided",
-        shiny=False,
     ) -> None:
         """
         Summarize output from a linear regression model
@@ -86,7 +92,7 @@ class regress:
         vif: Boolean; if True, include variance inflation factors
         """
         print("Linear regression (OLS)")
-        print("Data                 :", name)
+        print("Data                 :", self.name)
         print("Response variable    :", self.rvar)
         print("Explanatory variables:", ", ".join(self.evar))
         print(f"Null hyp.: the effect of x on {self.rvar} is zero")
@@ -103,7 +109,7 @@ class regress:
         df.index.name = None
         print(f"\n{df.to_string()}")
         print("\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1")
-        print(f"\n{model_fit(self.fitted, shiny=shiny)}")
+        print(f"\n{model_fit(self.fitted)}")
 
         if ci:
             print("\nConfidence intervals:")
@@ -131,91 +137,56 @@ class regress:
             print(f"\n{sum_of_squares.to_string()}")
 
         if vif:
-            print("\nVariance inflation factors:")
-            print(f"\n{calc_vif(self.fitted).to_string()}")
+            if self.evar is None or len(self.evar) < 2:
+                print("\nVariance Inflation Factors cannot be calculated")
+            else:
+                print("\nVariance inflation factors:")
+                print(f"\n{calc_vif(self.fitted).to_string()}")
 
         if test is not None and len(test) > 0:
             evar = setdiff(self.evar, test)
             if self.int is not None and len(self.int) > 0:
                 sint = setdiff(self.int, test)
-                print("setdiff sint")
-                print(sint)
-                # sint += set(
-                #     [
-                #         s
-                #         for s in sint
-                #         for t in test
-                #         if ":" not in t
-                #         and f"I({t}" in s
-                #         or (f"{t}:" not in s and f":{t}" not in s)
-                #     ]
-                # )
-                # sint = []
-                # for s in self.int:
-                #     print(s)
-                #     for t in test:
-                #         print(t)
-                #         if t not in s:
-                #             sint.append(s)
-                #         print(sint)
-
-                # sint = [
-                #     s
-                #     for s in self.int
-                #     for s in self.int
-                #     if f"I({t}" in s or all([si not in self.int for si in test])
-                # ]
-
-                # sint = [
-                #     t
-                #     for t in test
-                #     for s in self.int
-                #     if f"I({t}" in s or all([si not in self.int for si in test])
-                # ]
-
-                # print(sint)
-                # s for s in self.int for t in test if f"I({t}" in s or t not in s
+                test += [s for t in test for s in sint if f"I({t}" not in s and t in s]
+                sint = setdiff(sint, test)
             else:
                 sint = []
-
-            print(sint)
 
             form = f"{self.rvar} ~ "
             if len(evar) == 0 and len(sint) == 0:
                 form += "1"
             else:
-                # if len(evar) > 0:
-                # form += f"{' + '.join(evar)}"
-                # if len(sint) > 0:
                 form += f"{' + '.join(evar + sint)}"
-
-                ###### need to keep I(carat**2) in the formula even if carat is in test ######
-
-                # if self.int is not None and len(self.int) > 0:
-                #     sint = [
-                #         s for s in self.int for t in test if f"I({t}" in s or t not in s
-                #     ]
-                #     if len(sint) > 0:
-                #         form += f" + {' + '.join(sint)}"
-
             pattern = r"(\[T\.[^\]]*\])\:"
 
-            hypothesis = [
-                f"({c} = 0)"
-                for c in self.fitted.model.exog_names
-                for v in test
-                if f"{v}:" in c
-                or f":{v}" in c
-                or f"{v}[T." in c
-                or v == c
-                or v == re.sub(pattern, ":", c)
-            ]
-            print(hypothesis)
+            # ensure constraints are unique
+            hypothesis = list(
+                set(
+                    [
+                        f"({c} = 0)"
+                        for c in self.fitted.model.exog_names
+                        for v in test
+                        if f"{v}:" in c
+                        or f":{v}" in c
+                        or f"{v}[T." in c
+                        or v == c
+                        or v == re.sub(pattern, ":", c)
+                    ]
+                )
+            )
 
             print(f"\nModel 1: {form}")
             print(f"Model 2: {self.form}")
             out = self.fitted.f_test(hypothesis)
+
+            r2_sub = self.fitted.rsquared - (
+                len(hypothesis) * out.fvalue * (1 - self.fitted.rsquared)
+            ) / (self.fitted.nobs - self.fitted.df_model - 1)
+
             pvalue = ifelse(out.pvalue < 0.001, "< .001", round(out.pvalue, dec))
+            print(
+                f"R-squared, Model 1 vs 2: {r2_sub:.3f} vs {self.fitted.rsquared:.3f}"
+            )
             print(
                 f"F-statistic: {round(out.fvalue, dec)} df ({out.df_num:.0f}, {out.df_denom:.0f}), p.value {pvalue}"
             )
