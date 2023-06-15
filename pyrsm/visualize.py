@@ -365,7 +365,9 @@ def pred_plot_sk(
 
     def dummify(df, trs):
         if len(trs) > 0:
-            return pd.concat([pd.get_dummies(df[trs]), df.drop(trs, axis=1)], axis=1)
+            return pd.concat(
+                [pd.get_dummies(df[trs], columns=trs), df.drop(trs, axis=1)], axis=1
+            )
         else:
             return df
 
