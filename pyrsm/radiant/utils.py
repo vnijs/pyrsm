@@ -75,8 +75,8 @@ def get_data(input, self):
         code_sf = ""
         if not is_empty(input.data_filter()):
             code_sf += f""".query("{input.data_filter()}")"""
-        if not is_empty(input.data_arrange()):
-            code_sf += f""".sort_values({input.data_arrange()})"""
+        if not is_empty(input.data_sort()):
+            code_sf += f""".sort_values({input.data_sort()})"""
         if not is_empty(input.data_slice()):
             code_sf += f""".iloc[{input.data_slice()}, :]"""
 
@@ -185,6 +185,12 @@ def ui_data(self):
                 ui.input_checkbox("show_filter", "Show data filter"),
                 ui.panel_conditional(
                     "input.show_filter == true",
+                    ui.input_radio_buttons(
+                        "data_language",
+                        "Data language",
+                        ["Pandas", "Polars", "SQL"],
+                        inline=True,
+                    ),
                     input_return_text_area(
                         "data_filter",
                         "Data Filter:",
@@ -192,8 +198,8 @@ def ui_data(self):
                         placeholder="Provide a filter (e.g., price >  5000) and press return",
                     ),
                     input_return_text_area(
-                        "data_arrange",
-                        "Data arrange (sort):",
+                        "data_sort",
+                        "Data sort:",
                         rows=2,
                         placeholder="Arrange (e.g., ['color', 'price'], ascending=[True, False])) and press return",
                     ),
