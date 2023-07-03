@@ -1,5 +1,137 @@
 from htmltools import tags, div, css
 from itertools import combinations
+from shiny import render, ui
+from faicons import icon_svg
+from pathlib import Path
+import black
+import pandas as pd
+from pyrsm.utils import ifelse
+
+
+def head_content():
+    """
+    Return the head content for the shiny app
+    """
+    return ui.head_content(
+        ui.tags.script(
+            (Path(__file__).parent / "www/returnTextAreaBinding.js").read_text()
+        ),
+        # from https://github.com/rstudio/py-shiny/issues/491#issuecomment-1579138681
+        ui.tags.link(
+            href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/agate.min.css",
+            rel="stylesheet",
+        ),
+        ui.tags.script(
+            src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"
+        ),
+        ui.tags.style((Path(__file__).parent / "www/style.css").read_text()),
+    )
+
+
+def init(self, datasets, descriptions=None):
+    """
+    Initialize key 'self' values to be used in an app class
+    """
+    self.datasets = ifelse(isinstance(datasets, dict), datasets, {"dataset": datasets})
+    if descriptions is None:
+        self.descriptions = {
+            k: "## No data description provided" for k in self.datasets.keys()
+        }
+    else:
+        self.descriptions = ifelse(
+            isinstance(descriptions, dict),
+            descriptions,
+            {"description": descriptions},
+        )
+    self.dataset_list = list(datasets.keys())
+    self.stop_code = ""
+
+
+def code_formatter(code, self):
+    """
+    Format python code using black
+    """
+    cmd = self.stop_code = black.format_str(code, mode=black.Mode())
+    return ui.TagList(
+        ui.HTML("<details><summary>View generated python code</summary>"),
+        ui.markdown(f"""```python\n{cmd.rstrip()}\n```"""),
+        ui.tags.script("hljs.highlightAll();"),
+        ui.HTML("</details>"),
+        ui.br(),
+    )
+
+
+def get_data(input, self):
+    """
+    Set up data access for the app
+    """
+    data_name = input.datasets()
+    data = self.datasets[data_name]
+    description = self.descriptions[data_name]
+    code = (
+        f"import pyrsm as rsm\n# {data_name} = pd.read_parquet('{data_name}.parquet')"
+    )
+    if input.show_filter():
+        code_sf = ""
+        if not is_empty(input.data_filter()):
+            code_sf += f""".query("{input.data_filter()}")"""
+        if not is_empty(input.data_arrange()):
+            code_sf += f""".sort_values({input.data_arrange()})"""
+        if not is_empty(input.data_slice()):
+            code_sf += f""".iloc[{input.data_slice()}, :]"""
+
+        if not is_empty(code_sf):
+            data = eval(f"""data{code_sf}""")
+            code = f"""{code}\n{data_name} = {data_name}{code_sf}"""
+
+    types = {c: [data[c].dtype, data[c].nunique()] for c in data.columns}
+    isNum = {
+        c: f"{c} ({t[0].name})"
+        for c, t in types.items()
+        if pd.api.types.is_numeric_dtype(t[0])
+    }
+    isBin = {c: f"{c} ({t[0].name})" for c, t in types.items() if t[1] == 2}
+    isCat = {
+        c: f"{c} ({t[0].name})"
+        for c, t in types.items()
+        if c in isBin or pd.api.types.is_categorical_dtype(t[0]) or t[1] < 10
+    }
+    var_types = {
+        "all": {c: f"{c} ({t[0].name})" for c, t in types.items()},
+        "isNum": isNum,
+        "isBin": isBin,
+        "isCat": isCat,
+    }
+
+    return {
+        "data": data,
+        "data_name": data_name,
+        "description": description,
+        "var_types": var_types,
+        "code": code,
+    }
+
+
+def make_data_outputs(self, input, output):
+    @output(id="show_data_code")
+    @render.ui
+    def show_data_code():
+        return code_formatter(get_data(input, self)["code"], self)
+
+    @output(id="show_data")
+    @render.data_frame
+    def show_data():
+        data = get_data(input, self)["data"]
+        summary = "Viewing rows {start} through {end} of {total}"
+        if data.shape[0] > 100_000:
+            summary += " (100K rows shown)"
+
+        return render.DataTable(data, summary=summary)
+
+    @output(id="show_description")
+    @render.ui
+    def show_description():
+        return ui.markdown(get_data(input, self)["description"])
 
 
 def input_return_text_area(id, label, value="", rows=1, placeholder=""):
@@ -42,3 +174,148 @@ def iterms(vars, nway=2, sep=":"):
     if nway > 2:
         cvars += list(combinations(vars, nway))
     return [f"{sep}".join(c) for c in cvars]
+
+
+def ui_data(self):
+    return (
+        ui.panel_conditional(
+            "input.tabs == 'Data'",
+            ui.panel_well(
+                ui.input_select("datasets", "Datasets:", self.dataset_list),
+                ui.input_checkbox("show_filter", "Show data filter"),
+                ui.panel_conditional(
+                    "input.show_filter == true",
+                    input_return_text_area(
+                        "data_filter",
+                        "Data Filter:",
+                        rows=2,
+                        placeholder="Provide a filter (e.g., price >  5000) and press return",
+                    ),
+                    input_return_text_area(
+                        "data_arrange",
+                        "Data arrange (sort):",
+                        rows=2,
+                        placeholder="Arrange (e.g., ['color', 'price'], ascending=[True, False])) and press return",
+                    ),
+                    input_return_text_area(
+                        "data_slice",
+                        "Data slice (rows):",
+                        rows=1,
+                        placeholder="e.g., 1:50 and press return",
+                    ),
+                ),
+            ),
+        ),
+    )
+
+
+def ui_data_main():
+    data_main = ui.nav(
+        "Data",
+        ui.output_ui("show_data_code"),
+        ui.output_data_frame("show_data"),
+        ui.output_ui("show_description"),
+    )
+    return data_main
+
+
+def ui_stop():
+    return (
+        ui.nav_control(
+            ui.input_action_link(
+                "stop", "Stop", icon=icon_svg("stop"), onclick="window.close();"
+            )
+        ),
+    )
+
+
+def ui_help(link, example):
+    return (
+        ui.nav_menu(
+            "Help",
+            ui.nav_control(
+                ui.a(
+                    icon_svg("question"),
+                    example,
+                    href=link,
+                    target="_blank",
+                ),
+            ),
+            ui.nav_control(
+                ui.a(
+                    icon_svg("github"),
+                    "Radiant-for-python source code",
+                    href="https://github.com/vnijs/pyrsm/tree/main/pyrsm/radiant",
+                    target="_blank",
+                ),
+            ),
+            ui.nav_control(
+                ui.a(
+                    icon_svg("github"),
+                    "Pyrsm source code",
+                    href="https://github.com/vnijs/pyrsm/tree/main",
+                    target="_blank",
+                ),
+            ),
+            ui.nav_control(
+                ui.a(
+                    icon_svg("docker"),
+                    "Rady MSBA docker container",
+                    href="https://github.com/radiant-rstats/docker",
+                    target="_blank",
+                ),
+            ),
+            align="right",
+        ),
+    )
+
+
+# getting data to work as a separate nav item caused problems
+# def ui_data(self):
+#     return ui.nav(
+#         "Data",
+#         ui.row(
+#             ui.column(
+#                 3,
+#                 ui.panel_well(
+#                     ui.input_select("datasets", "Datasets:", self.dataset_list)
+#                 ),
+#                 ui.panel_well(
+#                     ui.input_checkbox("show_filter", "Show data filter", value=True),
+#                     ui.panel_conditional(
+#                         "input.show_filter == true",
+#                         ui.input_radio_buttons(
+#                             "data_language",
+#                             "Data language",
+#                             choices=["Pandas", "Polars", "SQL"],
+#                             inline=True,
+#                         ),
+#                         input_return_text_area(
+#                             "data_filter",
+#                             "Data Filter:",
+#                             rows=2,
+#                             placeholder="Provide a filter (e.g., price >  5000) and press return",
+#                         ),
+#                         input_return_text_area(
+#                             "data_sort",
+#                             "Data sort:",
+#                             rows=2,
+#                             placeholder="Sort (e.g., ['color', 'price'], ascending=[True, False])) and press return",
+#                         ),
+#                         input_return_text_area(
+#                             "data_slice",
+#                             "Data slice (rows):",
+#                             rows=1,
+#                             placeholder="e.g., 1:50 and press return",
+#                         ),
+#                     ),
+#                 ),
+#             ),
+#             ui.column(
+#                 8,
+#                 ui.output_ui("show_data_code"),
+#                 ui.output_data_frame("show_data"),
+#                 ui.output_ui("show_description"),
+#             ),
+#         ),
+#     )

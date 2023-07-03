@@ -10,12 +10,6 @@ from datetime import datetime
 from itertools import combinations
 from .utils import *
 
-# from itables import to_html_datatable as DT
-
-
-## next steps
-## try qgrid for interactive data table
-
 
 class model_regress:
     def __init__(self, datasets) -> None:
@@ -501,6 +495,7 @@ class model_regress:
 
 def regress(
     data_dct: dict,
+    descriptions_dct: dict = None,
     host: str = "0.0.0.0",
     port: int = 8000,
     log_level: str = "warning",
@@ -508,15 +503,15 @@ def regress(
     """
     Launch a Shiny-for-Python app for regression analysis
     """
-    mr = model_regress(data_dct)
+    rc = model_regress(data_dct, descriptions_dct)
     nest_asyncio.apply()
     webbrowser.open(f"http://{host}:{port}")
     print(f"Listening on http://{host}:{port}")
     print(
-        "Pyrsm and Radiant are opensource tools and free to use. If you\nare a student or instructor using pyrsm or Radiant for a class,\nas a favor to the developers, please send an email to\n<radiant@rady.ucsd.edu> with the name of the school and class."
+        "Pyrsm and Radiant are open source tools and free to use. If you\nare a student or instructor using pyrsm or Radiant for a class,\nas a favor to the developers, please send an email to\n<radiant@rady.ucsd.edu> with the name of the school and class."
     )
     uvicorn.run(
-        App(mr.shiny_ui(), mr.shiny_server),
+        App(rc.shiny_ui(), rc.shiny_server),
         host=host,
         port=port,
         log_level=log_level,

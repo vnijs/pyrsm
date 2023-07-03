@@ -1,5 +1,4 @@
 from shiny import App, render, ui, reactive, Inputs, Outputs, Session
-import webbrowser, nest_asyncio, uvicorn
 import io, os, signal
 import pyrsm as rsm
 from contextlib import redirect_stdout
@@ -188,26 +187,6 @@ class basics_single_mean:
                 return eval(cmd)
 
 
-def single_mean(
-    data_dct: dict,
-    descriptions_dct: dict = None,
-    host: str = "0.0.0.0",
-    port: int = 8000,
-    log_level: str = "warning",
-):
-    """
-    Launch a Radiant-for-Python app for single_mean hypothesis testing
-    """
-    rc = basics_single_mean(data_dct, descriptions_dct)
-    nest_asyncio.apply()
-    webbrowser.open(f"http://{host}:{port}")
-    print(f"Listening on http://{host}:{port}")
-    print(
-        "Pyrsm and Radiant are open source tools and free to use. If you\nare a student or instructor using pyrsm or Radiant for a class,\nas a favor to the developers, please send an email to\n<radiant@rady.ucsd.edu> with the name of the school and class."
-    )
-    uvicorn.run(
-        App(rc.shiny_ui(), rc.shiny_server),
-        host=host,
-        port=port,
-        log_level=log_level,
-    )
+demand_uk, demand_uk_description = rsm.load_data(pkg="basics", name="demand_uk")
+rc = basics_single_mean({"demand_uk": demand_uk}, {"demand_uk": demand_uk_description})
+app = App(rc.shiny_ui(), rc.shiny_server, debug=True)

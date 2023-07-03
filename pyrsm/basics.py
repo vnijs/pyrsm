@@ -683,14 +683,18 @@ class prob_calc:
 class single_mean:
     def __init__(
         self,
-        data: pd.DataFrame,
+        data,
         var: str,
         alt_hyp: str = "two-sided",
         conf: float = 0.95,
         comp_value: float = 0,
     ):
-        self.data = data
-        self.name = "Not provided"
+        if isinstance(data, dict):
+            self.name = list(data.keys())[0]
+            self.data = data[self.name]
+        else:
+            self.data = data
+            self.name = "Not provided"
         self.var = var
         self.alt_hyp = alt_hyp
         self.conf = conf

@@ -12,11 +12,11 @@ import json
 
 def add_description(df, md="", path=""):
     """
-    Add a description to a Pandas dataframe in markdown format
+    Add a description to a Pandas DataFrame in markdown format
 
     Parameters
     ----------
-    df : Pandas dataframe
+    df : Pandas DataFrame
     md : str
         Data description in markdown format
     path : str
@@ -24,7 +24,7 @@ def add_description(df, md="", path=""):
 
     Returns
     -------
-    Pandas dataframe with added description
+    Pandas DataFrame with added description
     """
 
     if path != "":
@@ -42,7 +42,7 @@ def add_description(df, md="", path=""):
 
 def describe(df, prn=True):
     """
-    Print out Pandas dataframe description attribute if available. Else use Pandas'
+    Print out Pandas DataFrame description attribute if available. Else use Pandas'
     description method to provide summary statistics
     """
     if hasattr(df, "description"):
