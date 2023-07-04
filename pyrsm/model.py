@@ -289,7 +289,7 @@ def vif(fitted, dec=3):
     return df
 
 
-def predict_ci(fitted, df, alpha=0.05):
+def predict_ci(fitted, df, conf=0.95, alpha=None):
     """
     Compute predicted probabilities with confidence intervals based on a
     logistic regression model
@@ -298,12 +298,14 @@ def predict_ci(fitted, df, alpha=0.05):
     ----------
     fitted : Logistic regression model fitted using the statsmodels formula interface
     df : Pandas dataframe with input data for prediction
+    conf : float
+        Confidence level (0-1). Default is 0.95
     alpha : float
         Significance level (0-1). Default is 0.05
 
     Returns
     -------
-    Pandas dataframe with probability predictions and lower and upper confidence bounds
+    Pandas DataFrame with probability predictions and lower and upper confidence bounds
 
     Example
     -------
@@ -330,8 +332,15 @@ def predict_ci(fitted, df, alpha=0.05):
     plt.show()
     """
 
-    if alpha < 0 or alpha > 1:
-        raise ValueError("alpha must be a numeric value between 0 and 1")
+    if conf < 0 or conf > 1:
+        raise ValueError(
+            "Confidence level (conf) must be a numeric value between 0 and 1"
+        )
+
+    if alpha is not None:
+        raise ValueError(
+            "The alpha argument has been deprecated. Use the confidence level (conf) instead (1-alpha)."
+        )
 
     # generate predictions
     prediction = fitted.predict(df)
@@ -343,7 +352,7 @@ def predict_ci(fitted, df, alpha=0.05):
     form = "__rvar__ ~ " + fitted.model.formula.split("~", 1)[1]
     exog = smf.logit(formula=form, data=df).exog
 
-    low, high = [alpha / 2, 1 - (alpha / 2)]
+    low, high = [(1.0 - conf) / 2.0, (1.0 - (1.0 - conf) / 2.0)]
     Xb = np.dot(exog, fitted.params)
     se = np.sqrt((exog.dot(fitted.cov_params()) * exog).sum(-1))
     me = stats.norm.ppf(high) * se
@@ -352,13 +361,17 @@ def predict_ci(fitted, df, alpha=0.05):
         return pd.DataFrame(
             {
                 "prediction": prediction,
-                f"{low*100}%": expit(Xb - me),
-                f"{high*100}%": expit(Xb + me),
+                f"{low*100:.2f}%": expit(Xb - me),
+                f"{high*100:.2f}%": expit(Xb + me),
             }
         )
     elif isinstance(fitted, sm.regression.linear_model.RegressionResultsWrapper):
         return pd.DataFrame(
-            {"prediction": prediction, f"{low*100}%": Xb - me, f"{high*100}%": Xb + me}
+            {
+                "prediction": prediction,
+                f"{low*100:.2f}%": Xb - me,
+                f"{high*100:.2f}%": Xb + me,
+            }
         )
 
 

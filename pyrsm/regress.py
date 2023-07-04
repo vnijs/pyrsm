@@ -1,5 +1,6 @@
 import pandas as pd
 import re
+from ast import literal_eval
 import statsmodels.formula.api as smf
 from typing import Optional
 from statsmodels.regression.linear_model import RegressionResults as rrs
@@ -18,6 +19,7 @@ from .model import (
     coef_plot,
     coef_ci,
     predict_ci,
+    sim_prediction,
 )
 from .model import vif as calc_vif
 from .visualize import distr_plot
@@ -144,62 +146,30 @@ class regress:
                 print(f"\n{calc_vif(self.fitted).to_string()}")
 
         if test is not None and len(test) > 0:
-            evar = setdiff(self.evar, test)
-            if self.int is not None and len(self.int) > 0:
-                sint = setdiff(self.int, test)
-                test += [s for t in test for s in sint if f"I({t}" not in s and t in s]
-                sint = setdiff(sint, test)
-            else:
-                sint = []
+            self.f_test(test=test, dec=dec)
 
-            form = f"{self.rvar} ~ "
-            if len(evar) == 0 and len(sint) == 0:
-                form += "1"
-            else:
-                form += f"{' + '.join(evar + sint)}"
-            pattern = r"(\[T\.[^\]]*\])\:"
-
-            # ensure constraints are unique
-            hypothesis = list(
-                set(
-                    [
-                        f"({c} = 0)"
-                        for c in self.fitted.model.exog_names
-                        for v in test
-                        if f"{v}:" in c
-                        or f":{v}" in c
-                        or f"{v}[T." in c
-                        or v == c
-                        or v == re.sub(pattern, ":", c)
-                    ]
-                )
-            )
-
-            print(f"\nModel 1: {form}")
-            print(f"Model 2: {self.form}")
-            out = self.fitted.f_test(hypothesis)
-
-            r2_sub = self.fitted.rsquared - (
-                len(hypothesis) * out.fvalue * (1 - self.fitted.rsquared)
-            ) / (self.fitted.nobs - self.fitted.df_model - 1)
-
-            pvalue = ifelse(out.pvalue < 0.001, "< .001", round(out.pvalue, dec))
-            print(
-                f"R-squared, Model 1 vs 2: {r2_sub:.3f} vs {self.fitted.rsquared:.3f}"
-            )
-            print(
-                f"F-statistic: {round(out.fvalue, dec)} df ({out.df_num:.0f}, {out.df_denom:.0f}), p.value {pvalue}"
-            )
-
-    def predict(self, df=None, ci=False, alpha=0.05) -> pd.DataFrame:
+    def predict(self, df=None, cmd=None, dc=False, ci=False, conf=0.95) -> pd.DataFrame:
         """
         Predict values for a linear regression model
         """
         if df is None:
             df = self.data
         df = df.loc[:, self.evar].copy()
+        if cmd is not None:
+            cmd = ifelse(isinstance(cmd, str), literal_eval(cmd), cmd)
+            if dc:
+                for k, v in cmd.items():
+                    df[k] = v
+            else:
+                df = sim_prediction(df=df, vary=cmd)
+
         if ci:
-            return pd.concat([df, predict_ci(self.fitted, df, alpha=alpha)], axis=1)
+            if dc:
+                raise ValueError(
+                    "Confidence intervals not available when using the Data & Command option"
+                )
+            else:
+                return pd.concat([df, predict_ci(self.fitted, df, conf=conf)], axis=1)
         else:
             pred = pd.DataFrame().assign(prediction=self.fitted.predict(df))
             return pd.concat([df, pred], axis=1)
@@ -257,7 +227,7 @@ class regress:
                 figsize=figsize,
             )
 
-    def f_test(self, vtt=None, dec=3) -> None:
+    def f_test(self, test=None, dec=3) -> None:
         """
         F-test for competing models
 
@@ -266,22 +236,47 @@ class regress:
         vtt : list
             List of strings; contains the names of the columns of data to be tested
         """
-        if vtt is None:
-            form = f"{self.rvar} ~ 1"
-            vtt = self.evar.copy()
+        evar = setdiff(self.evar, test)
+        if self.int is not None and len(self.int) > 0:
+            sint = setdiff(self.int, test)
+            test += [s for t in test for s in sint if f"I({t}" not in s and t in s]
+            sint = setdiff(sint, test)
         else:
-            evar = setdiff(self.evar, vtt)
-            if len(evar) == 0:
-                form = f"{self.rvar} ~ 1"
-            else:
-                form = f"{self.rvar} ~ {' + '.join(evar)}"
+            sint = []
 
-        vtt = ifelse(isinstance(vtt, str), [vtt], vtt)
-        hypothesis = [f"({v} = 0)" for v in vtt]
-        print(f"Model 1: {form}")
+        form = f"{self.rvar} ~ "
+        if len(evar) == 0 and len(sint) == 0:
+            form += "1"
+        else:
+            form += f"{' + '.join(evar + sint)}"
+        pattern = r"(\[T\.[^\]]*\])\:"
+
+        # ensure constraints are unique
+        hypothesis = list(
+            set(
+                [
+                    f"({c} = 0)"
+                    for c in self.fitted.model.exog_names
+                    for v in test
+                    if f"{v}:" in c
+                    or f":{v}" in c
+                    or f"{v}[T." in c
+                    or v == c
+                    or v == re.sub(pattern, ":", c)
+                ]
+            )
+        )
+
+        print(f"\nModel 1: {form}")
         print(f"Model 2: {self.form}")
         out = self.fitted.f_test(hypothesis)
+
+        r2_sub = self.fitted.rsquared - (
+            len(hypothesis) * out.fvalue * (1 - self.fitted.rsquared)
+        ) / (self.fitted.nobs - self.fitted.df_model - 1)
+
         pvalue = ifelse(out.pvalue < 0.001, "< .001", round(out.pvalue, dec))
+        print(f"R-squared, Model 1 vs 2: {r2_sub:.3f} vs {self.fitted.rsquared:.3f}")
         print(
-            f"F-statistic: {round(out.fvalue, dec)} df ({out.df_num:,.0f}, {out.df_denom:,.0f}), p.value {pvalue}"
+            f"F-statistic: {round(out.fvalue, dec)} df ({out.df_num:.0f}, {out.df_denom:.0f}), p.value {pvalue}"
         )
