@@ -6,6 +6,7 @@ from pathlib import Path
 import black
 import pandas as pd
 from pyrsm.utils import ifelse
+import inspect
 
 
 def head_content():
@@ -53,12 +54,32 @@ def code_formatter(code, self):
     """
     cmd = self.stop_code = black.format_str(code, mode=black.Mode())
     return ui.TagList(
-        ui.HTML("<details><summary>View generated python code</summary>"),
+        ui.HTML("<details open><summary>View generated python code</summary>"),
         ui.markdown(f"""```python\n{cmd.rstrip()}\n```"""),
         ui.tags.script("hljs.highlightAll();"),
         ui.HTML("</details>"),
         ui.br(),
     )
+
+
+def drop_default_args(args, func):
+    """
+    Take a dictionary of arguments for a function and compare
+    to the default arguments for that function
+    Return a comma separate string of key-value pairs for
+    non-default values where the value is quoted if it is a string
+    """
+    sig = inspect.signature(func).parameters
+    drop = {k: args[k] for k, v in sig.items() if k in args and args[k] != v.default}
+
+    def to_quote(v, k):
+        if isinstance(v, str) and k not in ["data", "df"]:
+            v = v.replace('"', '\\"').replace("'", "\\'")
+            return f'"{v}"'
+        else:
+            return v
+
+    return ", ".join(f"{k}={to_quote(v, k)}" for k, v in drop.items())
 
 
 def get_data(input, self):
@@ -124,6 +145,7 @@ def make_data_outputs(self, input, output):
         data = get_data(input, self)["data"]
         summary = "Viewing rows {start} through {end} of {total}"
         if data.shape[0] > 100_000:
+            data = data[:100_000]
             summary += " (100K rows shown)"
 
         return render.DataTable(data, summary=summary)

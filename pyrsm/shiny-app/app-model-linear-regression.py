@@ -3,6 +3,7 @@ import io, os, signal
 import pyrsm as rsm
 from contextlib import redirect_stdout
 from faicons import icon_svg
+from ast import literal_eval
 import pyrsm.radiant.utils as ru
 
 
@@ -281,48 +282,45 @@ class model_regress:
                     selectize=False,
                 )
 
-        def model_code():
+        def estimation_code():
             rvar = input.rvar()
             evar = list(input.evar())
             data_name, code = (get_data()[k] for k in ["data_name", "code"])
             if int(input.show_interactions()) > 0 and len(input.interactions()) > 0:
-                return f"""{code}\nreg = rsm.regress(data={data_name}, rvar="{rvar}", evar={evar}, int={list(input.interactions())})"""
+                return (
+                    f"""rsm.regress(data={{"{data_name}": {data_name}}}, rvar="{rvar}", evar={evar}, int={list(input.interactions())})""",
+                    code,
+                )
             else:
-                return f"""{code}\nreg = rsm.regress(data={data_name}, rvar="{rvar}", evar={evar})"""
+                return (
+                    f"""rsm.regress(data={{"{data_name}": {data_name}}}, rvar="{rvar}", evar={evar})""",
+                    code,
+                )
+
+        def show_code():
+            mc = estimation_code()
+            return f"""{mc[1]}\nreg = {mc[0]}"""
 
         @reactive.Calc
         @reactive.event(input.run, ignore_none=True)
         def regress():
-            data, data_name = (get_data()[k] for k in ["data", "data_name"])
-            if (
-                int(input.show_interactions()) > 0
-                and input.interactions() is not None
-                and len(input.interactions()) > 0
-            ):
-                return rsm.regress(
-                    data={data_name: data},
-                    rvar=input.rvar(),
-                    evar=list(input.evar()),
-                    int=list(input.interactions()),
-                )
-            else:
-                return rsm.regress(
-                    data={data_name: data},
-                    rvar=input.rvar(),
-                    evar=list(input.evar()),
-                )
+            locals()[input.datasets()] = self.datasets[
+                input.datasets()
+            ]  # get data into local scope
+            return eval(estimation_code()[0])
 
         def summary_code():
-            ctrl = input.controls()
-            cmd = f"""ci={"ci" in ctrl}, ssq={"ssq" in ctrl}, vif={"vif" in ctrl}"""
+            args = {c: True for c in input.controls()}
             if input.evar_test() is not None and len(input.evar_test()) > 0:
-                cmd += f""", test={list(input.evar_test())}"""
-            return f"""reg.summary({cmd})"""
+                args["test"] = list(input.evar_test())
+
+            args_string = ru.drop_default_args(args, rsm.regress.summary)
+            return f"""reg.summary({args_string})"""
 
         @output(id="show_summary_code")
         @render.text
         def show_summary_code():
-            cmd = f"""{model_code()}\n{summary_code()}"""
+            cmd = f"""{show_code()}\n{summary_code()}"""
             return ru.code_formatter(cmd, self)
 
         @output(id="summary")
@@ -335,56 +333,52 @@ class model_regress:
                 eval(cmd)
             return out.getvalue()
 
+        def predict_code():
+            args = {}
+            try:
+                # convert string to dict
+                cmd = literal_eval(input.pred_cmd())
+            except:
+                cmd = None
+
+            if input.pred_type() == "Data":
+                args["df"] = input.pred_datasets()
+            elif input.pred_type() == "Command" and not ru.is_empty(cmd):
+                args["df"] = None
+                args["cmd"] = cmd
+            elif input.pred_type() == "Data & Command" and not ru.is_empty(cmd):
+                args["df"] = input.pred_datasets()
+                args["cmd"] = cmd
+                args["dc"] = True
+
+            ci = input.pred_ci()
+            if ci:
+                args.update({"ci": ci, "conf": input.conf()})
+
+            args_string = ru.drop_default_args(args, rsm.regress.predict)
+            return f"""reg.predict({args_string})"""
+
         @output(id="show_predict_code")
         @render.text
         def show_predict_code():
-            ci = input.pred_ci()
-            args = {}
-            if input.pred_type() == "Data":
-                args["df"] = input.pred_datasets()
-            elif input.pred_type() == "Command" and not ru.is_empty(input.pred_cmd()):
-                args["df"] = None
-                args["cmd"] = input.pred_cmd()
-            elif input.pred_type() == "Data & Command" and not ru.is_empty(
-                input.pred_cmd()
-            ):
-                args["df"] = input.pred_datasets()
-                args["cmd"] = input.pred_cmd()
-                args["dc"] = True
-
-            if ci:
-                args.update({"ci": input.pred_ci(), "conf": input.conf()})
-
-            args_str = ", ".join([f"{k}={v}" for k, v in args.items()])
-            cmd = f"""{model_code()}\npred = reg.predict({args_str})"""
-
-            return ru.code_formatter(cmd, self)
+            return ru.code_formatter(
+                f"""{show_code()}\npred = {predict_code()}""", self
+            )
 
         @output(id="predict")
         @render.data_frame
         def predict():
-            reg = regress()  # get model object into local scope
-            ci = input.pred_ci()
-            args = {"ci": input.pred_ci(), "conf": input.conf()}
             if input.pred_type() != "None":
-                if input.pred_type() == "Data":
-                    args["df"] = self.datasets[input.pred_datasets()]
-                elif input.pred_type() == "Command" and not ru.is_empty(
-                    input.pred_cmd()
-                ):
-                    args["df"] = None
-                    args["cmd"] = input.pred_cmd()
-                elif input.pred_type() == "Data & Command" and not ru.is_empty(
-                    input.pred_cmd()
-                ):
-                    args["df"] = self.datasets[input.pred_datasets()]
-                    args["cmd"] = input.pred_cmd()
-                    args["dc"] = True
-
-                pred = reg.predict(**args)
+                reg = regress()  # get model object into local scope
+                if input.pred_type() in ["Data", "Data & Command"]:
+                    locals()[input.pred_datasets()] = self.datasets[
+                        input.pred_datasets()
+                    ]  # get prediction data into local scope
+                pred = eval(predict_code())
 
                 summary = "Viewing rows {start} through {end} of {total}"
                 if pred.shape[0] > 100_000:
+                    pred = pred[:100_000]
                     summary += " (100K rows shown)"
 
                 return render.DataTable(pred.round(3), summary=summary)
@@ -411,7 +405,7 @@ class model_regress:
         def show_plot_code():
             plots = input.plots()
             if plots != "None":
-                cmd = f"""{model_code()}\n{plot_code()}"""
+                cmd = f"""{show_code()}\n{plot_code()}"""
                 return ru.code_formatter(cmd, self)
 
         # functionality not yet available in shiny-for-python

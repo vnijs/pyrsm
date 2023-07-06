@@ -1,12 +1,9 @@
 import pandas as pd
 import re
-from ast import literal_eval
 import statsmodels.formula.api as smf
 from typing import Optional
 from statsmodels.regression.linear_model import RegressionResults as rrs
-from shiny import App
-from .radiant.regress import model_regress
-from .utils import ifelse, format_nr, setdiff, odir
+from .utils import ifelse, format_nr, setdiff
 from .visualize import pred_plot_sm, vimp_plot_sm
 from .model import (
     sig_stars,
@@ -156,7 +153,7 @@ class regress:
             df = self.data
         df = df.loc[:, self.evar].copy()
         if cmd is not None:
-            cmd = ifelse(isinstance(cmd, str), literal_eval(cmd), cmd)
+            # cmd = ifelse(isinstance(cmd, str), literal_eval(cmd), cmd)
             if dc:
                 for k, v in cmd.items():
                     df[k] = v

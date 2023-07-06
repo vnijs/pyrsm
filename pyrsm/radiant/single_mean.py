@@ -136,18 +136,28 @@ class basics_single_mean:
 
         def estimation_code():
             data_name, code = (get_data()[k] for k in ["data_name", "code"])
-            return f"""{code}\nsm = rsm.single_mean(data={data_name}, var="{input.var()}", alt_hyp="{input.alt_hyp()}", conf={input.conf()}, comp_value={input.comp_value()})"""
+
+            args = {
+                "data": f"""{{"{data_name}": {data_name}}}""",
+                "var": input.var(),
+                "alt_hyp": input.alt_hyp(),
+                "conf": input.conf(),
+                "comp_value": input.comp_value(),
+            }
+
+            args_string = ru.drop_default_args(args, rsm.single_mean)
+            return f"""rsm.single_mean({args_string})""", code
+
+        def show_code():
+            mc = estimation_code()
+            return f"""{mc[1]}\nsm = {mc[0]}"""
 
         @reactive.Calc
         def single_mean():
-            data, data_name = (get_data()[k] for k in ["data", "data_name"])
-            return rsm.single_mean(
-                data={data_name: data},
-                var=input.var(),
-                alt_hyp=input.alt_hyp(),
-                conf=input.conf(),
-                comp_value=input.comp_value(),
-            )
+            locals()[input.datasets()] = self.datasets[
+                input.datasets()
+            ]  # get data into local scope
+            return eval(estimation_code()[0])
 
         def summary_code():
             return f"""sm.summary()"""
@@ -155,7 +165,7 @@ class basics_single_mean:
         @output(id="show_summary_code")
         @render.text
         def show_summary_code():
-            cmd = f"""{estimation_code()}\n{summary_code()}"""
+            cmd = f"""{show_code()}\n{summary_code()}"""
             return ru.code_formatter(cmd, self)
 
         @output(id="summary")
@@ -175,7 +185,7 @@ class basics_single_mean:
         def show_plot_code():
             plots = input.plots()
             if plots != "None":
-                cmd = f"""{estimation_code()}\n{plot_code()}"""
+                cmd = f"""{show_code()}\n{plot_code()}"""
                 return ru.code_formatter(cmd, self)
 
         @output(id="plot")
