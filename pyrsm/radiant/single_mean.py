@@ -79,8 +79,8 @@ def ui_main():
 
 
 class basics_single_mean:
-    def __init__(self, datasets: dict, descriptions=None) -> None:
-        ru.init(self, datasets, descriptions=descriptions)
+    def __init__(self, datasets: dict, descriptions=None, open=True) -> None:
+        ru.init(self, datasets, descriptions=descriptions, open=open)
 
     def shiny_ui(self):
         return ui.page_navbar(
@@ -201,6 +201,7 @@ class basics_single_mean:
 def single_mean(
     data_dct: dict,
     descriptions_dct: dict = None,
+    open: bool = True,
     host: str = "0.0.0.0",
     port: int = 8000,
     log_level: str = "warning",
@@ -208,7 +209,7 @@ def single_mean(
     """
     Launch a Radiant-for-Python app for single_mean hypothesis testing
     """
-    rc = basics_single_mean(data_dct, descriptions_dct)
+    rc = basics_single_mean(data_dct, descriptions_dct, open)
     nest_asyncio.apply()
     webbrowser.open(f"http://{host}:{port}")
     print(f"Listening on http://{host}:{port}")

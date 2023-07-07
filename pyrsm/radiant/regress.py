@@ -2,9 +2,10 @@ from shiny import App, render, ui, reactive, Inputs, Outputs, Session
 import webbrowser, nest_asyncio, uvicorn
 import io, os, signal
 import pyrsm as rsm
+import numpy as np
+import pandas as pd
 from contextlib import redirect_stdout
 from faicons import icon_svg
-from ast import literal_eval
 import pyrsm.radiant.utils as ru
 
 
@@ -69,7 +70,7 @@ def ui_predict(self):
                     placeholder="Specify a dictionary of values to to use for prediction, e.g., {'carat': 1, 'cut': 'Ideal'}",
                 ),
             ),
-            ui.input_checkbox("pred_ci", "Show pred. intervals"),
+            ui.input_checkbox("pred_ci", "Show conf. intervals"),
             ui.panel_conditional(
                 "input.pred_ci == true",
                 ui.input_slider(
@@ -144,8 +145,8 @@ def ui_main():
 
 
 class model_regress:
-    def __init__(self, datasets: dict, descriptions=None) -> None:
-        ru.init(self, datasets, descriptions=descriptions)
+    def __init__(self, datasets: dict, descriptions=None, open=True) -> None:
+        ru.init(self, datasets, descriptions=descriptions, open=open)
 
     def shiny_ui(self):
         return ui.page_navbar(
@@ -336,11 +337,7 @@ class model_regress:
 
         def predict_code():
             args = {}
-            try:
-                # convert string to dict
-                cmd = literal_eval(input.pred_cmd())
-            except:
-                cmd = None
+            cmd = input.pred_cmd().strip()
 
             if input.pred_type() == "Data":
                 args["df"] = input.pred_datasets()
@@ -458,6 +455,7 @@ class model_regress:
 def regress(
     data_dct: dict,
     descriptions_dct: dict = None,
+    open: bool = True,
     host: str = "0.0.0.0",
     port: int = 8000,
     log_level: str = "warning",
@@ -465,7 +463,7 @@ def regress(
     """
     Launch a Radiant-for-Python app for linear regression analysis
     """
-    rc = model_regress(data_dct, descriptions_dct)
+    rc = model_regress(data_dct, descriptions_dct, open=open)
     nest_asyncio.apply()
     webbrowser.open(f"http://{host}:{port}")
     print(f"Listening on http://{host}:{port}")

@@ -2,13 +2,11 @@
     max-width: 400px;
 }
 
-.main,
-.card {
-    float: left;
+/* based on https://stackoverflow.com/a/30338814/1974918*/
+details pre {
+    padding: 0;
 }
 
-
-/* based on https://stackoverflow.com/a/30338814/1974918*/
 pre {
     overflow: auto;
     white-space: pre;
@@ -21,4 +19,23 @@ pre code {
     overflow: auto;
     white-space: pre;
     word-wrap: normal;
+}
+
+
+#copy {
+    position: absolute;
+    right: 14px;
+    font-size: 14px;
+    color: white;
+    padding: 5px;
+    opacity: 0.5;
+}
+
+#copy:hover {
+    opacity: 0.9;
+}
+
+#copy:active {
+    color: "grey";
+    opacity: 0.5;
 }

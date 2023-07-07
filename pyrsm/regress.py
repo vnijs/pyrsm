@@ -153,7 +153,6 @@ class regress:
             df = self.data
         df = df.loc[:, self.evar].copy()
         if cmd is not None:
-            # cmd = ifelse(isinstance(cmd, str), literal_eval(cmd), cmd)
             if dc:
                 for k, v in cmd.items():
                     df[k] = v
