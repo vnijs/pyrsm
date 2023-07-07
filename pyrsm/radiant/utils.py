@@ -17,6 +17,7 @@ def head_content():
         ui.tags.script(
             (Path(__file__).parent / "www/returnTextAreaBinding.js").read_text()
         ),
+        ui.tags.script((Path(__file__).parent / "www/copy.js").read_text()),
         # from https://github.com/rstudio/py-shiny/issues/491#issuecomment-1579138681
         ui.tags.link(
             href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/agate.min.css",
@@ -29,7 +30,7 @@ def head_content():
     )
 
 
-def init(self, datasets, descriptions=None):
+def init(self, datasets, descriptions=None, open=True):
     """
     Initialize key 'self' values to be used in an app class
     """
@@ -45,7 +46,21 @@ def init(self, datasets, descriptions=None):
             {"description": descriptions},
         )
     self.dataset_list = list(datasets.keys())
+    self.open = open  # keep code windows open or closed by default
     self.stop_code = ""
+
+
+def copy_icon(cmd):
+    cmd = cmd.replace('"', '\\"').replace("'", "\\'").replace("\n", "\\n")
+    return (
+        ui.input_action_link(
+            "copy",
+            None,
+            icon=icon_svg("copy", width="1.2em", height="1.2em"),
+            title="Copy to clipboard",
+            onclick=f'copyToClipboard("{cmd}");',
+        ),
+    )
 
 
 def code_formatter(code, self):
@@ -54,8 +69,11 @@ def code_formatter(code, self):
     """
     cmd = self.stop_code = black.format_str(code, mode=black.Mode())
     return ui.TagList(
-        ui.HTML("<details open><summary>View generated python code</summary>"),
-        ui.markdown(f"""```python\n{cmd.rstrip()}\n```"""),
+        ui.HTML(
+            f"<details {ifelse(self.open, 'open', '')}><summary>View generated python code</summary>"
+        ),
+        copy_icon(cmd),
+        ui.markdown(f"""\n```python\n{cmd.rstrip()}\n```"""),
         ui.tags.script("hljs.highlightAll();"),
         ui.HTML("</details>"),
         ui.br(),
@@ -70,16 +88,20 @@ def drop_default_args(args, func):
     non-default values where the value is quoted if it is a string
     """
     sig = inspect.signature(func).parameters
-    drop = {k: args[k] for k, v in sig.items() if k in args and args[k] != v.default}
+    keep = {k: args[k] for k, v in sig.items() if k in args and args[k] != v.default}
 
     def to_quote(v, k):
-        if isinstance(v, str) and k not in ["data", "df"]:
+        if (
+            isinstance(v, str)
+            and k not in ["data", "df"]
+            and not (v[0] + v[-1] == "{}")
+        ):
             v = v.replace('"', '\\"').replace("'", "\\'")
             return f'"{v}"'
         else:
             return v
 
-    return ", ".join(f"{k}={to_quote(v, k)}" for k, v in drop.items())
+    return ", ".join(f"{k}={to_quote(v, k)}" for k, v in keep.items())
 
 
 def get_data(input, self):
