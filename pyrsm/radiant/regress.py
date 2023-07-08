@@ -300,8 +300,8 @@ class model_regress:
                 )
 
         def show_code():
-            mc = estimation_code()
-            return f"""{mc[1]}\nreg = {mc[0]}"""
+            sc = estimation_code()
+            return f"""{sc[1]}\nreg = {sc[0]}"""
 
         @reactive.Calc
         @reactive.event(input.run, ignore_none=True)
@@ -331,8 +331,7 @@ class model_regress:
             out = io.StringIO()
             with redirect_stdout(out):
                 reg = regress()  # get model object into local scope
-                cmd = summary_code()
-                eval(cmd)
+                eval(summary_code())
             return out.getvalue()
 
         def predict_code():

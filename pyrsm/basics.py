@@ -25,19 +25,21 @@ def ci_label(alt="two-sided", conf=0.95, dec=3):
 
 
 class cross_tabs:
-    def __init__(self, df: pd.DataFrame, var1: str, var2: str) -> None:
+    def __init__(self, data: pd.DataFrame, var1: str, var2: str) -> None:
         """
         Calculate a Chi-square test between two categorical variables contained
         in a Pandas dataframe
 
         Parameters
         ----------
-        df : Pandas dataframe with numeric variables
+        data : Pandas dataframe with categorical variables or a
+            dictionary with a single dataframe as the value and the
+            name of the dataframe as the key
 
         Returns
         -------
         Cross object with several attributes
-        df: Original dataframe
+        data: Original dataframe
         var1: Name of the first categorical variable
         var2: Name of the second categorical variable
         observed: Dataframe of observed frequencies
@@ -57,12 +59,17 @@ class cross_tabs:
         ct = rsm.cross_tabs(newspaper, "Income", "Newspaper")
         ct.expected
         """
-        self.df = df
+        if isinstance(data, dict):
+            self.name = list(data.keys())[0]
+            self.data = data[self.name]
+        else:
+            self.data = data
+            self.name = "Not provided"
         self.var1 = var1
         self.var2 = var2
 
         self.observed = pd.crosstab(
-            df[var1], columns=df[var2], margins=True, margins_name="Total"
+            self.data[var1], columns=self.data[var2], margins=True, margins_name="Total"
         )
         self.chisq_test = stats.chi2_contingency(
             self.observed.drop(columns="Total").drop("Total", axis=0), correction=False
@@ -117,12 +124,16 @@ class cross_tabs:
         ct.summary()
         """
 
+        pd.set_option("display.max_columns", 20)
+        pd.set_option("display.max_rows", 20)
+
         output = ifelse(isinstance(output, str), [output], output)
         prn = f"""
 Cross-tabs
 Variables: {self.var1}, {self.var2}
-Null hyp: there is no association between {self.var1} and {self.var2}
-Alt. hyp: there is an association between {self.var1} and {self.var2}
+Data     : {self.name}
+Null hyp : There is no association between {self.var1} and {self.var2}
+Alt. hyp : There is an association between {self.var1} and {self.var2}
 """
         if "observed" in output:
             prn += f"""
@@ -162,17 +173,20 @@ Column percentages:
 
 {self.perc_col.transform(lambda x: (100*x).round(dec).astype(str) + "%")}
 """
-        if "perc_all" in output:
+        if "perc" in output:
             prn += f"""
 Percentages:
 
 {self.perc.transform(lambda x: (100*x).round(dec).astype(str) + "%")}
 """
         prn += f"""
-Chi-squared: {round(self.chisq_test[0], dec)} df({int(self.chisq_test[2])}), p.value {ifelse(self.chisq_test[1] < 0.001, "< .001", round(self.chisq_test[1], dec))}
+Chi-squared: {round(self.chisq_test[0], dec)} data({int(self.chisq_test[2])}), p.value {ifelse(self.chisq_test[1] < 0.001, "< .001", round(self.chisq_test[1], dec))}
 {100 * round(self.expected_low[0] / self.expected_low[1], dec)}% of cells have expected values below 5
 """
         print(prn)
+
+        pd.reset_option("display.max_columns")
+        pd.reset_option("display.max_rows")
 
     def plot(self, output: list[str] = "perc_col", **kwargs) -> None:
         """
@@ -200,7 +214,7 @@ Chi-squared: {round(self.chisq_test[0], dec)} df({int(self.chisq_test[2])}), p.v
 
         args = {"rot": False}
         if "observed" in output:
-            df = (
+            data = (
                 self.observed.transpose()
                 .drop(columns="Total")
                 .drop("Total", axis=0)
@@ -208,9 +222,9 @@ Chi-squared: {round(self.chisq_test[0], dec)} df({int(self.chisq_test[2])}), p.v
             )
             args["title"] = "Observed frequencies"
             args.update(**kwargs)
-            fig = df.plot.bar(stacked=True, **args)
+            fig = data.plot.bar(stacked=True, **args)
         if "expected" in output:
-            df = (
+            data = (
                 self.expected.transpose()
                 .drop(columns="Total")
                 .drop("Total", axis=0)
@@ -218,18 +232,18 @@ Chi-squared: {round(self.chisq_test[0], dec)} df({int(self.chisq_test[2])}), p.v
             )
             args["title"] = "Expected frequencies"
             args.update(**kwargs)
-            fig = df.plot.bar(stacked=True, **args)
+            fig = data.plot.bar(stacked=True, **args)
         if "chisq" in output:
-            df = self.chisq.transpose().drop(columns="Total").drop("Total", axis=0)
+            data = self.chisq.transpose().drop(columns="Total").drop("Total", axis=0)
             args["title"] = "Contribution to chi-squared statistic"
             args.update(**kwargs)
-            fig = df.plot.bar(**args)
+            fig = data.plot.bar(**args)
         if "dev_std" in output:
-            df = self.dev_std.transpose()
+            data = self.dev_std.transpose()
             args["title"] = "Deviation standardized"
             args.update(**kwargs)
             fig, ax = plt.subplots()
-            df.plot.bar(**args, ax=ax)
+            data.plot.bar(**args, ax=ax)
             ax.axhline(y=1.96, color="black", linestyle="--")
             ax.axhline(y=1.64, color="black", linestyle="--")
             ax.axhline(y=-1.96, color="black", linestyle="--")
@@ -237,32 +251,32 @@ Chi-squared: {round(self.chisq_test[0], dec)} df({int(self.chisq_test[2])}), p.v
             ax.annotate("95%", xy=(0, 2.1), va="bottom", ha="center")
             ax.annotate("90%", xy=(0, 1.4), va="top", ha="center")
         if "perc_col" in output:
-            df = self.perc_col.transpose().drop(columns="Total").drop("Total", axis=0)
+            data = self.perc_col.transpose().drop(columns="Total").drop("Total", axis=0)
             args["title"] = "Column percentages"
             args.update(**kwargs)
-            fig = df.plot.bar(**args)
+            fig = data.plot.bar(**args)
         if "perc_row" in output:
-            df = self.perc_row.transpose().drop(columns="Total").drop("Total", axis=0)
+            data = self.perc_row.transpose().drop(columns="Total").drop("Total", axis=0)
             args["title"] = "Row percentages"
             args.update(**kwargs)
-            fig = df.plot.bar(**args)
+            fig = data.plot.bar(**args)
         if "perc" in output:
-            df = self.perc.transpose().drop(columns="Total").drop("Total", axis=0)
+            data = self.perc.transpose().drop(columns="Total").drop("Total", axis=0)
             args["title"] = "Table percentages"
             args.update(**kwargs)
-            fig = df.plot.bar(**args)
+            fig = data.plot.bar(**args)
 
 
 class correlation:
     def __init__(
-        self, df: pd.DataFrame, figsize: Optional[tuple[float, float]] = None
+        self, data: pd.DataFrame, figsize: Optional[tuple[float, float]] = None
     ) -> None:
         """
         Calculate correlations between numeric variables in a Pandas dataframe
 
         Parameters
         ----------
-        df : Pandas dataframe with numeric variables
+        data : Pandas dataframe with numeric variables
 
         Returns
         -------
@@ -278,25 +292,27 @@ class correlation:
         cr = rsm.correlation(salary[["salary", "yrs.since.phd", "yrs.service"]])
         c.cr
         """
-        df = df.copy()
+        data = data.copy()
         isNum = [
-            col for col in df.columns if pd.api.types.is_numeric_dtype(df[col].dtype)
+            col
+            for col in data.columns
+            if pd.api.types.is_numeric_dtype(data[col].dtype)
         ]
-        df = df[isNum]
+        data = data[isNum]
 
-        ncol = df.shape[1]
+        ncol = data.shape[1]
         cr = np.zeros([ncol, ncol])
         cp = cr.copy()
         for i in range(ncol - 1):
             for j in range(i + 1, ncol):
-                cdf = df.iloc[:, [i, j]]
+                cdata = data.iloc[:, [i, j]]
                 # pairwise deletion
-                cdf = cdf[~np.any(np.isnan(cdf), axis=1)]
-                c = stats.pearsonr(cdf.iloc[:, 0], cdf.iloc[:, 1])
+                cdata = cdata[~np.any(np.isnan(cdata), axis=1)]
+                c = stats.pearsonr(cdata.iloc[:, 0], cdata.iloc[:, 1])
                 cr[j, i] = c[0]
                 cp[j, i] = c[1]
 
-        self.df = df
+        self.data = data
         self.cr = cr
         self.cp = cp
         self.figsize = figsize
@@ -321,8 +337,8 @@ class correlation:
         cr.summary()
         """
         ind = np.triu_indices(self.cr.shape[0])
-        cn = self.df.columns[:-1]
-        indn = self.df.columns[1:]
+        cn = self.data.columns[:-1]
+        indn = self.data.columns[1:]
 
         # correlations
         crs = self.cr.round(dec).astype(str)
@@ -346,7 +362,7 @@ class correlation:
             index=indn,
         )
 
-        cn = self.df.columns
+        cn = self.data.columns
         if len(cn) > 2:
             x = "x"
             y = "y"
@@ -355,7 +371,7 @@ class correlation:
             y = cn[1]
 
         prn = "Correlation\n"
-        prn += "Variables: " + ", ".join(list(self.df.columns)) + "\n"
+        prn += "Variables: " + ", ".join(list(self.data.columns)) + "\n"
         prn += f"Null hyp.: variables {x} and {y} are not correlated\n"
         prn += f"Alt. hyp.: variables {x} and {y} are correlated\n"
         print(prn)
@@ -393,7 +409,7 @@ class correlation:
             ax_sub.axes.xaxis.set_visible(False)
             ax_sub.axes.yaxis.set_visible(False)
             # set font size to avoid exceeding boundaries
-            font = (80 * self.fig_size) / (len(longest) * len(self.df.columns))
+            font = (80 * self.fig_size) / (len(longest) * len(self.data.columns))
             ax_sub.text(
                 0.5,
                 0.5,
@@ -411,8 +427,8 @@ class correlation:
             rt = round(r, dec)
             p_star = sig_stars([p])[0]
 
-            font = (50 * self.fig_size) / (len(str(rt)) * len(self.df.columns))
-            font_star = (12 * self.fig_size) / len(self.df.columns)
+            font = (50 * self.fig_size) / (len(str(rt)) * len(self.data.columns))
+            font_star = (12 * self.fig_size) / len(self.data.columns)
 
             ax_sub.axes.xaxis.set_visible(False)
             ax_sub.axes.yaxis.set_visible(False)
@@ -446,37 +462,37 @@ class correlation:
             ax_sub.axes.xaxis.set_visible(False)
             ax_sub.axes.yaxis.set_visible(False)
 
-        def cor_mat(df, cmat, pmat, dec=2, nobs=1000, figsize=None):
+        def cor_mat(data, cmat, pmat, dec=2, nobs=1000, figsize=None):
 
-            cn = df.columns
+            cn = data.columns
             ncol = len(cn)
             longest = max(cn, key=len)
-            s_size = 50 / len(self.df.columns)
+            s_size = 50 / len(self.data.columns)
 
             if figsize is None:
                 figsize = (max(5, cmat.shape[0]), max(cmat.shape[0], 5))
 
             self.fig_size = min(figsize[0], figsize[1])
-            s_size = (5 * self.fig_size) / len(self.df.columns)
+            s_size = (5 * self.fig_size) / len(self.data.columns)
 
             _, axes = plt.subplots(ncol, ncol, figsize=figsize)
 
-            if nobs < df.shape[0] and nobs != np.Inf and nobs != -1:
-                df = df.copy().sample(nobs)
+            if nobs < data.shape[0] and nobs != np.Inf and nobs != -1:
+                data = data.copy().sample(nobs)
 
             for i in range(ncol):
                 for j in range(ncol):
                     if i == j:
                         cor_label(cn[i], longest, axes[i, j])
                     elif i > j:
-                        cor_plot(df[cn[i]], df[cn[j]], axes[i, j], s_size)
+                        cor_plot(data[cn[i]], data[cn[j]], axes[i, j], s_size)
                     else:
                         cor_text(cmat[j, i], pmat[j, i], axes[i, j], dec=2)
 
             plt.subplots_adjust(wspace=0.04, hspace=0.04)
             # plt.show()
 
-        cor_mat(self.df, self.cr, self.cp, dec=dec, nobs=nobs, figsize=figsize)
+        cor_mat(self.data, self.cr, self.cp, dec=dec, nobs=nobs, figsize=figsize)
 
 
 class prob_calc:
@@ -490,17 +506,19 @@ class prob_calc:
         print(f"Distribution: {self.distribution}")
 
         def calc_f_dist(
-            df1: int, df2: int, lb: float = 0, ub: float = 0.95, decimals: int = 3
+            data1: int, data2: int, lb: float = 0, ub: float = 0.95, decimals: int = 3
         ) -> tuple[float, float]:
-            print(f"Df 1        : {df1}")
-            print(f"Df 2        : {df2}")
-            print(f"Mean        : {round(stats.f.mean(df1, df2, loc=lb), decimals)}")
-            print(f"Variance    : {round(stats.f.var(df1, df2, loc=lb), decimals)}")
+            print(f"Df 1        : {data1}")
+            print(f"Df 2        : {data2}")
+            print(
+                f"Mean        : {round(stats.f.mean(data1, data2, loc=lb), decimals)}"
+            )
+            print(f"Variance    : {round(stats.f.var(data1, data2, loc=lb), decimals)}")
             print(f"Lower bound : {lb}")
             print(f"Upper bound : {ub}\n")
 
             if lb == 0:
-                critical_f = round(stats.f.ppf(q=ub, dfn=df1, dfd=df2), decimals)
+                critical_f = round(stats.f.ppf(q=ub, df=data1, datad=data2), decimals)
 
                 _num_decimal_places_in_ub = len(str(ub).split(".")[-1])
 
@@ -510,7 +528,7 @@ class prob_calc:
                 )
                 return (0, critical_f)
 
-            critical_f_lower = round(stats.f.ppf(q=lb, dfn=df1, dfd=df2), decimals)
+            critical_f_lower = round(stats.f.ppf(q=lb, df=data1, datad=data2), decimals)
 
             _num_decimal_places_in_lb = len(str(lb).split(".")[-1])
 
@@ -519,7 +537,7 @@ class prob_calc:
                 f"P(X > {critical_f_lower}) = {round(1 - lb, _num_decimal_places_in_lb)}"
             )
             ########################################################################################
-            critical_f_upper = round(stats.f.ppf(q=ub, dfn=df1, dfd=df2), decimals)
+            critical_f_upper = round(stats.f.ppf(q=ub, df=data1, datad=data2), decimals)
 
             _num_decimal_places_in_ub = len(str(ub).split(".")[-1])
 
@@ -542,16 +560,16 @@ class prob_calc:
             return (critical_f_lower, critical_f_upper)
 
         def calc_t_dist(
-            df: int, lb: float = 0, ub: float = 0.95, decimals: int = 3
+            data: int, lb: float = 0, ub: float = 0.95, decimals: int = 3
         ) -> tuple[float, float]:
-            print(f"Df          : {df}")
-            print(f"Mean        : {round(stats.t.mean(df), decimals)}")
-            print(f"St. dev     : {round(stats.t.std(df), decimals)}")
+            print(f"Df          : {data}")
+            print(f"Mean        : {round(stats.t.mean(data), decimals)}")
+            print(f"St. dev     : {round(stats.t.std(data), decimals)}")
             print(f"Lower bound : {lb}")
             print(f"Upper bound : {ub}\n")
 
             if lb == 0:
-                critical_t = round(stats.t.ppf(q=ub, df=df), decimals)
+                critical_t = round(stats.t.ppf(q=ub, data=data), decimals)
 
                 _num_decimal_places_in_ub = len(str(ub).split(".")[-1])
 
@@ -561,7 +579,7 @@ class prob_calc:
                 )
                 return (0, critical_t)
 
-            critical_t_lower = round(stats.t.ppf(q=lb, df=df), decimals)
+            critical_t_lower = round(stats.t.ppf(q=lb, data=data), decimals)
 
             _num_decimal_places_in_lb = len(str(lb).split(".")[-1])
 
@@ -570,7 +588,7 @@ class prob_calc:
                 f"P(X > {critical_t_lower}) = {round(1 - lb, _num_decimal_places_in_lb)}"
             )
             ########################################################################################
-            critical_t_upper = round(stats.t.ppf(q=ub, df=df), decimals)
+            critical_t_upper = round(stats.t.ppf(q=ub, data=data), decimals)
 
             _num_decimal_places_in_ub = len(str(ub).split(".")[-1])
 
@@ -595,71 +613,77 @@ class prob_calc:
         if self.distribution == "F":
             lb = self.lb if "lb" in self.__dict__ else 0
             ub = self.ub if "ub" in self.__dict__ else 0.95
-            df1 = self.df1
-            df2 = self.df2
+            data1 = self.data1
+            data2 = self.data2
             decimals = self.decimals if "decimals" in self.__dict__ else 3
-            calc_f_dist(df1, df2, lb, ub, decimals)
+            calc_f_dist(data1, data2, lb, ub, decimals)
 
         elif self.distribution == "t":
             lb = self.lb if "lb" in self.__dict__ else 0
             ub = self.ub if "ub" in self.__dict__ else 0.95
-            df = self.df
+            data = self.data
             decimals = self.decimals if "decimals" in self.__dict__ else 3
-            calc_t_dist(df, lb, ub, decimals)
+            calc_t_dist(data, lb, ub, decimals)
 
     def plot(self):
         def plot_f_dist(
-            df1: int, df2: int, lb: float = 0, ub: float = 0.95, decimals: int = 3
+            data1: int, data2: int, lb: float = 0, ub: float = 0.95, decimals: int = 3
         ):
-            x = np.linspace(stats.f.ppf(0, df1, df2), stats.f.ppf(0.99, df1, df2), 200)
-            pdf = stats.f.pdf(x, df1, df2)
-            plt.plot(x, pdf, "black", lw=1, alpha=0.6, label="f pdf")
+            x = np.linspace(
+                stats.f.ppf(0, data1, data2), stats.f.ppf(0.99, data1, data2), 200
+            )
+            pdata = stats.f.pdata(x, data1, data2)
+            plt.plot(x, pdata, "black", lw=1, alpha=0.6, label="f pdata")
 
             if lb == 0:
-                critical_f = round(stats.f.ppf(q=ub, dfn=df1, dfd=df2), decimals)
-                plt.fill_between(x, pdf, where=(x < critical_f), color="slateblue")
-                plt.fill_between(x, pdf, where=(x > critical_f), color="salmon")
+                critical_f = round(stats.f.ppf(q=ub, df=data1, datad=data2), decimals)
+                plt.fill_between(x, pdata, where=(x < critical_f), color="slateblue")
+                plt.fill_between(x, pdata, where=(x > critical_f), color="salmon")
             else:
-                critical_f_lower = round(stats.f.ppf(q=lb, dfn=df1, dfd=df2), decimals)
-                critical_f_upper = round(stats.f.ppf(q=ub, dfn=df1, dfd=df2), decimals)
+                critical_f_lower = round(
+                    stats.f.ppf(q=lb, df=data1, datad=data2), decimals
+                )
+                critical_f_upper = round(
+                    stats.f.ppf(q=ub, df=data1, datad=data2), decimals
+                )
 
                 plt.fill_between(
                     x,
-                    pdf,
+                    pdata,
                     where=((x > critical_f_upper) | (x < critical_f_lower)),
                     color="slateblue",
                 )
                 plt.fill_between(
                     x,
-                    pdf,
+                    pdata,
                     where=((x > critical_f_upper) | (x < critical_f_lower)),
                     color="salmon",
                 )
 
         def plot_t_dist(
-            df: int, lb: float = 0.025, ub: float = 0.975, decimals: int = 3
+            data: int, lb: float = 0.025, ub: float = 0.975, decimals: int = 3
         ):
-            x = np.linspace(stats.t.ppf(0.01, df), stats.t.ppf(0.99, df), 200)
-            pdf = stats.t.pdf(x, df)
-            plt.plot(x, pdf, "black", lw=1, alpha=0.6, label="t pdf")
+            x = np.linspace(stats.t.ppf(0.01, data), stats.t.ppf(0.99, data), 200)
+            pdata = stats.t.pdata(x, data)
+            plt.plot(x, pdata, "black", lw=1, alpha=0.6, label="t pdata")
 
             if lb == 0:
-                critical_t = round(stats.t.ppf(q=ub, df=df), decimals)
-                plt.fill_between(x, pdf, where=(x < critical_t), color="slateblue")
-                plt.fill_between(x, pdf, where=(x > critical_t), color="salmon")
+                critical_t = round(stats.t.ppf(q=ub, data=data), decimals)
+                plt.fill_between(x, pdata, where=(x < critical_t), color="slateblue")
+                plt.fill_between(x, pdata, where=(x > critical_t), color="salmon")
             else:
-                critical_t_lower = round(stats.t.ppf(q=lb, df=df), decimals)
-                critical_t_upper = round(stats.t.ppf(q=ub, df=df), decimals)
+                critical_t_lower = round(stats.t.ppf(q=lb, data=data), decimals)
+                critical_t_upper = round(stats.t.ppf(q=ub, data=data), decimals)
 
                 plt.fill_between(
                     x,
-                    pdf,
+                    pdata,
                     where=((x < critical_t_upper) | (x > critical_t_lower)),
                     color="slateblue",
                 )
                 plt.fill_between(
                     x,
-                    pdf,
+                    pdata,
                     where=((x > critical_t_upper) | (x < critical_t_lower)),
                     color="salmon",
                 )
@@ -667,17 +691,17 @@ class prob_calc:
         if self.distribution == "F":
             lb = self.lb if "lb" in self.__dict__ else 0
             ub = self.ub if "ub" in self.__dict__ else 0.95
-            df1 = self.df1
-            df2 = self.df2
+            data1 = self.data1
+            data2 = self.data2
             decimals = self.decimals if "decimals" in self.__dict__ else 3
-            plot_f_dist(df1, df2, lb, ub, decimals)
+            plot_f_dist(data1, data2, lb, ub, decimals)
 
         elif self.distribution == "t":
             lb = self.lb if "lb" in self.__dict__ else 0
             ub = self.ub if "ub" in self.__dict__ else 0.95
-            df = self.df
+            data = self.data
             decimals = self.decimals if "decimals" in self.__dict__ else 3
-            plot_t_dist(df, lb, ub, decimals)
+            plot_t_dist(data, lb, ub, decimals)
 
 
 class single_mean:
@@ -720,7 +744,7 @@ class single_mean:
 
         self.me = (tscore * self.se).real
         self.diff = self.mean - self.comp_value
-        self.df = self.n - 1
+        self.data = self.n - 1
 
     def summary(self, dec=3) -> None:
         print("Single mean test")
@@ -748,7 +772,7 @@ class single_mean:
                 self.se,
                 self.t_val,
                 ifelse(self.p_val < 0.001, "< .001", self.p_val),
-                self.df,
+                self.data,
                 self.ci[0],
                 self.ci[1],
                 sig_stars([self.p_val])[0],
@@ -756,7 +780,7 @@ class single_mean:
         ]
 
         col_names1 = ["mean", "n", "n_missing", "sd", "se", "me"]
-        col_names2 = ["diff", "se", "t.value", "p.value", "df", cl[0], cl[1], ""]
+        col_names2 = ["diff", "se", "t.value", "p.value", "data", cl[0], cl[1], ""]
 
         table1 = pd.DataFrame(row1, columns=col_names1).round(dec)
         table2 = pd.DataFrame(row2, columns=col_names2).round(dec)
@@ -800,8 +824,12 @@ class compare_means:
         sample_type: str = "independent",
         adjust: str = None,
     ) -> None:
-        self.data = data
-        self.name = "Not provided"
+        if isinstance(data, dict):
+            self.name = list(data.keys())[0]
+            self.data = data[self.name]
+        else:
+            self.data = data
+            self.name = "Not provided"
         self.var1 = var1
         self.var2 = var2
         self.combinations = combinations
@@ -881,12 +909,12 @@ class compare_means:
 
             t_val, p_val = result.statistic, result.pvalue
             se = diff / t_val
-            df = welch_dof(v1, v2)
+            data = welch_dof(v1, v2)
 
             if self.alt_hyp == "two-sided":
-                tscore = stats.t.ppf((1 + self.conf) / 2, df)
+                tscore = stats.t.ppf((1 + self.conf) / 2, data)
             else:
-                tscore = stats.t.ppf(self.conf, df)
+                tscore = stats.t.ppf(self.conf, data)
             me = (tscore * se).real
 
             if self.alt_hyp == "less":
@@ -904,7 +932,7 @@ class compare_means:
                     ifelse(p_val < 0.001, "< .001", p_val),
                     se,
                     t_val,
-                    df,
+                    data,
                     ci[0],
                     ci[1],
                     sig_stars([p_val])[0],
@@ -921,7 +949,7 @@ class compare_means:
                 "p.value",
                 "se",
                 "t.value",
-                "df",
+                "data",
                 cl[0],
                 cl[1],
                 "",
@@ -956,8 +984,12 @@ class single_prop:
         comp_value: float,
         test_type: str = "binomial",
     ) -> None:
-        self.data = data
-        self.name = "Not provided"
+        if isinstance(data, dict):
+            self.name = list(data.keys())[0]
+            self.data = data[self.name]
+        else:
+            self.data = data
+            self.name = "Not provided"
         self.variable = variable
         self.level = level
         self.alt_hyp = alt_hyp
@@ -987,11 +1019,6 @@ class single_prop:
 
     def summary(self) -> None:
         print(f"Single proportion ({self.test_type})")
-        # if hasattr(self.data, "description"):
-        #     data_name = self.data.description.split("\n")[0].split()[1].lower()
-        # else:
-        #     data_name = "Not available"
-
         print(f"Data      : {self.name}")
         print(f"Variable  : {self.variable}")
         print(f"Level     : {self.level} in {self.variable}")
@@ -1021,7 +1048,6 @@ class single_prop:
         )
 
         print()
-
         print(table1.to_string(index=False))
         print(table2.to_string(index=False))
 
@@ -1042,7 +1068,12 @@ class compare_props:
         conf: float,
         multiple_comp_adjustment: str = "none",
     ) -> None:
-        self.data = data
+        if isinstance(data, dict):
+            self.name = list(data.keys())[0]
+            self.data = data[self.name]
+        else:
+            self.data = data
+            self.name = "Not provided"
         self.grouping_var = grouping_var
         self.var = var
         self.level = level
@@ -1140,11 +1171,11 @@ class compare_props:
             observed = pd.crosstab(
                 self.data[v1], columns=self.data[v2], margins=True, margins_name="Total"
             )
-            chisq, self.p_val, df, _ = stats.chi2_contingency(
+            chisq, self.p_val, data, _ = stats.chi2_contingency(
                 self.observed.drop(columns="Total").drop("Total", axis=0),
                 correction=False,
             )
-            # chisq, self.p_val, df, _ = stats.chi2_contingency()  # unsure about this
+            # chisq, self.p_val, data, _ = stats.chi2_contingency()  # unsure about this
 
             # print(f"chisq: {chisq}")
 
@@ -1154,7 +1185,7 @@ class compare_props:
                 diff,
                 self.p_val,
                 chisq,
-                df,
+                data,
                 # zero_percent,
                 # x_percent,
             ]
@@ -1168,7 +1199,7 @@ class compare_props:
                 "diff",
                 "p.value",
                 "chisq.value",
-                "df",
+                "data",
                 # "0%",
                 # str(self.conf * 100) + "%",
             ],
@@ -1325,7 +1356,7 @@ class goodness_of_fit:
 
         self._observed_frequencies = self.data[self.variable].value_counts().to_dict()
         if self.params is not None:
-            self._observed_df = pd.DataFrame(
+            self._observed_data = pd.DataFrame(
                 {
                     key: [
                         item,
@@ -1334,61 +1365,61 @@ class goodness_of_fit:
                 },
                 columns=sorted(self._observed_frequencies.keys()),
             )
-            self._observed_df["Total"] = self._observed_df[
-                list(self._observed_df.columns)
+            self._observed_data["Total"] = self._observed_data[
+                list(self._observed_data.columns)
             ].sum(axis=1)
 
-            self._expected_df = pd.DataFrame(
+            self._expected_data = pd.DataFrame(
                 {
                     sorted(self._observed_frequencies.keys())[i]: [
-                        self.probabilities[i] * self._observed_df.at[0, "Total"],
+                        self.probabilities[i] * self._observed_data.at[0, "Total"],
                     ]
                     for i in range(len(self._observed_frequencies.keys()))
                 },
                 columns=sorted(self._observed_frequencies.keys()),
             )
-            self._expected_df["Total"] = self._expected_df[
-                list(self._expected_df.columns)
+            self._expected_data["Total"] = self._expected_data[
+                list(self._expected_data.columns)
             ].sum(axis=1)
 
-            self._chisquared_df = pd.DataFrame(
+            self._chisquared_data = pd.DataFrame(
                 {
                     column: [
                         round(
                             (
                                 (
-                                    self._observed_df.at[0, column]
-                                    - self._expected_df.at[0, column]
+                                    self._observed_data.at[0, column]
+                                    - self._expected_data.at[0, column]
                                 )
                                 ** 2
                             )
-                            / self._expected_df.at[0, column],
+                            / self._expected_data.at[0, column],
                             2,
                         ),
                     ]
-                    for column in self._expected_df.columns.tolist()[:-1]
+                    for column in self._expected_data.columns.tolist()[:-1]
                 },
-                columns=self._expected_df.columns.tolist(),
+                columns=self._expected_data.columns.tolist(),
             )
-            self._chisquared_df["Total"] = self._chisquared_df[
-                list(self._chisquared_df.columns)
+            self._chisquared_data["Total"] = self._chisquared_data[
+                list(self._chisquared_data.columns)
             ].sum(axis=1)
 
-            self._stdev_df = pd.DataFrame(
+            self._stdev_data = pd.DataFrame(
                 {
                     column: [
                         round(
                             (
-                                self._observed_df.at[0, column]
-                                - self._expected_df.at[0, column]
+                                self._observed_data.at[0, column]
+                                - self._expected_data.at[0, column]
                             )
-                            / sqrt(self._expected_df.at[0, column]).real,
+                            / sqrt(self._expected_data.at[0, column]).real,
                             2,
                         ),
                     ]
-                    for column in self._expected_df.columns.tolist()[:-1]
+                    for column in self._expected_data.columns.tolist()[:-1]
                 },
-                columns=self._expected_df.columns.tolist()[:-1],
+                columns=self._expected_data.columns.tolist()[:-1],
             )
 
     def summary(self) -> None:
@@ -1433,25 +1464,25 @@ class goodness_of_fit:
         if self.params is not None:
             if "observed" in self.params:
                 print("Observed:")
-                print(self._observed_df.to_string(index=False))
+                print(self._observed_data.to_string(index=False))
                 print()
 
             if "expected" in self.params:
                 print("Expected: total x p")
-                print(self._expected_df.to_string(index=False))
+                print(self._expected_data.to_string(index=False))
                 print()
 
             if "chi-squared" in self.params:
                 print(
                     "Contribution to chi-squared: (observed - expected) ^ 2 / expected"
                 )
-                print(self._chisquared_df.to_string(index=False))
+                print(self._chisquared_data.to_string(index=False))
                 print()
 
             if "deviation std" in self.params:
                 print("Deviation standardized: (observed - expected) / sqrt(expected)")
                 print()
-                print(self._stdev_df.to_string(index=False))
+                print(self._stdev_data.to_string(index=False))
                 print()
 
         chisq, p_val = chisquare(
@@ -1460,7 +1491,7 @@ class goodness_of_fit:
                 for key in sorted(self._observed_frequencies.keys())
             ],
             [
-                self._expected_df.at[0, key]
+                self._expected_data.at[0, key]
                 for key in sorted(self._observed_frequencies.keys())
             ],
         )
@@ -1468,7 +1499,7 @@ class goodness_of_fit:
 
         if p_val < 0.001:
             p_val = "< .001"
-        print(f"Chi-squared: {chisq} df ({num_levels - 1}), p.value {p_val}")
+        print(f"Chi-squared: {chisq} data ({num_levels - 1}), p.value {p_val}")
 
     def plot(self) -> None:
         _, axes = plt.subplots(2, 2, figsize=self.figsize)
@@ -1476,70 +1507,72 @@ class goodness_of_fit:
 
         if "observed" in self.params:
             plt.axes(axes[0][0])
-            observed_frequency_percentages_df = pd.DataFrame(
+            observed_frequency_percentages_data = pd.DataFrame(
                 {
-                    "levels": self._observed_df.columns.tolist()[:-1],
+                    "levels": self._observed_data.columns.tolist()[:-1],
                     "percentages": [
                         (
-                            self._observed_df.at[0, level]
-                            / self._observed_df.at[0, "Total"]
+                            self._observed_data.at[0, level]
+                            / self._observed_data.at[0, "Total"]
                         )
                         * 100
-                        for level in self._observed_df.columns.tolist()[:-1]
+                        for level in self._observed_data.columns.tolist()[:-1]
                     ],
                 }
             )
             sns.barplot(
-                data=observed_frequency_percentages_df, x="levels", y="percentages"
+                data=observed_frequency_percentages_data, x="levels", y="percentages"
             ).plot()
 
         if "expected" in self.params:
             plt.axes(axes[0][1])
-            expected_frequency_percentages_df = pd.DataFrame(
+            expected_frequency_percentages_data = pd.DataFrame(
                 {
-                    "levels": self._expected_df.columns.tolist()[:-1],
+                    "levels": self._expected_data.columns.tolist()[:-1],
                     "percentages": [
                         (
-                            self._expected_df.at[0, level]
-                            / self._expected_df.at[0, "Total"]
+                            self._expected_data.at[0, level]
+                            / self._expected_data.at[0, "Total"]
                         )
                         * 100
-                        for level in self._expected_df.columns.tolist()[:-1]
+                        for level in self._expected_data.columns.tolist()[:-1]
                     ],
                 }
             )
             sns.barplot(
-                data=expected_frequency_percentages_df, x="levels", y="percentages"
+                data=expected_frequency_percentages_data, x="levels", y="percentages"
             ).plot()
 
         if "chi-squared" in self.params:
             plt.axes(axes[1][0])
-            chisquared_contribution_df = pd.DataFrame(
+            chisquared_contribution_data = pd.DataFrame(
                 {
-                    "levels": self._chisquared_df.columns.tolist()[:-1],
+                    "levels": self._chisquared_data.columns.tolist()[:-1],
                     "contribution": [
-                        self._chisquared_df.at[0, level]
-                        for level in self._chisquared_df.columns.tolist()[:-1]
+                        self._chisquared_data.at[0, level]
+                        for level in self._chisquared_data.columns.tolist()[:-1]
                     ],
                 }
             )
             sns.barplot(
-                data=chisquared_contribution_df, x="levels", y="contribution"
+                data=chisquared_contribution_data, x="levels", y="contribution"
             ).plot()
 
         if "deviation std" in self.params:
             plt.axes(axes[1][1])
-            standardized_deviation_df = pd.DataFrame(
+            standardized_deviation_data = pd.DataFrame(
                 {
-                    "levels": self._stdev_df.columns.tolist(),
+                    "levels": self._stdev_data.columns.tolist(),
                     "stdev": [
-                        self._stdev_df.at[0, level]
-                        for level in self._stdev_df.columns.tolist()
+                        self._stdev_data.at[0, level]
+                        for level in self._stdev_data.columns.tolist()
                     ],
                 }
             )
 
-            barplot = sns.barplot(data=standardized_deviation_df, x="levels", y="stdev")
+            barplot = sns.barplot(
+                data=standardized_deviation_data, x="levels", y="stdev"
+            )
 
             z_95, z_neg_95 = 1.96, -1.96
             z_90, z_neg_90 = 1.64, -1.64

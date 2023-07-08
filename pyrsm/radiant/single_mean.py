@@ -34,7 +34,6 @@ def ui_summary():
                     label="Comparison value:",
                     value=0,
                 ),
-                width=3,
             ),
         ),
     )
@@ -55,7 +54,6 @@ def ui_plot():
                         "sim": "Simulate",
                     },
                 ),
-                width=3,
             ),
         ),
     )
@@ -149,8 +147,8 @@ class basics_single_mean:
             return f"""rsm.single_mean({args_string})""", code
 
         def show_code():
-            mc = estimation_code()
-            return f"""{mc[1]}\nsm = {mc[0]}"""
+            sc = estimation_code()
+            return f"""{sc[1]}\nsm = {sc[0]}"""
 
         @reactive.Calc
         def single_mean():

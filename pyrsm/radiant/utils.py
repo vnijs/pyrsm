@@ -50,8 +50,12 @@ def init(self, datasets, descriptions=None, open=True):
     self.stop_code = ""
 
 
+def escape_quotes(cmd):
+    return cmd.replace('"', '\\"').replace("'", "\\'")
+
+
 def copy_icon(cmd):
-    cmd = cmd.replace('"', '\\"').replace("'", "\\'").replace("\n", "\\n")
+    cmd = escape_quotes(cmd).replace("\n", "\\n")
     return (
         ui.input_action_link(
             "copy",
@@ -96,7 +100,7 @@ def drop_default_args(args, func):
             and k not in ["data", "df"]
             and not (v[0] + v[-1] == "{}")
         ):
-            v = v.replace('"', '\\"').replace("'", "\\'")
+            v = escape_quotes(v)
             return f'"{v}"'
         else:
             return v
@@ -117,7 +121,7 @@ def get_data(input, self):
     if input.show_filter():
         code_sf = ""
         if not is_empty(input.data_filter()):
-            code_sf += f""".query("{input.data_filter()}")"""
+            code_sf += f""".query("{escape_quotes(input.data_filter())}")"""
         if not is_empty(input.data_sort()):
             code_sf += f""".sort_values({input.data_sort()})"""
         if not is_empty(input.data_slice()):
@@ -229,12 +233,12 @@ def ui_data(self):
                 ui.input_checkbox("show_filter", "Show data filter"),
                 ui.panel_conditional(
                     "input.show_filter == true",
-                    ui.input_radio_buttons(
-                        "data_language",
-                        "Data language",
-                        ["Pandas", "Polars", "SQL"],
-                        inline=True,
-                    ),
+                    # ui.input_radio_buttons(
+                    #     "data_language",
+                    #     "Data language",
+                    #     ["Pandas", "Polars", "SQL"],
+                    #     inline=True,
+                    # ),
                     input_return_text_area(
                         "data_filter",
                         "Data Filter:",
@@ -245,13 +249,13 @@ def ui_data(self):
                         "data_sort",
                         "Data sort:",
                         rows=2,
-                        placeholder="Arrange (e.g., ['color', 'price'], ascending=[True, False])) and press return",
+                        placeholder="Sort (e.g., ['color', 'price'], ascending=[True, False])) and press return",
                     ),
                     input_return_text_area(
                         "data_slice",
                         "Data slice (rows):",
                         rows=1,
-                        placeholder="e.g., 1:50 and press return",
+                        placeholder="e.g., 0:50 and press return",
                     ),
                 ),
             ),
