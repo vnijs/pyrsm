@@ -1,15 +1,10 @@
-from cmath import sqrt
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy import stats
 import seaborn as sns
 from ..model import sig_stars
-from ..utils import ifelse
-from typing import Any, Optional
-from scipy.stats import chisquare
-from statsmodels.stats import multitest
+from typing import Optional
 
 
 class correlation:
@@ -50,10 +45,10 @@ class correlation:
         cp = cr.copy()
         for i in range(ncol - 1):
             for j in range(i + 1, ncol):
-                cdata = data.iloc[:, [i, j]]
+                cdf = data.iloc[:, [i, j]]
                 # pairwise deletion
-                cdata = cdata[~np.any(np.isnan(cdata), axis=1)]
-                c = stats.pearsonr(cdata.iloc[:, 0], cdata.iloc[:, 1])
+                cdf = cdf[~np.any(np.isnan(cdf), axis=1)]
+                c = stats.pearsonr(cdf.iloc[:, 0], cdf.iloc[:, 1])
                 cr[j, i] = c[0]
                 cp[j, i] = c[1]
 
@@ -235,6 +230,5 @@ class correlation:
                         cor_text(cmat[j, i], pmat[j, i], axes[i, j], dec=2)
 
             plt.subplots_adjust(wspace=0.04, hspace=0.04)
-            # plt.show()
 
         cor_mat(self.data, self.cr, self.cp, dec=dec, nobs=nobs, figsize=figsize)

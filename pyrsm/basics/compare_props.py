@@ -127,11 +127,11 @@ class compare_props:
             observed = pd.crosstab(
                 self.data[v1], columns=self.data[v2], margins=True, margins_name="Total"
             )
-            chisq, self.p_val, data, _ = stats.chi2_contingency(
+            chisq, self.p_val, df, _ = stats.chi2_contingency(
                 self.observed.drop(columns="Total").drop("Total", axis=0),
                 correction=False,
             )
-            # chisq, self.p_val, data, _ = stats.chi2_contingency()  # unsure about this
+            # chisq, self.p_val, df, _ = stats.chi2_contingency()  # unsure about this
 
             # print(f"chisq: {chisq}")
 
@@ -141,7 +141,7 @@ class compare_props:
                 diff,
                 self.p_val,
                 chisq,
-                data,
+                df,
                 # zero_percent,
                 # x_percent,
             ]
@@ -155,7 +155,7 @@ class compare_props:
                 "diff",
                 "p.value",
                 "chisq.value",
-                "data",
+                "df",
                 # "0%",
                 # str(self.conf * 100) + "%",
             ],

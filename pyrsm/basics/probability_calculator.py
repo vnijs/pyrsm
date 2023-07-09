@@ -1,17 +1,6 @@
-# from cmath import sqrt
-# import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-
-# import pandas as pd
 from scipy import stats
-
-# import seaborn as sns
-# from ..model import sig_stars
-# from ..utils import ifelse
-# from typing import Any, Optional
-# from scipy.stats import chisquare
-# from statsmodels.stats import multitest
 
 
 class prob_calc:

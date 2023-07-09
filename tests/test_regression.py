@@ -19,3 +19,7 @@ df["response"] = np.where((df["x1"] > 0.5) & (df["response_prob"] > 0.5), "yes",
 def test_sim_prediction():
     ret = sim_prediction(df)
     assert ret.loc[0, "x3"] == "b", "Incorrectly generated simulated data"
+
+
+if __name__ == "__main__":
+    test_sim_prediction()

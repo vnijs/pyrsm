@@ -79,3 +79,16 @@ def test_union():
 
 def test_intersect():
     assert intersect(["a", "b", "c"], ["b", "x"]) == ["b"], "Union incorrect"
+
+
+if __name__ == "__main__":
+    test_add_description()
+    test_ifelse_true()
+    test_ifelse_false()
+    test_ifelse_array()
+    test_level_list()
+    test_expand_grid()
+    test_table2data()
+    test_setdiff()
+    test_union()
+    test_intersect()

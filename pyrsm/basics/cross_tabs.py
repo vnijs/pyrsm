@@ -168,7 +168,7 @@ Percentages:
 {self.perc.transform(lambda x: (100*x).round(dec).astype(str) + "%")}
 """
         prn += f"""
-Chi-squared: {round(self.chisq_test[0], dec)} data({int(self.chisq_test[2])}), p.value {ifelse(self.chisq_test[1] < 0.001, "< .001", round(self.chisq_test[1], dec))}
+Chi-squared: {round(self.chisq_test[0], dec)} df({int(self.chisq_test[2])}), p.value {ifelse(self.chisq_test[1] < 0.001, "< .001", round(self.chisq_test[1], dec))}
 {100 * round(self.expected_low[0] / self.expected_low[1], dec)}% of cells have expected values below 5
 """
         print(prn)
@@ -202,7 +202,7 @@ Chi-squared: {round(self.chisq_test[0], dec)} data({int(self.chisq_test[2])}), p
 
         args = {"rot": False}
         if "observed" in output:
-            data = (
+            tab = (
                 self.observed.transpose()
                 .drop(columns="Total")
                 .drop("Total", axis=0)
@@ -210,9 +210,9 @@ Chi-squared: {round(self.chisq_test[0], dec)} data({int(self.chisq_test[2])}), p
             )
             args["title"] = "Observed frequencies"
             args.update(**kwargs)
-            fig = data.plot.bar(stacked=True, **args)
+            fig = tab.plot.bar(stacked=True, **args)
         if "expected" in output:
-            data = (
+            tab = (
                 self.expected.transpose()
                 .drop(columns="Total")
                 .drop("Total", axis=0)
@@ -220,18 +220,18 @@ Chi-squared: {round(self.chisq_test[0], dec)} data({int(self.chisq_test[2])}), p
             )
             args["title"] = "Expected frequencies"
             args.update(**kwargs)
-            fig = data.plot.bar(stacked=True, **args)
+            fig = tab.plot.bar(stacked=True, **args)
         if "chisq" in output:
-            data = self.chisq.transpose().drop(columns="Total").drop("Total", axis=0)
+            tab = self.chisq.transpose().drop(columns="Total").drop("Total", axis=0)
             args["title"] = "Contribution to chi-squared statistic"
             args.update(**kwargs)
-            fig = data.plot.bar(**args)
+            fig = tab.plot.bar(**args)
         if "dev_std" in output:
-            data = self.dev_std.transpose()
+            tab = self.dev_std.transpose()
             args["title"] = "Deviation standardized"
             args.update(**kwargs)
             fig, ax = plt.subplots()
-            data.plot.bar(**args, ax=ax)
+            tab.plot.bar(**args, ax=ax)
             ax.axhline(y=1.96, color="black", linestyle="--")
             ax.axhline(y=1.64, color="black", linestyle="--")
             ax.axhline(y=-1.96, color="black", linestyle="--")
@@ -239,17 +239,17 @@ Chi-squared: {round(self.chisq_test[0], dec)} data({int(self.chisq_test[2])}), p
             ax.annotate("95%", xy=(0, 2.1), va="bottom", ha="center")
             ax.annotate("90%", xy=(0, 1.4), va="top", ha="center")
         if "perc_col" in output:
-            data = self.perc_col.transpose().drop(columns="Total").drop("Total", axis=0)
+            tab = self.perc_col.transpose().drop(columns="Total").drop("Total", axis=0)
             args["title"] = "Column percentages"
             args.update(**kwargs)
-            fig = data.plot.bar(**args)
+            fig = tab.plot.bar(**args)
         if "perc_row" in output:
-            data = self.perc_row.transpose().drop(columns="Total").drop("Total", axis=0)
+            tab = self.perc_row.transpose().drop(columns="Total").drop("Total", axis=0)
             args["title"] = "Row percentages"
             args.update(**kwargs)
-            fig = data.plot.bar(**args)
+            fig = tab.plot.bar(**args)
         if "perc" in output:
-            data = self.perc.transpose().drop(columns="Total").drop("Total", axis=0)
+            tab = self.perc.transpose().drop(columns="Total").drop("Total", axis=0)
             args["title"] = "Table percentages"
             args.update(**kwargs)
-            fig = data.plot.bar(**args)
+            fig = tab.plot.bar(**args)

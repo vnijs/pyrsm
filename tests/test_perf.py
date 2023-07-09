@@ -95,3 +95,19 @@ def test_rome_plot_single():
 
 def test_ROME_plot_mult():
     fig = ROME_plot(df, "response", "yes", ["x1", "x2"], qnt=10)
+
+
+if __name__ == "__main__":
+    test_calc_qnt()
+    test_calc_qnt_rev()
+    test_gains_tab()
+    test_lift_tab()
+    test_evalbin()
+    test_lift_plot_single()
+    test_lift_plot_mult()
+    test_gains_plot_single()
+    test_gains_plot_mult()
+    test_profit_plot_single()
+    test_profit_plot_mult()
+    test_rome_plot_single()
+    test_ROME_plot_mult()

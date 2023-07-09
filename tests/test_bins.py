@@ -35,3 +35,10 @@ def test_bincode_nan():
         bins[:9] == np.array([1, 1, 2, 2, 3, 4, 4, 5, 5])
     ), "Incorrect bins with NaN returned"
     assert np.isnan(bins[-1]), "No missing value returned"
+
+
+if __name__ == "__main__":
+    test_xtile()
+    test_xtile_rev()
+    test_xtile_nan()
+    test_bincode_nan()

@@ -155,8 +155,8 @@ class basics_cross_tabs:
                 "var2": input.var2(),
             }
 
-            args_string = ru.drop_default_args(args, rsm.cross_tabs)
-            return f"""rsm.cross_tabs({args_string})""", code
+            args_string = ru.drop_default_args(args, rsm.basics.cross_tabs)
+            return f"""rsm.basics.cross_tabs({args_string})""", code
 
         def show_code():
             sc = estimation_code()

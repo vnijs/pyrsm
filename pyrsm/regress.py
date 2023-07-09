@@ -20,7 +20,7 @@ from .model import (
 )
 from .model import vif as calc_vif
 from .visualize import distr_plot
-from .basics import correlation
+from .basics.correlation import correlation
 
 
 class regress:

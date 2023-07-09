@@ -33,7 +33,7 @@ class goodness_of_fit:
 
         self._observed_frequencies = self.data[self.variable].value_counts().to_dict()
         if self.params is not None:
-            self._observed_data = pd.DataFrame(
+            self._observed_df = pd.DataFrame(
                 {
                     key: [
                         item,
@@ -42,61 +42,61 @@ class goodness_of_fit:
                 },
                 columns=sorted(self._observed_frequencies.keys()),
             )
-            self._observed_data["Total"] = self._observed_data[
-                list(self._observed_data.columns)
+            self._observed_df["Total"] = self._observed_df[
+                list(self._observed_df.columns)
             ].sum(axis=1)
 
-            self._expected_data = pd.DataFrame(
+            self._expected_df = pd.DataFrame(
                 {
                     sorted(self._observed_frequencies.keys())[i]: [
-                        self.probabilities[i] * self._observed_data.at[0, "Total"],
+                        self.probabilities[i] * self._observed_df.at[0, "Total"],
                     ]
                     for i in range(len(self._observed_frequencies.keys()))
                 },
                 columns=sorted(self._observed_frequencies.keys()),
             )
-            self._expected_data["Total"] = self._expected_data[
-                list(self._expected_data.columns)
+            self._expected_df["Total"] = self._expected_df[
+                list(self._expected_df.columns)
             ].sum(axis=1)
 
-            self._chisquared_data = pd.DataFrame(
+            self._chisquared_df = pd.DataFrame(
                 {
                     column: [
                         round(
                             (
                                 (
-                                    self._observed_data.at[0, column]
-                                    - self._expected_data.at[0, column]
+                                    self._observed_df.at[0, column]
+                                    - self._expected_df.at[0, column]
                                 )
                                 ** 2
                             )
-                            / self._expected_data.at[0, column],
+                            / self._expected_df.at[0, column],
                             2,
                         ),
                     ]
-                    for column in self._expected_data.columns.tolist()[:-1]
+                    for column in self._expected_df.columns.tolist()[:-1]
                 },
-                columns=self._expected_data.columns.tolist(),
+                columns=self._expected_df.columns.tolist(),
             )
-            self._chisquared_data["Total"] = self._chisquared_data[
-                list(self._chisquared_data.columns)
+            self._chisquared_df["Total"] = self._chisquared_df[
+                list(self._chisquared_df.columns)
             ].sum(axis=1)
 
-            self._stdev_data = pd.DataFrame(
+            self._stdev_df = pd.DataFrame(
                 {
                     column: [
                         round(
                             (
-                                self._observed_data.at[0, column]
-                                - self._expected_data.at[0, column]
+                                self._observed_df.at[0, column]
+                                - self._expected_df.at[0, column]
                             )
-                            / sqrt(self._expected_data.at[0, column]).real,
+                            / sqrt(self._expected_df.at[0, column]).real,
                             2,
                         ),
                     ]
-                    for column in self._expected_data.columns.tolist()[:-1]
+                    for column in self._expected_df.columns.tolist()[:-1]
                 },
-                columns=self._expected_data.columns.tolist()[:-1],
+                columns=self._expected_df.columns.tolist()[:-1],
             )
 
     def summary(self) -> None:
@@ -141,25 +141,25 @@ class goodness_of_fit:
         if self.params is not None:
             if "observed" in self.params:
                 print("Observed:")
-                print(self._observed_data.to_string(index=False))
+                print(self._observed_df.to_string(index=False))
                 print()
 
             if "expected" in self.params:
                 print("Expected: total x p")
-                print(self._expected_data.to_string(index=False))
+                print(self._expected_df.to_string(index=False))
                 print()
 
             if "chi-squared" in self.params:
                 print(
                     "Contribution to chi-squared: (observed - expected) ^ 2 / expected"
                 )
-                print(self._chisquared_data.to_string(index=False))
+                print(self._chisquared_df.to_string(index=False))
                 print()
 
             if "deviation std" in self.params:
                 print("Deviation standardized: (observed - expected) / sqrt(expected)")
                 print()
-                print(self._stdev_data.to_string(index=False))
+                print(self._stdev_df.to_string(index=False))
                 print()
 
         chisq, p_val = chisquare(
@@ -168,7 +168,7 @@ class goodness_of_fit:
                 for key in sorted(self._observed_frequencies.keys())
             ],
             [
-                self._expected_data.at[0, key]
+                self._expected_df.at[0, key]
                 for key in sorted(self._observed_frequencies.keys())
             ],
         )
@@ -176,7 +176,7 @@ class goodness_of_fit:
 
         if p_val < 0.001:
             p_val = "< .001"
-        print(f"Chi-squared: {chisq} data ({num_levels - 1}), p.value {p_val}")
+        print(f"Chi-squared: {chisq} df ({num_levels - 1}), p.value {p_val}")
 
     def plot(self) -> None:
         _, axes = plt.subplots(2, 2, figsize=self.figsize)
@@ -184,72 +184,70 @@ class goodness_of_fit:
 
         if "observed" in self.params:
             plt.axes(axes[0][0])
-            observed_frequency_percentages_data = pd.DataFrame(
+            observed_frequency_percentages_df = pd.DataFrame(
                 {
-                    "levels": self._observed_data.columns.tolist()[:-1],
+                    "levels": self._observed_df.columns.tolist()[:-1],
                     "percentages": [
                         (
-                            self._observed_data.at[0, level]
-                            / self._observed_data.at[0, "Total"]
+                            self._observed_df.at[0, level]
+                            / self._observed_df.at[0, "Total"]
                         )
                         * 100
-                        for level in self._observed_data.columns.tolist()[:-1]
+                        for level in self._observed_df.columns.tolist()[:-1]
                     ],
                 }
             )
             sns.barplot(
-                data=observed_frequency_percentages_data, x="levels", y="percentages"
+                data=observed_frequency_percentages_df, x="levels", y="percentages"
             ).plot()
 
         if "expected" in self.params:
             plt.axes(axes[0][1])
-            expected_frequency_percentages_data = pd.DataFrame(
+            expected_frequency_percentages_df = pd.DataFrame(
                 {
-                    "levels": self._expected_data.columns.tolist()[:-1],
+                    "levels": self._expected_df.columns.tolist()[:-1],
                     "percentages": [
                         (
-                            self._expected_data.at[0, level]
-                            / self._expected_data.at[0, "Total"]
+                            self._expected_df.at[0, level]
+                            / self._expected_df.at[0, "Total"]
                         )
                         * 100
-                        for level in self._expected_data.columns.tolist()[:-1]
+                        for level in self._expected_df.columns.tolist()[:-1]
                     ],
                 }
             )
             sns.barplot(
-                data=expected_frequency_percentages_data, x="levels", y="percentages"
+                data=expected_frequency_percentages_df, x="levels", y="percentages"
             ).plot()
 
         if "chi-squared" in self.params:
             plt.axes(axes[1][0])
-            chisquared_contribution_data = pd.DataFrame(
+            chisquared_contribution_df = pd.DataFrame(
                 {
-                    "levels": self._chisquared_data.columns.tolist()[:-1],
+                    "levels": self._chisquared_df.columns.tolist()[:-1],
                     "contribution": [
-                        self._chisquared_data.at[0, level]
-                        for level in self._chisquared_data.columns.tolist()[:-1]
+                        self._chisquared_df.at[0, level]
+                        for level in self._chisquared_df.columns.tolist()[:-1]
                     ],
                 }
             )
             sns.barplot(
-                data=chisquared_contribution_data, x="levels", y="contribution"
+                data=chisquared_contribution_df, x="levels", y="contribution"
             ).plot()
 
         if "deviation std" in self.params:
             plt.axes(axes[1][1])
-            standardized_deviation_data = pd.DataFrame(
+            standardized_deviation_df = pd.DataFrame(
                 {
-                    "levels": self._stdev_data.columns.tolist(),
+                    "levels": self._stdev_df.columns.tolist(),
                     "stdev": [
-                        self._stdev_data.at[0, level]
-                        for level in self._stdev_data.columns.tolist()
+                        self._stdev_df.at[0, level]
+                        for level in self._stdev_df.columns.tolist()
                     ],
                 }
             )
 
-            barplot = sns.barplot(
-                data=standardized_deviation_data, x="levels", y="stdev"
-            )
+            barplot = sns.barplot(data=standardized_deviation_df, x="levels", y="stdev")
 
             z_95, z_neg_95 = 1.96, -1.96
             z_90, z_neg_90 = 1.64, -1.64

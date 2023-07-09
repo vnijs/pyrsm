@@ -1,18 +1,10 @@
-# from cmath import sqrt
-# import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy import stats
-
-# import seaborn as sns
 from ..model import sig_stars
 from ..utils import ifelse
 import pyrsm.basics.utils as bu
-
-# from typing import Any, Optional
-# from scipy.stats import chisquare
-# from statsmodels.stats import multitest
 
 
 class single_mean:

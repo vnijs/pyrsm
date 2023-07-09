@@ -1,15 +1,7 @@
 from cmath import sqrt
-import matplotlib
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 from scipy import stats
-import seaborn as sns
-from ..model import sig_stars
-from ..utils import ifelse
-from typing import Any, Optional
-from scipy.stats import chisquare
-from statsmodels.stats import multitest
 
 
 class single_prop:
@@ -17,7 +9,7 @@ class single_prop:
         self,
         data: pd.DataFrame,
         variable: str,
-        level: Any,
+        level: str,
         alt_hyp: str,
         conf: float,
         comp_value: float,
@@ -91,5 +83,21 @@ class single_prop:
         print(table2.to_string(index=False))
 
     def plot(self) -> None:
-        # TODO
-        pass
+        return "Plotting not yet implemented"
+
+
+if __name__ == "__main__":
+    import pyrsm as rsm
+
+    consider, consider_description = rsm.load_data(pkg="basics", name="consider")
+    sp = single_prop(
+        data={"consider": consider},
+        variable="consider",
+        level="yes",
+        alt_hyp="less",
+        conf=0.95,
+        comp_value=0.1,
+        test_type="binomial",
+    )
+    sp.summary()
+    sp.plot()

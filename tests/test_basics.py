@@ -1,4 +1,5 @@
-from pyrsm.basics import correlation, cross_tabs
+from pyrsm.basics.correlation import correlation
+from pyrsm.basics.cross_tabs import cross_tabs
 import numpy as np
 import pandas as pd
 
@@ -21,3 +22,8 @@ def test_crosstab():
     assert all(
         ct.expected.iloc[0, :].round(6) == [1.714286, 1.714286, 0.571429, 4.0000]
     ), "Cross tab expected values incorrect"
+
+
+if __name__ == "__main__":
+    test_correlation()
+    test_crosstab()

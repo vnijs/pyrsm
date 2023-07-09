@@ -27,7 +27,7 @@ python -m twine upload dist/*
 ## now install in "editable" mode
 sudo pip uninstall -y pyrsm
 sudo rm -rf ~/gh/pyrsm/dist
-sudo pip install -e ~/gh/pyrsm
+sudo pip install --user -e ~/gh/pyrsm
 
 
 conda activate base

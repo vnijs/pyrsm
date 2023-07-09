@@ -6,9 +6,9 @@ from .utils import *
 from .props import *
 from .model import *
 from .logit import *
-from .radiant import *
 from .regress import *
-from .basics import *
 from .visualize import *
 from .notebook import *
 from .example_data import *
+import pyrsm.basics
+import pyrsm.radiant

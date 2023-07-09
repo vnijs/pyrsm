@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
-from scipy import stats
-import inspect as ins
+import inspect
 from itertools import product
 from datetime import date, datetime
 from math import ceil
@@ -412,9 +411,9 @@ def odir(obj, private: bool = False) -> dict:
     """
     mth = []
     attr = []
-    for i in ins.getmembers(obj):
+    for i in inspect.getmembers(obj):
         if private or not i[0].startswith("_"):
-            if ins.ismethod(i[1]) or ins.isbuiltin(i[1]):
+            if inspect.ismethod(i[1]) or inspect.isbuiltin(i[1]):
                 mth.append(i[0])
             else:
                 attr.append(i[0])

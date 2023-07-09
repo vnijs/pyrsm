@@ -1,15 +1,9 @@
-from cmath import sqrt
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from scipy import stats
 import seaborn as sns
-from ..model import sig_stars
-from ..utils import ifelse
-from typing import Any, Optional
-from scipy.stats import chisquare
-from statsmodels.stats import multitest
+from typing import Optional
 
 
 class central_limit_theorem:
@@ -19,7 +13,7 @@ class central_limit_theorem:
         sample_size: int,
         num_samples: int,
         num_bins: int,
-        figsize: Optional[tuple[float, float]] = None,
+        figsize: Optional[tuple[float, float]] = (10, 10),
         **params: float,
     ) -> None:
         self.dist = dist
@@ -31,17 +25,17 @@ class central_limit_theorem:
 
     def simulate(self) -> None:
         if self.dist == "normal":
-            self._simulate_normal()
+            self.simulate_normal()
         elif self.dist == "binomial":
-            self._simulate_binomial()
+            self.simulate_binomial()
         elif self.dist == "uniform":
-            self._simulate_uniform()
+            self.simulate_uniform()
         elif self.dist == "exponential":
-            self._simulate_exponential()
+            self.simulate_exponential()
         else:
             print("Invalid distribution")
 
-    def _simulate_normal(self) -> None:
+    def simulate_normal(self) -> None:
         mean = self.params["mean"]
         sd = self.params["sd"]
         samples = [
@@ -51,7 +45,7 @@ class central_limit_theorem:
 
         self.plot_distribution(samples)
 
-    def _simulate_binomial(self) -> None:
+    def simulate_binomial(self) -> None:
         size = self.params["size"]
         prob = self.params["prob"]
 
@@ -62,7 +56,7 @@ class central_limit_theorem:
 
         self.plot_distribution(samples)
 
-    def _simulate_uniform(self) -> None:
+    def simulate_uniform(self) -> None:
         minimum = self.params["min"]
         maximum = self.params["max"]
 
@@ -73,7 +67,7 @@ class central_limit_theorem:
 
         self.plot_distribution(samples)
 
-    def _simulate_exponential(self) -> None:
+    def simulate_exponential(self) -> None:
         rate = self.params["rate"]
 
         samples = [
@@ -108,8 +102,6 @@ class central_limit_theorem:
             x=sample_means, x_label="Density of sample means", density_plot=True
         ).plot()
 
-        # plt.show()
-
     def _plot_distribution(
         self, x: list[np.ndarray], x_label: str, density_plot: bool = False
     ) -> matplotlib.axes.Axes:
@@ -126,3 +118,28 @@ class central_limit_theorem:
             stat=stat,
             bins=self.num_bins,
         )
+
+
+if __name__ == "__main__":
+    clt = central_limit_theorem(
+        dist="normal",
+        sample_size=1000,
+        num_samples=1000,
+        num_bins=30,
+        figsize=(10, 10),
+        mean=0,
+        sd=1,
+    )
+    clt.simulate()
+
+    clt = central_limit_theorem(
+        dist="binomial",
+        sample_size=1000,
+        num_samples=1000,
+        num_bins=30,
+        figsize=(10, 10),
+        size=10,
+        prob=0.1,
+    )
+
+    clt.simulate()

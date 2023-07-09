@@ -143,8 +143,8 @@ class basics_single_mean:
                 "comp_value": input.comp_value(),
             }
 
-            args_string = ru.drop_default_args(args, rsm.single_mean)
-            return f"""rsm.single_mean({args_string})""", code
+            args_string = ru.drop_default_args(args, rsm.basics.single_mean)
+            return f"""rsm.basics.single_mean({args_string})""", code
 
         def show_code():
             sc = estimation_code()

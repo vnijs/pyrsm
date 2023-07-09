@@ -71,3 +71,12 @@ def test_weighted_scale_df():
 #     df_nan.loc[4, "x"] = np.NaN
 #     cr, cp = correlation(df_nan, prn=False)
 #     assert cr[1, 0].round(3) == -0.567, "Correlations with np.NaN incorrect"
+
+if __name__ == "__main__":
+    test_varprop()
+    test_seprop()
+    test_weighted_mean()
+    test_weighted_sd()
+    test_scale_df()
+    test_weighted_scale_df()
+    # test_correlation()
