@@ -5,7 +5,7 @@ from .stats import *
 from .utils import *
 from .props import *
 from .model import *
-from .logit import *
+from .logistic import *
 from .regress import *
 from .visualize import *
 from .notebook import *

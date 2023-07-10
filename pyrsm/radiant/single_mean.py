@@ -1,8 +1,8 @@
 from shiny import App, render, ui, reactive, Inputs, Outputs, Session
 import webbrowser, nest_asyncio, uvicorn
-import io, os, signal
+import io
 import pyrsm as rsm
-from contextlib import redirect_stdout
+from contextlib import redirect_stdout, redirect_stderr
 import pyrsm.radiant.utils as ru
 
 
@@ -39,41 +39,11 @@ def ui_summary():
     )
 
 
-def ui_plot():
-    return (
-        ui.panel_conditional(
-            "input.tabs == 'Plot'",
-            ui.panel_well(
-                ui.input_select(
-                    id="plots",
-                    label="Plots",
-                    selected=None,
-                    choices={
-                        "None": "None",
-                        "hist": "Histogram",
-                        "sim": "Simulate",
-                    },
-                ),
-            ),
-        ),
-    )
-
-
-def ui_main():
-    return ui.navset_tab_card(
-        ru.ui_data_main(),
-        ui.nav(
-            "Summary",
-            ui.output_ui("show_summary_code"),
-            ui.output_text_verbatim("summary"),
-        ),
-        ui.nav(
-            "Plot",
-            ui.output_ui("show_plot_code"),
-            ui.output_plot("plot", height="500px", width="700px"),
-        ),
-        id="tabs",
-    )
+choices = {
+    "None": "None",
+    "hist": "Histogram",
+    "sim": "Simulate",
+}
 
 
 class basics_single_mean:
@@ -90,9 +60,9 @@ class basics_single_mean:
                         3,
                         ru.ui_data(self),
                         ui_summary(),
-                        ui_plot(),
+                        ru.ui_plot(choices),
                     ),
-                    ui.column(8, ui_main()),
+                    ui.column(8, ru.ui_main_basics()),
                 ),
             ),
             ru.ui_help(
@@ -107,18 +77,8 @@ class basics_single_mean:
 
     def shiny_server(self, input: Inputs, output: Outputs, session: Session):
         # --- section standard for all apps ---
-        @reactive.Calc
-        def get_data():
-            return ru.get_data(input, self)
-
+        get_data, stop_app = ru.standard_reactives(self, input, session)
         ru.make_data_outputs(self, input, output)
-
-        @reactive.Effect
-        @reactive.event(input.stop, ignore_none=True)
-        async def stop_app():
-            rsm.md(f"```python\n{self.stop_code}\n```")
-            await session.app.stop()
-            os.kill(os.getpid(), signal.SIGTERM)
 
         # --- section unique to each app ---
         @output(id="ui_var")
@@ -170,7 +130,7 @@ class basics_single_mean:
         @render.text
         def summary():
             out = io.StringIO()
-            with redirect_stdout(out):
+            with redirect_stdout(out), redirect_stderr(out):
                 sm = single_mean()  # get the reactive object into local scope
                 sm.summary()
             return out.getvalue()
@@ -219,4 +179,13 @@ def single_mean(
         host=host,
         port=port,
         log_level=log_level,
+    )
+
+
+if __name__ == "__main__":
+    import pyrsm as rsm
+
+    demand_uk, demand_uk_description = rsm.load_data(pkg="basics", name="demand_uk")
+    single_mean(
+        {"demand_uk": demand_uk}, {"demand_uk": demand_uk_description}, open=True
     )

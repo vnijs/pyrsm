@@ -15,7 +15,7 @@ sudo pip uninstall -y pyrsm
 sudo rm -rf ~/gh/pyrsm/dist
 rm -rf ~/gh/pyrsm/dist
 # sudo rm -rf ~/gh/pyrsm/build/*
-sudo python -m build
+sudo python -m build ~/gh/pyrsm
 
 # try sending to pypi testing ground first
 python -m twine check dist/*

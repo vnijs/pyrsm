@@ -1,45 +1,44 @@
-import pandas as pd
+from typing import Union, Optional
 import re
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
+import statsmodels as sm
+from statsmodels.genmod.families import Binomial
+from statsmodels.genmod.families.links import logit
 import statsmodels.formula.api as smf
-from typing import Optional
-from statsmodels.regression.linear_model import RegressionResults as rrs
-from .utils import ifelse, format_nr, setdiff
-from .visualize import pred_plot_sm, vimp_plot_sm
-from .model import (
-    sig_stars,
-    model_fit,
-    extract_evars,
-    extract_rvar,
-    scatter_plot,
-    reg_dashboard,
-    residual_plot,
-    coef_plot,
-    coef_ci,
-    predict_ci,
-    sim_prediction,
-)
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+from scipy import stats
+from scipy.special import expit
+from .utils import ifelse, setdiff, odir
+from .stats import weighted_mean, weighted_sd
+from .perf import auc
+from .model import sig_stars, model_fit, or_ci, or_plot, sim_prediction
 from .model import vif as calc_vif
-from .visualize import distr_plot
-from .basics.correlation import correlation
+
+# from statsmodels.regression.linear_model import RegressionResults as rrs
+from .visualize import pred_plot_sm, vimp_plot_sm, extract_evars, extract_rvar
 
 
-class regress:
+class logistic:
     def __init__(
         self,
         data,
         rvar: Optional[str] = None,
+        lev: Optional[str] = None,
         evar: Optional[list[str]] = None,
         ivar: Optional[list[str]] = None,
         form: Optional[str] = None,
     ) -> None:
-
         """
-        Estimate linear regression model
+        Initialize logistic regression model
 
         Parameters
         ----------
-        data: pandas DataFrame; dataset
+        dataset: pandas DataFrame; dataset
         evar: List of strings; contains the names of the columns of data to be used as explanatory variables
+        lev: String; name of the level in the response variable
         rvar: String; name of the column to be used as the response variable
         form: String; formula for the regression equation to use if evar and rvar are not provided
         """
@@ -50,14 +49,22 @@ class regress:
             self.data = data.copy()  # needed with pandas
             self.name = "Not provided"
         self.rvar = rvar
+        self.lev = lev
         self.evar = ifelse(isinstance(evar, str), [evar], evar)
         self.ivar = ifelse(isinstance(ivar, str), [ivar], ivar)
         self.form = form
 
+        if self.lev is not None and self.rvar is not None:
+            self.data[self.rvar] = (self.data[self.rvar] == lev).astype(int)
+
         if self.form:
-            self.fitted = smf.ols(formula=self.form, data=self.data).fit()
+            self.fitted = smf.glm(
+                formula=self.form, data=self.data, family=Binomial(link=logit())
+            ).fit()
             self.evar = extract_evars(self.fitted.model, self.data.columns)
             self.rvar = extract_rvar(self.fitted.model, self.data.columns)
+            if self.lev is None:
+                self.lev = self.data.at[0, self.rvar]
         else:
             if self.evar is None or len(self.evar) == 0:
                 self.form = f"{self.rvar} ~ 1"
@@ -65,45 +72,41 @@ class regress:
                 self.form = f"{self.rvar} ~ {' + '.join(self.evar)}"
             if self.ivar:
                 self.form += f" + {' + '.join(self.ivar)}"
-            self.fitted = smf.ols(self.form, data=self.data).fit()
-
-        df = pd.DataFrame(self.fitted.params, columns=["coefficient"]).dropna()
+            self.fitted = smf.glm(
+                formula=self.form, data=self.data, family=Binomial(link=logit())
+            ).fit()
+        df = pd.DataFrame(np.exp(self.fitted.params), columns=["OR"]).dropna()
+        df["OR%"] = 100 * ifelse(df["OR"] < 1, -(1 - df["OR"]), df["OR"] - 1)
+        df["coefficient"] = self.fitted.params
         df["std.error"] = self.fitted.params / self.fitted.tvalues
-        df["t.value"] = self.fitted.tvalues
+        # wierd but this is what statsmodels uses in summary
+        df["z.value"] = self.fitted.tvalues
         df["p.value"] = self.fitted.pvalues
         df["  "] = sig_stars(self.fitted.pvalues)
         self.coef = df.reset_index()
 
-    def summary(
-        self,
-        ci=False,
-        ssq=False,
-        vif=False,
-        test=None,
-        dec=3,
-    ) -> None:
+    def summary(self, ci=False, vif=False, test=None, dec=3) -> None:
         """
-        Summarize output from a linear regression model
-
-        parameters
-        ----------
-        ssq: Boolean; if True, include sum of squares
-        vif: Boolean; if True, include variance inflation factors
+        Summarize output from a logistic regression model
         """
-        print("Linear regression (OLS)")
-        print("Data                 :", self.name)
-        print("Response variable    :", self.rvar)
-        print("Explanatory variables:", ", ".join(self.evar))
-        print(f"Null hyp.: the effect of x on {self.rvar} is zero")
-        print(f"Alt. hyp.: the effect of x on {self.rvar} is not zero")
+        print("Logistic regression (GLM)")
+        print(f"Data                 : {self.name}")
+        print(f"Response variable    : {self.rvar}")
+        print(f"Level                : {self.lev}")
+        print(f"Explanatory variables: {', '.join(self.evar)}")
+        print(f"Null hyp.: There is no effect of x on {self.rvar}")
+        print(f"Alt. hyp.: There is an effect of x on {self.rvar}")
 
         df = self.coef.copy()
+        df["OR"] = df["OR"].round(dec)
         df["coefficient"] = df["coefficient"].round(2)
         df["std.error"] = df["std.error"].round(dec)
-        df["t.value"] = df["t.value"].round(dec)
+        df["z.value"] = df["z.value"].round(dec)
         df["p.value"] = ifelse(
             df["p.value"] < 0.001, "< .001", df["p.value"].round(dec)
         )
+        df["OR%"] = [f"{round(o, max(dec-2, 0))}%" for o in df["OR%"]]
+
         df = df.set_index("index")
         df.index.name = None
         print(f"\n{df.to_string()}")
@@ -112,30 +115,9 @@ class regress:
 
         if ci:
             print("\nConfidence intervals:")
-            df = coef_ci(self.fitted).set_index("index")
+            df = or_ci(self.fitted).set_index("index")
             df.index.name = None
             print(f"\n{df.to_string()}")
-
-        if ssq:
-            print("\nSum of squares:")
-            index = ["Regression", "Error", "Total"]
-            sum_of_squares = [
-                self.fitted.ess,
-                self.fitted.ssr,
-                self.fitted.centered_tss,
-            ]
-            sum_of_squares = pd.DataFrame(index=index).assign(
-                df=format_nr(
-                    [
-                        self.fitted.df_model,
-                        self.fitted.df_resid,
-                        self.fitted.df_model + self.fitted.df_resid,
-                    ],
-                    dec=0,
-                ),
-                SS=format_nr(sum_of_squares, dec=0),
-            )
-            print(f"\n{sum_of_squares.to_string()}")
 
         if vif:
             if self.evar is None or len(self.evar) < 2:
@@ -145,7 +127,7 @@ class regress:
                 print(f"\n{calc_vif(self.fitted).to_string()}")
 
         if test is not None and len(test) > 0:
-            self.f_test(test=test, dec=dec)
+            self.chisq_test(test=test, dec=dec)
 
     def predict(self, df=None, cmd=None, dc=False, ci=False, conf=0.95) -> pd.DataFrame:
         """
@@ -174,38 +156,34 @@ class regress:
 
     def plot(
         self,
-        plots="dist",
-        nobs: int = 1000,
-        intercept=False,
+        plots="or",
         alpha=0.05,
+        intercept=False,
         incl=None,
-        excl=[],
+        excl=None,
         incl_int=[],
         fix=True,
         hline=False,
         figsize=None,
     ) -> None:
         """
-        Plots for a linear regression model
+        Plots for a logistic regression model
         """
-        data = self.data[[self.rvar] + self.evar].copy()
-        if "dist" in plots:
-            distr_plot(data)
-        if "corr" in plots:
-            cr = correlation(data)
-            cr.plot(nobs=nobs, figsize=figsize)
-        if "scatter" in plots:
-            scatter_plot(self.fitted, data, nobs=nobs, figsize=figsize)
-        if "dashboard" in plots:
-            reg_dashboard(self.fitted, nobs=nobs)
-        if "residual" in plots:
-            residual_plot(self.fitted, data, nobs=nobs, figsize=figsize)
+        if "or" in plots:
+            or_plot(
+                self.fitted,
+                alpha=alpha,
+                intercept=intercept,
+                incl=incl,
+                excl=excl,
+                figsize=figsize,
+            )
         if "pred" in plots:
             pred_plot_sm(
                 self.fitted,
                 self.data,
                 incl=incl,
-                excl=excl,
+                excl=[],
                 incl_int=incl_int,
                 fix=fix,
                 hline=hline,
@@ -215,19 +193,10 @@ class regress:
             )
         if "vimp" in plots:
             vimp_plot_sm(self.fitted, self.data, rep=10, ax=None, ret=False)
-        if "coef" in plots:
-            coef_plot(
-                self.fitted,
-                alpha=alpha,
-                intercept=intercept,
-                incl=incl,
-                excl=excl,
-                figsize=figsize,
-            )
 
-    def f_test(self, test=None, dec=3) -> None:
+    def chisq_test(self, test=None, dec=3) -> None:
         """
-        F-test for competing models
+        Chisq-test for competing models
 
         Parameters
         ----------
@@ -247,10 +216,10 @@ class regress:
             form += "1"
         else:
             form += f"{' + '.join(evar + sint)}"
-        pattern = r"(\[T\.[^\]]*\])\:"
 
         # ensure constraints are unique
-        hypothesis = list(
+        pattern = r"(\[T\.[^\]]*\])\:"
+        hypotheses = list(
             set(
                 [
                     f"({c} = 0)"
@@ -267,14 +236,27 @@ class regress:
 
         print(f"\nModel 1: {form}")
         print(f"Model 2: {self.form}")
-        out = self.fitted.f_test(hypothesis)
 
-        r2_sub = self.fitted.rsquared - (
-            len(hypothesis) * out.fvalue * (1 - self.fitted.rsquared)
-        ) / (self.fitted.nobs - self.fitted.df_model - 1)
+        # Wald test (faster but not as accurate)
+        # out = self.fitted.wald_test(hypotheses, scalar=True)
+        # pvalue = ifelse(out.pvalue < 0.001, "< .001", round(out.pvalue, dec))
+        # print(
+        #     f"Chi-squared: {round(out.statistic, dec)} df ({out.df_denom:.0f}), p.value {pvalue}"
+        # )
 
-        pvalue = ifelse(out.pvalue < 0.001, "< .001", round(out.pvalue, dec))
-        print(f"R-squared, Model 1 vs 2: {r2_sub:.3f} vs {self.fitted.rsquared:.3f}")
-        print(
-            f"F-statistic: {round(out.fvalue, dec)} df ({out.df_num:.0f}, {out.df_denom:.0f}), p.value {pvalue}"
-        )
+        # LR test of competing models (slower but more accurate)
+        sub_fitted = smf.glm(
+            formula=form, data=self.data, family=Binomial(link=logit())
+        ).fit()
+
+        lrtest = -2 * (sub_fitted.llf - self.fitted.llf)
+        df = self.fitted.df_model - sub_fitted.df_model
+        pvalue = stats.chi2.sf(lrtest, df)
+
+        # calculate pseudo R-squared values for both models
+        pr2_full = 1 - self.fitted.llf / self.fitted.llnull
+        pr2_sub = 1 - sub_fitted.llf / sub_fitted.llnull
+
+        print(f"Pseudo R-squared, Model 1 vs 2: {pr2_sub:.3f} vs {pr2_full:.3f}")
+        pvalue = ifelse(pvalue < 0.001, "< .001", round(pvalue, dec))
+        print(f"Chi-squared: {round(lrtest, dec)} df ({df:.0f}), p.value {pvalue}")

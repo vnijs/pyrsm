@@ -1,8 +1,14 @@
-include pyrsm/data/basics/*.pkl
-include pyrsm/data/data/*.pkl
-include pyrsm/data/design/*.pkl
-include pyrsm/data/model/*.pkl
-include pyrsm/data/multivariate/*.pkl
+include pyrsm/data/basics/*.parquet
+include pyrsm/data/basics/*.md
+include pyrsm/data/data/*.parquet
+include pyrsm/data/data/*.md
+include pyrsm/data/design/*.parquet
+include pyrsm/data/design/*.md
+include pyrsm/data/model/*.parquet
+include pyrsm/data/model/*.md
+include pyrsm/data/multivariate/*.parquet
+include pyrsm/data/multivariate/*.md
 include pyrsm/radiant/www/*
 
 recursive-exclude pyrsm/data/model/ fraud_data.pkl
+recursive-exclude pyrsm/data/model/ fraud_data.parquet

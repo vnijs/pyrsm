@@ -1,4 +1,4 @@
-from shiny import App, ui, Inputs, Outputs, Session
+from shiny import App, ui, render, Inputs, Outputs, Session
 import webbrowser, nest_asyncio, uvicorn
 import pyrsm as rsm
 from faicons import icon_svg
@@ -9,17 +9,13 @@ choices = {
     "None": "None",
     "dist": "Distribution",
     "corr": "Correlation",
-    "scatter": "Scatter",
-    "dashboard": "Dashboard",
-    "residual": "Residual vs Explanatory",
-    "pred": "Prediction plots",
+    "pred": "Prediction plot",
     "vimp": "Permutation importance",
-    "coef": "Coefficient plot",
+    "or": "OR plot",
 }
 
 controls = {
     "ci": "Confidence intervals",
-    "ssq": "Sum of Squares",
     "vif": "VIF",
 }
 
@@ -59,7 +55,7 @@ plots_extra = (
 )
 
 
-class model_regress:
+class model_logistic:
     def __init__(self, datasets: dict, descriptions=None, open=True) -> None:
         ru.init(self, datasets, descriptions=descriptions, open=open)
 
@@ -67,7 +63,7 @@ class model_regress:
         return ui.page_navbar(
             ru.head_content(),
             ui.nav(
-                "Model > Linear regression (OLS)",
+                "Model > Logistic regression (GLM)",
                 ui.row(
                     ui.column(
                         3,
@@ -80,8 +76,8 @@ class model_regress:
                 ),
             ),
             ru.ui_help(
-                "https://github.com/vnijs/pyrsm/blob/main/examples/model-linear-regression.ipynb",
-                "Linear regression (OLS) example notebook",
+                "https://github.com/vnijs/pyrsm/blob/main/examples/model-logistic-regression.ipynb",
+                "Logistic regression (GLM) example notebook",
             ),
             ru.ui_stop(),
             title="Radiant for Python",
@@ -98,10 +94,22 @@ class model_regress:
         run_refresh, run_done = ru.reestimate(input)
 
         # --- section unique to each app ---
-        mu.make_model_inputs(input, output, get_data, "isNum")
+        mu.make_model_inputs(input, output, get_data, "isBin")
+
+        @output(id="ui_lev")
+        @render.ui
+        def ui_lev():
+            levs = list(get_data()["data"][input.rvar()].unique())
+            return ui.input_select(
+                id="lev",
+                label="Choose level:",
+                selected=levs[0],
+                choices=levs,
+            )
+
         mu.make_int_inputs(input, output, get_data)
         show_code, estimate = mu.make_estimate(
-            self, input, output, get_data, fun="regress", ret="reg", debug=False
+            self, input, output, get_data, fun="logistic", ret="lr", debug=True
         )
         mu.make_summary(
             self,
@@ -109,8 +117,8 @@ class model_regress:
             output,
             show_code,
             estimate,
-            ret="reg",
-            sum_fun=rsm.regress.summary,
+            ret="lr",
+            sum_fun=rsm.logistic.summary,
         )
         mu.make_predict(
             self,
@@ -118,8 +126,8 @@ class model_regress:
             output,
             show_code,
             estimate,
-            ret="reg",
-            pred_fun=rsm.regress.predict,
+            ret="lr",
+            pred_fun=rsm.logistic.predict,
         )
         mu.make_plot(
             self,
@@ -127,11 +135,11 @@ class model_regress:
             output,
             show_code,
             estimate,
-            ret="reg",
+            ret="lr",
         )
 
 
-def regress(
+def logistic(
     data_dct: dict,
     descriptions_dct: dict = None,
     open: bool = True,
@@ -140,9 +148,9 @@ def regress(
     log_level: str = "warning",
 ):
     """
-    Launch a Radiant-for-Python app for linear regression analysis
+    Launch a Radiant-for-Python app for logistic regression analysis
     """
-    rc = model_regress(data_dct, descriptions_dct, open=open)
+    rc = model_logistic(data_dct, descriptions_dct, open=open)
     nest_asyncio.apply()
     webbrowser.open(f"http://{host}:{port}")
     print(f"Listening on http://{host}:{port}")
@@ -160,5 +168,5 @@ def regress(
 if __name__ == "__main__":
     import pyrsm as rsm
 
-    diamonds, diamonds_description = rsm.load_data(pkg="data", name="diamonds")
-    regress({"diamonds": diamonds}, {"diamonds": diamonds_description}, open=True)
+    titanic, titanic_description = rsm.load_data(pkg="data", name="titanic")
+    logistic({"titanic": titanic}, {"titanic": titanic_description}, open=True)

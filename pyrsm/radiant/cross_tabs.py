@@ -1,19 +1,8 @@
-# from shiny import App, render, ui, reactive, Inputs, Outputs, Session
-# import webbrowser, nest_asyncio, uvicorn
-# from faicons import icon_svg
-# import io, os, signal, black
-# from pathlib import Path
-# import pyrsm as rsm
-# import pandas as pd
-# from contextlib import redirect_stdout
-# from pyrsm.radiant.utils import *
-
-
 from shiny import App, render, ui, reactive, Inputs, Outputs, Session
 import webbrowser, nest_asyncio, uvicorn
 import io, os, signal
 import pyrsm as rsm
-from contextlib import redirect_stdout
+from contextlib import redirect_stdout, redirect_stderr
 import pyrsm.radiant.utils as ru
 
 choices = {
@@ -42,38 +31,8 @@ def ui_summary():
     )
 
 
-def ui_plot():
-    plots = {"None": "None"}
-    plots.update(choices)
-    return (
-        ui.panel_conditional(
-            "input.tabs == 'Plot'",
-            ui.panel_well(
-                ui.input_select(
-                    id="select_plot",
-                    label="Select plot:",
-                    choices=plots,
-                ),
-            ),
-        ),
-    )
-
-
-def ui_main():
-    return ui.navset_tab_card(
-        ru.ui_data_main(),
-        ui.nav(
-            "Summary",
-            ui.output_ui("show_summary_code"),
-            ui.output_text_verbatim("summary"),
-        ),
-        ui.nav(
-            "Plot",
-            ui.output_ui("show_plot_code"),
-            ui.output_plot("plot", height="500px", width="700px"),
-        ),
-        id="tabs",
-    )
+plots = {"None": "None"}
+plots.update(choices)
 
 
 class basics_cross_tabs:
@@ -90,9 +49,9 @@ class basics_cross_tabs:
                         3,
                         ru.ui_data(self),
                         ui_summary(),
-                        ui_plot(),
+                        ru.ui_plot(plots),
                     ),
-                    ui.column(8, ui_main()),
+                    ui.column(8, ru.ui_main_basics()),
                 ),
             ),
             ru.ui_help(
@@ -107,18 +66,8 @@ class basics_cross_tabs:
 
     def shiny_server(self, input: Inputs, output: Outputs, session: Session):
         # --- section standard for all apps ---
-        @reactive.Calc
-        def get_data():
-            return ru.get_data(input, self)
-
+        get_data, stop_app = ru.standard_reactives(self, input, session)
         ru.make_data_outputs(self, input, output)
-
-        @reactive.Effect
-        @reactive.event(input.stop, ignore_none=True)
-        async def stop_app():
-            rsm.md(f"```python\n{self.stop_code}\n```")
-            await session.app.stop()
-            os.kill(os.getpid(), signal.SIGTERM)
 
         # --- section unique to each app ---
         @output(id="ui_var1")
@@ -183,18 +132,18 @@ class basics_cross_tabs:
         @render.text
         def summary():
             out = io.StringIO()
-            with redirect_stdout(out):
+            with redirect_stdout(out), redirect_stderr(out):
                 ct = cross_tabs()  # get the reactive object into local scope
                 eval(summary_code())
             return out.getvalue()
 
         def plot_code():
-            return f"""ct.plot(output="{input.select_plot()}")"""
+            return f"""ct.plot(output="{input.plots()}")"""
 
         @output(id="show_plot_code")
         @render.text
         def show_plot_code():
-            plots = input.select_plot()
+            plots = input.plots()
             if plots != "None":
                 cmd = f"""{show_code()}\n{plot_code()}"""
                 return ru.code_formatter(cmd, self)
@@ -202,7 +151,7 @@ class basics_cross_tabs:
         @output(id="plot")
         @render.plot
         def plot():
-            plots = input.select_plot()
+            plots = input.plots()
             if plots != "None":
                 ct = cross_tabs()  # get reactive object into local scope
                 cmd = f"""{plot_code()}"""
@@ -232,4 +181,13 @@ def cross_tabs(
         host=host,
         port=port,
         log_level=log_level,
+    )
+
+
+if __name__ == "__main__":
+    import pyrsm as rsm
+
+    newspaper, newspaper_description = rsm.load_data(name="newspaper")
+    cross_tabs(
+        {"newspaper": newspaper}, {"newspaper": newspaper_description}, open=True
     )

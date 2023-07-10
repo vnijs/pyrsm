@@ -1,12 +1,11 @@
+import black, os, signal, inspect
 from htmltools import tags, div, css
 from itertools import combinations
-from shiny import render, ui
+from shiny import render, ui, reactive
 from faicons import icon_svg
 from pathlib import Path
-import black
 import pandas as pd
-from pyrsm.utils import ifelse
-import inspect
+from pyrsm.utils import ifelse, md
 
 
 def head_content():
@@ -54,6 +53,14 @@ def escape_quotes(cmd):
     return cmd.replace('"', '\\"').replace("'", "\\'")
 
 
+def quote(v, k):
+    if isinstance(v, str) and k not in ["data", "df"] and not (v[0] + v[-1] == "{}"):
+        v = escape_quotes(v)
+        return f'"{v}"'
+    else:
+        return v
+
+
 def copy_icon(cmd):
     cmd = escape_quotes(cmd).replace("\n", "\\n")
     return (
@@ -94,21 +101,10 @@ def drop_default_args(args, func):
     sig = inspect.signature(func).parameters
     keep = {k: args[k] for k, v in sig.items() if k in args and args[k] != v.default}
 
-    def to_quote(v, k):
-        if (
-            isinstance(v, str)
-            and k not in ["data", "df"]
-            and not (v[0] + v[-1] == "{}")
-        ):
-            v = escape_quotes(v)
-            return f'"{v}"'
-        else:
-            return v
-
-    return ", ".join(f"{k}={to_quote(v, k)}" for k, v in keep.items())
+    return ", ".join(f"{k}={quote(v, k)}" for k, v in keep.items())
 
 
-def get_data(input, self):
+def get_data(self, input):
     """
     Set up data access for the app
     """
@@ -159,16 +155,31 @@ def get_data(input, self):
     }
 
 
+def standard_reactives(self, input, session):
+    @reactive.Calc
+    def rget_data():
+        return get_data(self, input)
+
+    @reactive.Effect
+    @reactive.event(input.stop, ignore_none=True)
+    async def stop_app():
+        md(f"```python\n{input.stop_code}\n```")
+        await session.app.stop()
+        os.kill(os.getpid(), signal.SIGTERM)
+
+    return rget_data, stop_app
+
+
 def make_data_outputs(self, input, output):
     @output(id="show_data_code")
     @render.ui
     def show_data_code():
-        return code_formatter(get_data(input, self)["code"], self)
+        return code_formatter(get_data(self, input)["code"], self)
 
     @output(id="show_data")
     @render.data_frame
     def show_data():
-        data = get_data(input, self)["data"]
+        data = get_data(self, input)["data"]
         summary = "Viewing rows {start} through {end} of {total}"
         if data.shape[0] > 100_000:
             data = data[:100_000]
@@ -179,7 +190,7 @@ def make_data_outputs(self, input, output):
     @output(id="show_description")
     @render.ui
     def show_description():
-        return ui.markdown(get_data(input, self)["description"])
+        return ui.markdown(get_data(self, input)["description"])
 
 
 def input_return_text_area(id, label, value="", rows=1, placeholder=""):
@@ -263,6 +274,40 @@ def ui_data(self):
     )
 
 
+def ui_summary(*args):
+    return ui.panel_conditional(
+        "input.tabs == 'Summary'",
+        ui.panel_well(
+            ui.input_action_button(
+                "run",
+                "Estimate model",
+                icon=icon_svg("play"),
+                class_="btn-success",
+                width="100%",
+            ),
+            ui.output_ui("ui_rvar"),
+            ui.output_ui("ui_lev"),
+            ui.output_ui("ui_evar"),
+            *args,
+        ),
+    )
+
+
+def ui_plot(choices, *args):
+    return ui.panel_conditional(
+        "input.tabs == 'Plot'",
+        ui.panel_well(
+            ui.input_select(
+                id="plots",
+                label="Plots",
+                selected=None,
+                choices=choices,
+            ),
+            *args,
+        ),
+    )
+
+
 def ui_data_main():
     data_main = ui.nav(
         "Data",
@@ -271,6 +316,46 @@ def ui_data_main():
         ui.output_ui("show_description"),
     )
     return data_main
+
+
+def ui_main_basics():
+    return ui.navset_tab_card(
+        ui_data_main(),
+        ui.nav(
+            "Summary",
+            ui.output_ui("show_summary_code"),
+            ui.output_text_verbatim("summary"),
+        ),
+        ui.nav(
+            "Plot",
+            ui.output_ui("show_plot_code"),
+            ui.output_plot("plot", height="500px", width="700px"),
+        ),
+        id="tabs",
+    )
+
+
+def ui_main_model():
+    return ui.navset_tab_card(
+        ui_data_main(),
+        ui.nav(
+            "Summary",
+            ui.output_ui("show_estimation_code"),
+            ui.output_ui("show_summary_code"),
+            ui.output_text_verbatim("summary"),
+        ),
+        ui.nav(
+            "Predict",
+            ui.output_ui("show_predict_code"),
+            ui.output_data_frame("predict"),
+        ),
+        ui.nav(
+            "Plot",
+            ui.output_ui("show_plot_code"),
+            ui.output_plot("plot", height="800px", width="700px"),
+        ),
+        id="tabs",
+    )
 
 
 def ui_stop():
@@ -322,6 +407,37 @@ def ui_help(link, example):
             align="right",
         ),
     )
+
+
+def reestimate(input):
+    @reactive.Effect
+    def run_refresh():
+        def update():
+            with reactive.isolate():
+                if input.run() > 0:  # only update if run button was pressed
+                    ui.update_action_button(
+                        "run",
+                        label="Re-estimate model",
+                        icon=icon_svg("rotate"),
+                    )
+
+        if not is_empty(input.evar()) and not is_empty(input.rvar()):
+            update()
+
+        # not clear why this needs to be separate from the above
+        if not is_empty(input.interactions()):
+            update()
+
+    @reactive.Effect
+    @reactive.event(input.run, ignore_none=True)
+    def run_done():
+        ui.update_action_button(
+            "run",
+            label="Estimate model",
+            icon=icon_svg("play"),
+        )
+
+    return run_refresh, run_done
 
 
 # getting data to work as a separate nav item caused problems
