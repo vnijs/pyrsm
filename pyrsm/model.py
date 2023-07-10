@@ -62,6 +62,8 @@ def get_mfit(fitted) -> tuple[Optional[dict], Optional[str]]:
         if fitted.model._has_freq_weights:
             fw = fitted.model.freq_weights
 
+        # gets same results as in R
+        lrtest = -2 * (fitted.llnull - fitted.llf)
         mfit_dct = {
             "pseudo_rsq_mcf": [1 - fitted.llf / fitted.llnull],
             "pseudo_rsq_mcf_adj": [1 - (fitted.llf - fitted.df_model) / fitted.llnull],
@@ -69,9 +71,11 @@ def get_mfit(fitted) -> tuple[Optional[dict], Optional[str]]:
             "log_likelihood": fitted.llf,
             "AIC": [fitted.aic],
             "BIC": [fitted.bic_llf],
-            "chisq": [fitted.pearson_chi2],
+            # "chisq": [fitted.pearson_chi2],
+            "chisq": [lrtest],
             "chisq_df": [fitted.df_model],
-            "chisq_pval": [1 - stats.chi2.cdf(fitted.pearson_chi2, fitted.df_model)],
+            # "chisq_pval": [1 - stats.chi2.cdf(fitted.pearson_chi2, fitted.df_model)],
+            "chisq_pval": [stats.chi2.sf(lrtest, fitted.df_model)],
             "nobs": [fitted.nobs],
         }
 
