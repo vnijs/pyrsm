@@ -1,6 +1,6 @@
 from shiny import App, render, ui, reactive, Inputs, Outputs, Session
 import webbrowser, nest_asyncio, uvicorn
-import io, os, signal
+import io
 import pyrsm as rsm
 from contextlib import redirect_stdout, redirect_stderr
 import pyrsm.radiant.utils as ru
@@ -112,7 +112,7 @@ class basics_cross_tabs:
             return f"""{sc[1]}\nct = {sc[0]}"""
 
         @reactive.Calc
-        def cross_tabs():
+        def estimate():
             locals()[input.datasets()] = self.datasets[
                 input.datasets()
             ]  # get data into local scope
@@ -173,9 +173,7 @@ def cross_tabs(
     nest_asyncio.apply()
     webbrowser.open(f"http://{host}:{port}")
     print(f"Listening on http://{host}:{port}")
-    print(
-        "Pyrsm and Radiant are open source tools and free to use. If you\nare a student or instructor using pyrsm or Radiant for a class,\nas a favor to the developers, please send an email to\n<radiant@rady.ucsd.edu> with the name of the school and class."
-    )
+    ru.message()
     uvicorn.run(
         App(rc.shiny_ui(), rc.shiny_server),
         host=host,
@@ -187,7 +185,8 @@ def cross_tabs(
 if __name__ == "__main__":
     import pyrsm as rsm
 
-    newspaper, newspaper_description = rsm.load_data(name="newspaper")
-    cross_tabs(
+    newspaper, newspaper_description = rsm.load_data(pkg="basics", name="newspaper")
+    rc = cross_tabs(
         {"newspaper": newspaper}, {"newspaper": newspaper_description}, open=True
     )
+    app = App(rc.shiny_ui(), rc.shiny_server)

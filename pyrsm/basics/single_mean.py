@@ -5,12 +5,13 @@ from scipy import stats
 from ..model import sig_stars
 from ..utils import ifelse
 import pyrsm.basics.utils as bu
+from typing import Union
 
 
 class single_mean:
     def __init__(
         self,
-        data,
+        data: Union[pd.DataFrame, dict[str, pd.DataFrame]],
         var: str,
         alt_hyp: str = "two-sided",
         conf: float = 0.95,
@@ -18,9 +19,9 @@ class single_mean:
     ):
         if isinstance(data, dict):
             self.name = list(data.keys())[0]
-            self.data = data[self.name]
+            self.data = data[self.name].copy()
         else:
-            self.data = data
+            self.data = data.copy()
             self.name = "Not provided"
         self.var = var
         self.alt_hyp = alt_hyp

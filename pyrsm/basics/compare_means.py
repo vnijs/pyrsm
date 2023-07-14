@@ -4,6 +4,7 @@ import pandas as pd
 from scipy import stats
 from ..model import sig_stars
 from ..utils import ifelse
+from typing import Union
 from statsmodels.stats import multitest
 import pyrsm.basics.utils as bu
 
@@ -11,7 +12,7 @@ import pyrsm.basics.utils as bu
 class compare_means:
     def __init__(
         self,
-        data: pd.DataFrame,
+        data: Union[pd.DataFrame, dict[str, pd.DataFrame]],
         var1: str,
         var2: str,
         combinations: list[tuple[str, str]] = None,

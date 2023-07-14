@@ -7,106 +7,106 @@ from scipy import stats
 import seaborn as sns
 from ..model import sig_stars
 from ..utils import ifelse
-from typing import Any, Optional
+from typing import Any, Optional, Union
 from scipy.stats import chisquare
-from statsmodels.stats import multitest
 
 
-class goodness_of_fit:
+class goodness:
     def __init__(
         self,
-        data: pd.DataFrame,
+        data: Union[pd.DataFrame, dict[str, pd.DataFrame]],
         variable: str,
         figsize: tuple[float, float] = None,
         probabilities: Optional[tuple[float, ...]] = None,
-        params: Optional[tuple[str, ...]] = None,
     ) -> None:
-        self.data = data
+        if isinstance(data, dict):
+            self.name = list(data.keys())[0]
+            self.data = data[self.name]
+        else:
+            self.data = data
+            self.name = "Not provided"
+
         self.variable = variable
         self.figsize = figsize
         self.probabilities = probabilities
-        if params is not None:
-            params = map(str.lower, params)
-            self.params = tuple(params)
-        else:
-            self.params = params
-
         self._observed_frequencies = self.data[self.variable].value_counts().to_dict()
-        if self.params is not None:
-            self._observed_df = pd.DataFrame(
-                {
-                    key: [
-                        item,
-                    ]
-                    for key, item in self._observed_frequencies.items()
-                },
-                columns=sorted(self._observed_frequencies.keys()),
-            )
-            self._observed_df["Total"] = self._observed_df[
-                list(self._observed_df.columns)
-            ].sum(axis=1)
+        self._observed_df = pd.DataFrame(
+            {
+                key: [
+                    item,
+                ]
+                for key, item in self._observed_frequencies.items()
+            },
+            columns=sorted(self._observed_frequencies.keys()),
+        )
+        self._observed_df["Total"] = self._observed_df[
+            list(self._observed_df.columns)
+        ].sum(axis=1)
 
-            self._expected_df = pd.DataFrame(
-                {
-                    sorted(self._observed_frequencies.keys())[i]: [
-                        self.probabilities[i] * self._observed_df.at[0, "Total"],
-                    ]
-                    for i in range(len(self._observed_frequencies.keys()))
-                },
-                columns=sorted(self._observed_frequencies.keys()),
-            )
-            self._expected_df["Total"] = self._expected_df[
-                list(self._expected_df.columns)
-            ].sum(axis=1)
+        self._expected_df = pd.DataFrame(
+            {
+                sorted(self._observed_frequencies.keys())[i]: [
+                    self.probabilities[i] * self._observed_df.at[0, "Total"],
+                ]
+                for i in range(len(self._observed_frequencies.keys()))
+            },
+            columns=sorted(self._observed_frequencies.keys()),
+        )
+        self._expected_df["Total"] = self._expected_df[
+            list(self._expected_df.columns)
+        ].sum(axis=1)
 
-            self._chisquared_df = pd.DataFrame(
-                {
-                    column: [
-                        round(
-                            (
-                                (
-                                    self._observed_df.at[0, column]
-                                    - self._expected_df.at[0, column]
-                                )
-                                ** 2
-                            )
-                            / self._expected_df.at[0, column],
-                            2,
-                        ),
-                    ]
-                    for column in self._expected_df.columns.tolist()[:-1]
-                },
-                columns=self._expected_df.columns.tolist(),
-            )
-            self._chisquared_df["Total"] = self._chisquared_df[
-                list(self._chisquared_df.columns)
-            ].sum(axis=1)
-
-            self._stdev_df = pd.DataFrame(
-                {
-                    column: [
-                        round(
+        self._chisquared_df = pd.DataFrame(
+            {
+                column: [
+                    round(
+                        (
                             (
                                 self._observed_df.at[0, column]
                                 - self._expected_df.at[0, column]
                             )
-                            / sqrt(self._expected_df.at[0, column]).real,
-                            2,
-                        ),
-                    ]
-                    for column in self._expected_df.columns.tolist()[:-1]
-                },
-                columns=self._expected_df.columns.tolist()[:-1],
-            )
+                            ** 2
+                        )
+                        / self._expected_df.at[0, column],
+                        2,
+                    ),
+                ]
+                for column in self._expected_df.columns.tolist()[:-1]
+            },
+            columns=self._expected_df.columns.tolist(),
+        )
+        self._chisquared_df["Total"] = self._chisquared_df[
+            list(self._chisquared_df.columns)
+        ].sum(axis=1)
 
-    def summary(self) -> None:
+        self._stdev_df = pd.DataFrame(
+            {
+                column: [
+                    round(
+                        (
+                            self._observed_df.at[0, column]
+                            - self._expected_df.at[0, column]
+                        )
+                        / sqrt(self._expected_df.at[0, column]).real,
+                        2,
+                    ),
+                ]
+                for column in self._expected_df.columns.tolist()[:-1]
+            },
+            columns=self._expected_df.columns.tolist()[:-1],
+        )
+
+    def summary(
+        self, output: list[str] = ["observed", "expected"], dec: int = 2
+    ) -> None:
+
+        pd.set_option("display.max_columns", 20)
+        pd.set_option("display.max_rows", 20)
+
+        output = ifelse(isinstance(output, str), [output], output)
+
         print("Goodness of fit test")
-        if hasattr(self.data, "description"):
-            data_name = self.data.description.split("\n")[0].split()[1].lower()
-        else:
-            data_name = "Not available"
-
-        print(f"Data: {data_name}")
+        print(f"Data: {self.name}")
         if self.variable not in self.data.columns:
             print(f"{self.variable} does not exist in chosen dataset")
             return
@@ -138,29 +138,26 @@ class goodness_of_fit:
             f"Alt. hyp.: The distribution of {self.variable} is not consistent with the specified distribution"
         )
 
-        if self.params is not None:
-            if "observed" in self.params:
-                print("Observed:")
-                print(self._observed_df.to_string(index=False))
-                print()
+        if "observed" in output:
+            print("Observed:")
+            print(self._observed_df.to_string(index=False))
+            print()
 
-            if "expected" in self.params:
-                print("Expected: total x p")
-                print(self._expected_df.to_string(index=False))
-                print()
+        if "expected" in output:
+            print("Expected: total x p")
+            print(self._expected_df.to_string(index=False))
+            print()
 
-            if "chi-squared" in self.params:
-                print(
-                    "Contribution to chi-squared: (observed - expected) ^ 2 / expected"
-                )
-                print(self._chisquared_df.to_string(index=False))
-                print()
+        if "chisq" in output:
+            print("Contribution to chi-squared: (observed - expected) ^ 2 / expected")
+            print(self._chisquared_df.to_string(index=False))
+            print()
 
-            if "deviation std" in self.params:
-                print("Deviation standardized: (observed - expected) / sqrt(expected)")
-                print()
-                print(self._stdev_df.to_string(index=False))
-                print()
+        if "dev_std" in output:
+            print("Deviation standardized: (observed - expected) / sqrt(expected)")
+            print()
+            print(self._stdev_df.to_string(index=False))
+            print()
 
         chisq, p_val = chisquare(
             [
@@ -178,11 +175,11 @@ class goodness_of_fit:
             p_val = "< .001"
         print(f"Chi-squared: {chisq} df ({num_levels - 1}), p.value {p_val}")
 
-    def plot(self) -> None:
+    def plot(self, output: list[str] = [], **kwargs) -> None:
         _, axes = plt.subplots(2, 2, figsize=self.figsize)
         plt.subplots_adjust(wspace=0.2, hspace=0.2)
 
-        if "observed" in self.params:
+        if "observed" in output:
             plt.axes(axes[0][0])
             observed_frequency_percentages_df = pd.DataFrame(
                 {
@@ -201,7 +198,7 @@ class goodness_of_fit:
                 data=observed_frequency_percentages_df, x="levels", y="percentages"
             ).plot()
 
-        if "expected" in self.params:
+        if "expected" in output:
             plt.axes(axes[0][1])
             expected_frequency_percentages_df = pd.DataFrame(
                 {
@@ -220,7 +217,7 @@ class goodness_of_fit:
                 data=expected_frequency_percentages_df, x="levels", y="percentages"
             ).plot()
 
-        if "chi-squared" in self.params:
+        if "chisq" in output:
             plt.axes(axes[1][0])
             chisquared_contribution_df = pd.DataFrame(
                 {
@@ -235,7 +232,7 @@ class goodness_of_fit:
                 data=chisquared_contribution_df, x="levels", y="contribution"
             ).plot()
 
-        if "deviation std" in self.params:
+        if "dev_std" in output:
             plt.axes(axes[1][1])
             standardized_deviation_df = pd.DataFrame(
                 {

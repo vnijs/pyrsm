@@ -1,19 +1,19 @@
 from cmath import sqrt
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy import stats
-import seaborn as sns
-from ..model import sig_stars
 from ..utils import ifelse
-from typing import Any, Optional
-from scipy.stats import chisquare
-from statsmodels.stats import multitest
+from typing import Union
 
 
 class cross_tabs:
-    def __init__(self, data: pd.DataFrame, var1: str, var2: str) -> None:
+    def __init__(
+        self,
+        data: Union[pd.DataFrame, dict[str, pd.DataFrame]],
+        var1: str,
+        var2: str,
+    ) -> None:
         """
         Calculate a Chi-square test between two categorical variables contained
         in a Pandas dataframe

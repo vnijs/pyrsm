@@ -8,22 +8,36 @@ import pandas as pd
 from pyrsm.utils import ifelse, md
 
 
+def message():
+    print(
+        "Pyrsm and Radiant are open source tools and free to use. If you\nare a student or instructor using pyrsm or Radiant for a class,\nas a favor to the developers, please send an email to\n<radiant@rady.ucsd.edu> with the name of the school and class.\nIf you are using Radiant in your company, as a favor to the\ndeveloper, please share the name of your company and what types\nof activites you are supporting with the tool."
+    )
+
+
 def head_content():
     """
     Return the head content for the shiny app
     """
     return ui.head_content(
-        ui.tags.script(
-            (Path(__file__).parent / "www/returnTextAreaBinding.js").read_text()
-        ),
-        ui.tags.script((Path(__file__).parent / "www/copy.js").read_text()),
         # from https://github.com/rstudio/py-shiny/issues/491#issuecomment-1579138681
         ui.tags.link(
             href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/agate.min.css",
             rel="stylesheet",
         ),
         ui.tags.script(
-            src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"
+            (Path(__file__).parent / "www/returnTextAreaBinding.js").read_text(),
+        ),
+        ui.tags.script(
+            (Path(__file__).parent / "www/radiantUI.js").read_text(),
+        ),
+        ui.tags.script(
+            (Path(__file__).parent / "www/screenshot.js").read_text(),
+        ),
+        ui.tags.script(
+            src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js",
+        ),
+        ui.tags.script(
+            src="//html2canvas.hertzen.com/dist/html2canvas.min.js",
         ),
         ui.tags.style((Path(__file__).parent / "www/style.css").read_text()),
     )
@@ -67,7 +81,7 @@ def copy_icon(cmd):
         ui.input_action_link(
             "copy",
             None,
-            icon=icon_svg("copy", width="1.2em", height="1.2em"),
+            icon=icon_svg("copy", width="1.5em", height="1.5em"),
             title="Copy to clipboard",
             onclick=f'copyToClipboard("{cmd}");',
         ),
@@ -241,7 +255,7 @@ def ui_data(self):
             "input.tabs == 'Data'",
             ui.panel_well(
                 ui.input_select("datasets", "Datasets:", self.dataset_list),
-                ui.input_checkbox("show_filter", "Show data filter"),
+                ui.input_checkbox("show_filter", "Show data filter", value=True),
                 ui.panel_conditional(
                     "input.show_filter == true",
                     # ui.input_radio_buttons(
@@ -318,7 +332,7 @@ def ui_data_main():
     return data_main
 
 
-def ui_main_basics():
+def ui_main_basics(height="500px", width="700px"):
     return ui.navset_tab_card(
         ui_data_main(),
         ui.nav(
@@ -329,7 +343,8 @@ def ui_main_basics():
         ui.nav(
             "Plot",
             ui.output_ui("show_plot_code"),
-            ui.output_plot("plot", height="500px", width="700px"),
+            # ui.output_plot("plot", height=height, width=width),
+            ui.output_ui("plot_container"),
         ),
         id="tabs",
     )
@@ -352,7 +367,8 @@ def ui_main_model():
         ui.nav(
             "Plot",
             ui.output_ui("show_plot_code"),
-            ui.output_plot("plot", height="800px", width="700px"),
+            # ui.output_plot("plot", height="800px", width="700px"),
+            ui.output_ui("plot_container"),
         ),
         id="tabs",
     )
@@ -362,8 +378,16 @@ def ui_stop():
     return (
         ui.nav_control(
             ui.input_action_link(
+                "screenshot",
+                "Screenshot",
+                icon=icon_svg("camera"),
+                onclick="generate_screenshot();",
+            ),
+        ),
+        ui.nav_control(
+            ui.input_action_link(
                 "stop", "Stop", icon=icon_svg("stop"), onclick="window.close();"
-            )
+            ),
         ),
     )
 
@@ -439,6 +463,72 @@ def reestimate(input):
 
     return run_refresh, run_done
 
+
+# radiant_screenshot_modal <- function(report_on = "") {
+#   add_button <- function() {
+#     if (is.empty(report_on)) {
+#       ""
+#     } else {
+#       actionButton(report_on, "Report", icon = icon("edit", verify_fa = FALSE), class = "btn-success")
+#     }
+#   }
+#   showModal(
+#     modalDialog(
+#       title = "Radiant screenshot",
+#       span(shiny::tags$div(id = "screenshot_preview")),
+#       span(HTML("</br>To include a screenshot in a report first save it to disk by clicking on the <em>Save</em> button. Then click the <em>Report</em> button to insert a reference to the screenshot into <em>Report > Rmd</em>.")),
+#       footer = tagList(
+#         tags$table(
+#           tags$td(download_button("screenshot_save", "Save", ic = "download")),
+#           tags$td(add_button()),
+#           tags$td(modalButton("Cancel")),
+#           align = "right"
+#         )
+#       ),
+#       size = "l",
+#       easyClose = TRUE
+#     )
+#   )
+# }
+
+# observeEvent(input$screenshot_link, {
+#   radiant_screenshot_modal()
+# })
+
+# render_screenshot <- function() {
+#   plt <- sub("data:.+base64,", "", input$img_src)
+#   png::readPNG(base64enc::base64decode(what = plt))
+# }
+
+# download_handler_screenshot <- function(path, plot, ...) {
+#   plot <- try(plot(), silent = TRUE)
+#   if (inherits(plot, "try-error") || is.character(plot) || is.null(plot)) {
+#     plot <- ggplot() +
+#       labs(title = "Plot not available")
+#     png(file = path, width = 500, height = 100, res = 96)
+#     print(plot)
+#     dev.off()
+#   } else {
+#     ppath <- parse_path(path, pdir = getOption("radiant.launch_dir", find_home()), mess = FALSE)
+#     # r_info[["latest_screenshot"]] <- glue("![]({ppath$rpath})")
+#     # r_info[["latest_screenshot"]] <- glue("<details>\n<summary>Click to show screenshot</summary>\n<img src='{ppath$rpath}' alt='Radiant screenshot'>\n</details>")
+#     r_info[["latest_screenshot"]] <- glue("\n<details>\n<summary>Click to show screenshot with Radiant settings to generate output shown below</summary>\n\n![]({ppath$rpath})\n</details></br>\n")
+#     png::writePNG(plot, path, dpi = 144)
+#   }
+# }
+
+# download_handler(
+#   id = "screenshot_save",
+#   fun = download_handler_screenshot,
+#   fn = function() paste0(r_info[["radiant_tab_name"]], "-screenshot"),
+#   type = "png",
+#   caption = "Save radiant screenshot",
+#   plot = render_screenshot,
+#   btn = "button",
+#   label = "Save",
+#   class = "btn-primary",
+#   onclick = "get_img_src();"
+# )
 
 # getting data to work as a separate nav item caused problems
 # def ui_data(self):

@@ -4,12 +4,14 @@ import pandas as pd
 from scipy import stats
 import seaborn as sns
 from ..model import sig_stars
-from typing import Optional
+from typing import Optional, Union
 
 
 class correlation:
     def __init__(
-        self, data: pd.DataFrame, figsize: Optional[tuple[float, float]] = None
+        self,
+        data: Union[pd.DataFrame, dict[str, pd.DataFrame]],
+        figsize: Optional[tuple[float, float]] = None
     ) -> None:
         """
         Calculate correlations between numeric variables in a Pandas dataframe

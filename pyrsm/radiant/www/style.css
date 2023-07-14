@@ -36,6 +36,9 @@ pre code {
 }
 
 #copy:active {
-    color: "grey";
+    opacity: 0.5;
+}
+
+#run:active {
     opacity: 0.5;
 }

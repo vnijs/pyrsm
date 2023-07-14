@@ -1,13 +1,13 @@
 from cmath import sqrt
-import matplotlib.pyplot as plt
 import pandas as pd
 from scipy import stats
+from typing import Union
 
 
 class single_prop:
     def __init__(
         self,
-        data: pd.DataFrame,
+        data: Union[pd.DataFrame, dict[str, pd.DataFrame]],
         variable: str,
         level: str,
         alt_hyp: str,
@@ -17,9 +17,9 @@ class single_prop:
     ) -> None:
         if isinstance(data, dict):
             self.name = list(data.keys())[0]
-            self.data = data[self.name]
+            self.data = data[self.name].copy()
         else:
-            self.data = data
+            self.data = data.copy()
             self.name = "Not provided"
         self.variable = variable
         self.level = level

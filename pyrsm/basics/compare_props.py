@@ -1,21 +1,14 @@
 from cmath import sqrt
-import matplotlib
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy import stats
-import seaborn as sns
-from ..model import sig_stars
-from ..utils import ifelse
-from typing import Any, Optional
-from scipy.stats import chisquare
-from statsmodels.stats import multitest
+from typing import Union
 
 
 class compare_props:
     def __init__(
         self,
-        data: pd.DataFrame,
+        data: Union[pd.DataFrame, dict[str, pd.DataFrame]],
         grouping_var: str,
         var: str,
         level: str,

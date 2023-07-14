@@ -1,8 +1,10 @@
 import io
-from shiny import render, ui, reactive
+import matplotlib.pyplot as plt
+from shiny import render, ui, reactive, req
 from contextlib import redirect_stdout, redirect_stderr
 import pyrsm.radiant.utils as ru
 from ..utils import intersect, ifelse
+from shiny.types import MISSING_TYPE
 import numpy as np
 import pandas as pd
 import pyrsm as rsm
@@ -143,45 +145,38 @@ def make_int_inputs(input, output, get_data):
             )
 
 
-def new_estimation_code():
-    data_name, code = (get_data()[k] for k in ["data_name", "code"])
-    args = {
-        "data": {f"{data_name}": data_name},
-        "rvar": input.rvar(),
-        "lev": input.lev(),
-        "evar": list(input.evar()),
-        "int": list(input.interactions()),
-    }
+def make_estimate(self, input, output, get_data, fun, ret, ec=None, debug=False):
+    if ec is None:
 
-    if int(input.show_interactions()) > 0 and len(input.interactions()) > 0:
-        args["int"] = None
+        def estimation_code():
+            data_name, code = (get_data()[k] for k in ["data_name", "code"])
+            # try:
+            #     inp = input.lev()
+            # except:
+            #     inp = None
+            # https://discord.com/channels/1109483223987277844/1127817202804985917/1128728788755288065
+            if isinstance(input.lev._value, MISSING_TYPE):
+                inp = None
+            else:
+                inp = input.lev()
 
-    args_str = ", ".join(f"{k}={ru.quote(v)}" for k, v in args.items() if v is not None)
-    return f"""rsm.{fun}({args_str})""", code
+            args = {
+                "data": f"""{{"{data_name}": {data_name}}}""",
+                "rvar": input.rvar(),
+                "lev": inp,
+                "evar": list(input.evar()),
+            }
 
+            if int(input.show_interactions()) > 0 and len(input.interactions()) > 0:
+                args["ivar"] = list(input.interactions())
 
-def make_estimate(self, input, output, get_data, fun, ret, debug=False):
-    def estimation_code():
-        data_name, code = (get_data()[k] for k in ["data_name", "code"])
-        try:
-            inp = input.lev()
-        except:
-            inp = None
+            args_str = ", ".join(
+                f"{k}={ru.quote(v, k)}" for k, v in args.items() if v is not None
+            )
+            return f"""rsm.{fun}({args_str})""", code
 
-        args = {
-            "data": f"""{{"{data_name}": {data_name}}}""",
-            "rvar": input.rvar(),
-            "lev": inp,
-            "evar": list(input.evar()),
-        }
-
-        if int(input.show_interactions()) > 0 and len(input.interactions()) > 0:
-            args["ivar"] = list(input.interactions())
-
-        args_str = ", ".join(
-            f"{k}={ru.quote(v, k)}" for k, v in args.items() if v is not None
-        )
-        return f"""rsm.{fun}({args_str})""", code
+    else:
+        estimation_code = ec
 
     if debug:
 
@@ -190,10 +185,10 @@ def make_estimate(self, input, output, get_data, fun, ret, debug=False):
         def show_estimation_code():
             out = io.StringIO()
             with redirect_stdout(out), redirect_stderr(out):
-                try:
-                    print(input.x())  # why is there no error printed anywhere?
-                except Exception as err:
-                    print(err)  # why is there no error printed anywhere?
+                # try:
+                #     print(input.x())  # why is there no error printed anywhere?
+                # except Exception as err:
+                #     print(err)  # why is there no error printed anywhere?
 
                 print(estimation_code())
             return out.getvalue()
@@ -213,15 +208,19 @@ def make_estimate(self, input, output, get_data, fun, ret, debug=False):
     return show_code, estimate
 
 
-def make_summary(self, input, output, show_code, estimate, ret, sum_fun):
-    def summary_code():
-        args = {c: True for c in input.controls()}
-        if input.evar_test() is not None and len(input.evar_test()) > 0:
-            args["test"] = list(input.evar_test())
+def make_summary(self, input, output, show_code, estimate, ret, sum_fun, sc=None):
+    if sc is None:
 
-        args_string = ru.drop_default_args(args, sum_fun)
-        return f"""{ret}.summary({args_string})"""
-        # return f"""{ret}.summary()"""
+        def summary_code():
+            args = {c: True for c in input.controls()}
+            if input.evar_test() is not None and len(input.evar_test()) > 0:
+                args["test"] = list(input.evar_test())
+
+            args_string = ru.drop_default_args(args, sum_fun)
+            return f"""{ret}.summary({args_string})"""
+
+    else:
+        summary_code = sc
 
     @output(id="show_summary_code")
     @render.text
@@ -319,11 +318,24 @@ def make_plot(self, input, output, show_code, estimate, ret):
     #     else:
     #         return "1000px"
 
+    @reactive.Calc
+    def gen_plot():
+        locals()[ret] = estimate()
+        eval(f"""{plot_code()}""")
+        fig = plt.gcf()
+        width, height = fig.get_size_inches()  # Get the size in inches
+        return fig, width * 96, height * 96
+
     @output(id="plot")
-    # @render.plot(height=plot_height)
     @render.plot
     def plot():
         plots = input.plots()
         if plots != "None":
-            locals()[ret] = estimate()  # get model object into local scope
-            return eval(f"""{plot_code()}""")
+            return gen_plot()[0]
+
+    @output(id="plot_container")
+    @render.ui
+    def plot_container():
+        req(estimate(), input.plots())
+        width, height = gen_plot()[1:]
+        return ui.output_plot("plot", height=f"{height}px", width=f"{width}px")

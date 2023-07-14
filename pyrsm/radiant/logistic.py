@@ -1,7 +1,6 @@
-from shiny import App, ui, render, Inputs, Outputs, Session
+from shiny import App, ui, render, reactive, Inputs, Outputs, Session
 import webbrowser, nest_asyncio, uvicorn
 import pyrsm as rsm
-from faicons import icon_svg
 import pyrsm.radiant.utils as ru
 import pyrsm.radiant.model_utils as mu
 
@@ -90,6 +89,11 @@ class model_logistic:
         get_data, stop_app = ru.standard_reactives(self, input, session)
         ru.make_data_outputs(self, input, output)
 
+        # @reactive.Effect
+        # def print_inputs():
+        #     print(input.rvar())
+        #     print(input.evar())
+
         # --- section standard for all model apps ---
         run_refresh, run_done = ru.reestimate(input)
 
@@ -154,9 +158,7 @@ def logistic(
     nest_asyncio.apply()
     webbrowser.open(f"http://{host}:{port}")
     print(f"Listening on http://{host}:{port}")
-    print(
-        "Pyrsm and Radiant are open source tools and free to use. If you\nare a student or instructor using pyrsm or Radiant for a class,\nas a favor to the developers, please send an email to\n<radiant@rady.ucsd.edu> with the name of the school and class."
-    )
+    ru.message()
     uvicorn.run(
         App(rc.shiny_ui(), rc.shiny_server),
         host=host,

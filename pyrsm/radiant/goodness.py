@@ -18,8 +18,12 @@ def ui_summary():
         "input.tabs == 'Summary'",
         ui.panel_well(
             ui.output_ui("ui_var"),
-            ui.input_numeric("prob_1", "Probability 1", value=0.9, min=0, max=1, step=0.01),
-            ui.input_numeric("prob_2", "Probability 2", value=0.9, min=0, max=1, step=0.01),
+            ui.input_numeric(
+                "prob_1", "Probability 1", value=0.9, min=0, max=1, step=0.01
+            ),
+            ui.input_numeric(
+                "prob_2", "Probability 2", value=0.9, min=0, max=1, step=0.01
+            ),
             ui.input_checkbox_group(
                 id="select_output",
                 label="Select output tables:",
@@ -63,7 +67,7 @@ def ui_main():
     )
 
 
-class basics_goodness_of_fit:
+class basics_goodness:
     def __init__(self, datasets: dict, descriptions=None, open=True) -> None:
         ru.init(self, datasets, descriptions=descriptions, open=open)
 
@@ -79,11 +83,11 @@ class basics_goodness_of_fit:
                         ui_summary(),
                         ui_plot(),
                     ),
-                    ui.column(8, ui_main()),
+                    ui.column(8, ru.ui_main_basics()),
                 ),
             ),
             ru.ui_help(
-                "https://github.com/vnijs/pyrsm/blob/main/examples/basics-cross-tabs.ipynb", # no example notebook for goodness of fit
+                "https://github.com/vnijs/pyrsm/blob/main/examples/basics-cross-tabs.ipynb",  # no example notebook for goodness of fit
                 "Goodness-of-fit example notebook",
             ),
             ru.ui_stop(),
@@ -94,18 +98,8 @@ class basics_goodness_of_fit:
 
     def shiny_server(self, input: Inputs, output: Outputs, session: Session):
         # --- section standard for all apps ---
-        @reactive.Calc
-        def get_data():
-            return ru.get_data(input, self)
-
+        get_data, stop_app = ru.standard_reactives(self, input, session)
         ru.make_data_outputs(self, input, output)
-
-        @reactive.Effect
-        @reactive.event(input.stop, ignore_none=True)
-        async def stop_app():
-            rsm.md(f"```python\n{self.stop_code}\n```")
-            await session.app.stop()
-            os.kill(os.getpid(), signal.SIGTERM)
 
         # --- section unique to each app ---
         @output(id="ui_var")
@@ -119,26 +113,24 @@ class basics_goodness_of_fit:
                 choices=isCat,
             )
 
-
         def estimation_code():
             data_name, code = (get_data()[k] for k in ["data_name", "code"])
 
             args = {
                 "data": f"""{{"{data_name}": {data_name}}}""",
                 "variable": input.var(),
-                "probailities": (input.prob_1(), input.prob_2()),
-                   
+                "probabilities": (input.prob_1(), input.prob_2()),
             }
 
-            args_string = ru.drop_default_args(args, rsm.basics.goodness_of_fit)
-            return f"""rsm.basics.goodness_of_fit({args_string})""", code
+            args_string = ru.drop_default_args(args, rsm.basics.goodness)
+            return f"""rsm.basics.goodness({args_string})""", code
 
         def show_code():
             sc = estimation_code()
             return f"""{sc[1]}\nct = {sc[0]}"""
 
         @reactive.Calc
-        def goodness_of_fit():
+        def estimate():
             locals()[input.datasets()] = self.datasets[
                 input.datasets()
             ]  # get data into local scope
@@ -146,7 +138,7 @@ class basics_goodness_of_fit:
 
         def summary_code():
             args = [c for c in input.select_output()]
-            return f"""gof.summary(output={args})"""
+            return f"""gf.summary(output={args})"""
 
         @output(id="show_summary_code")
         @render.text
@@ -159,12 +151,12 @@ class basics_goodness_of_fit:
         def summary():
             out = io.StringIO()
             with redirect_stdout(out):
-                gof = goodness_of_fit()  # get the reactive object into local scope
+                gf = estimate()  # get the reactive object into local scope
                 eval(summary_code())
             return out.getvalue()
 
         def plot_code():
-            return f"""gof.plot(output="{input.select_plot()}")"""
+            return f"""gf.plot(output="{input.select_plot()}")"""
 
         @output(id="show_plot_code")
         @render.text
@@ -179,12 +171,12 @@ class basics_goodness_of_fit:
         def plot():
             plots = input.select_plot()
             if plots != "None":
-                gof = goodness_of_fit()  # get reactive object into local scope
+                gf = estimate()  # get reactive object into local scope
                 cmd = f"""{plot_code()}"""
                 return eval(cmd)
 
 
-def goodness_of_fit(
+def goodness(
     data_dct: dict,
     descriptions_dct: dict = None,
     open: bool = True,
@@ -195,16 +187,24 @@ def goodness_of_fit(
     """
     Launch a Radiant-for-Python app for goodness of fit analysis
     """
-    rc = basics_goodness_of_fit(data_dct, descriptions_dct, open=open)
+    rc = basics_goodness(data_dct, descriptions_dct, open=open)
     nest_asyncio.apply()
     webbrowser.open(f"http://{host}:{port}")
     print(f"Listening on http://{host}:{port}")
-    print(
-        "Pyrsm and Radiant are open source tools and free to use. If you\nare a student or instructor using pyrsm or Radiant for a class,\nas a favor to the developers, please send an email to\n<radiant@rady.ucsd.edu> with the name of the school and class."
-    )
+    ru.message()
     uvicorn.run(
         App(rc.shiny_ui(), rc.shiny_server),
         host=host,
         port=port,
         log_level=log_level,
     )
+
+
+if __name__ == "__main__":
+    import pyrsm as rsm
+
+    newspaper, newspaper_description = rsm.load_data(pkg="basics", name="newspaper")
+    rc = basics_goodness(
+        {"newspaper": newspaper}, {"newspaper": newspaper_description}, open=True
+    )
+    app = App(rc.shiny_ui(), rc.shiny_server)

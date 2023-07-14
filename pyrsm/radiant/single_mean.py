@@ -4,6 +4,7 @@ import io
 import pyrsm as rsm
 from contextlib import redirect_stdout, redirect_stderr
 import pyrsm.radiant.utils as ru
+import pyrsm.radiant.model_utils as mu
 
 
 def ui_summary():
@@ -40,9 +41,9 @@ def ui_summary():
 
 
 choices = {
-    "None": "None",
+    # "None": "None",
     "hist": "Histogram",
-    "sim": "Simulate",
+    # "sim": "Simulate",
 }
 
 
@@ -106,12 +107,23 @@ class basics_single_mean:
             args_string = ru.drop_default_args(args, rsm.basics.single_mean)
             return f"""rsm.basics.single_mean({args_string})""", code
 
-        def show_code():
-            sc = estimation_code()
-            return f"""{sc[1]}\nsm = {sc[0]}"""
+        show_code, estimate_new = mu.make_estimate(
+            self,
+            input,
+            output,
+            get_data,
+            fun="basics.single_mean",
+            ret="sm",
+            ec=estimation_code,
+            debug=True,
+        )
+
+        # def show_code():
+        #     sc = estimation_code()
+        #     return f"""{sc[1]}\nsm = {sc[0]}"""
 
         @reactive.Calc
-        def single_mean():
+        def estimate():
             locals()[input.datasets()] = self.datasets[
                 input.datasets()
             ]  # get data into local scope
@@ -120,40 +132,25 @@ class basics_single_mean:
         def summary_code():
             return f"""sm.summary()"""
 
-        @output(id="show_summary_code")
-        @render.text
-        def show_summary_code():
-            cmd = f"""{show_code()}\n{summary_code()}"""
-            return ru.code_formatter(cmd, self)
+        mu.make_summary(
+            self,
+            input,
+            output,
+            show_code,
+            estimate,
+            ret="sm",
+            sum_fun=rsm.basics.single_mean.summary,
+            sc=summary_code,
+        )
 
-        @output(id="summary")
-        @render.text
-        def summary():
-            out = io.StringIO()
-            with redirect_stdout(out), redirect_stderr(out):
-                sm = single_mean()  # get the reactive object into local scope
-                sm.summary()
-            return out.getvalue()
-
-        def plot_code():
-            return f"""sm.plot("{input.plots()}")"""
-
-        @output(id="show_plot_code")
-        @render.text
-        def show_plot_code():
-            plots = input.plots()
-            if plots != "None":
-                cmd = f"""{show_code()}\n{plot_code()}"""
-                return ru.code_formatter(cmd, self)
-
-        @output(id="plot")
-        @render.plot
-        def plot():
-            plots = input.plots()
-            if plots != "None":
-                sm = single_mean()  # get reactive object into local scope
-                cmd = f"""{plot_code()}"""
-                return eval(cmd)
+        mu.make_plot(
+            self,
+            input,
+            output,
+            show_code,
+            estimate,
+            ret="sm",
+        )
 
 
 def single_mean(
@@ -171,9 +168,7 @@ def single_mean(
     nest_asyncio.apply()
     webbrowser.open(f"http://{host}:{port}")
     print(f"Listening on http://{host}:{port}")
-    print(
-        "Pyrsm and Radiant are open source tools and free to use. If you\nare a student or instructor using pyrsm or Radiant for a class,\nas a favor to the developers, please send an email to\n<radiant@rady.ucsd.edu> with the name of the school and class."
-    )
+    ru.message()
     uvicorn.run(
         App(rc.shiny_ui(), rc.shiny_server),
         host=host,
