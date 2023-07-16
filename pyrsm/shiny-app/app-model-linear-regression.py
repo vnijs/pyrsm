@@ -1,12 +1,7 @@
 from shiny import App
-import pyrsm as rsm
-
 from pyrsm.radiant.regress import *
 
-diamonds, diamonds_description = rsm.load_data(pkg="data", name="diamonds")
-rc = model_regress(
-    {"diamonds": diamonds, "diamonds100": diamonds.sample(100)},
-    {"diamonds": diamonds_description, "diamonds100": diamonds_description},
-    open=True,
-)
+# data_dct, descriptions_dct = ru.get_dfs(pkg="model")
+data_dct, descriptions_dct = ru.get_dfs(pkg="model", name="diamonds")
+rc = model_regress(data_dct, descriptions_dct, open=True)
 app = App(rc.shiny_ui(), rc.shiny_server)

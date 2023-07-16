@@ -112,8 +112,7 @@ class regress:
 
         if ci:
             print("\nConfidence intervals:")
-            df = coef_ci(self.fitted).set_index("index")
-            df.index.name = None
+            df = coef_ci(self.fitted)
             print(f"\n{df.to_string()}")
 
         if ssq:

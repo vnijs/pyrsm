@@ -1,8 +1,7 @@
 from shiny import App, render, ui, reactive, Inputs, Outputs, Session
 import webbrowser, nest_asyncio, uvicorn
-import io
+import signal, os
 import pyrsm as rsm
-from contextlib import redirect_stdout, redirect_stderr
 import pyrsm.radiant.utils as ru
 import pyrsm.radiant.model_utils as mu
 
@@ -78,8 +77,7 @@ class basics_single_mean:
 
     def shiny_server(self, input: Inputs, output: Outputs, session: Session):
         # --- section standard for all apps ---
-        get_data, stop_app = ru.standard_reactives(self, input, session)
-        ru.make_data_outputs(self, input, output)
+        get_data = ru.make_data_elements(self, input, output)
 
         # --- section unique to each app ---
         @output(id="ui_var")
@@ -107,7 +105,7 @@ class basics_single_mean:
             args_string = ru.drop_default_args(args, rsm.basics.single_mean)
             return f"""rsm.basics.single_mean({args_string})""", code
 
-        show_code, estimate_new = mu.make_estimate(
+        show_code, estimate = mu.make_estimate(
             self,
             input,
             output,
@@ -115,19 +113,9 @@ class basics_single_mean:
             fun="basics.single_mean",
             ret="sm",
             ec=estimation_code,
+            run=False,
             debug=True,
         )
-
-        # def show_code():
-        #     sc = estimation_code()
-        #     return f"""{sc[1]}\nsm = {sc[0]}"""
-
-        @reactive.Calc
-        def estimate():
-            locals()[input.datasets()] = self.datasets[
-                input.datasets()
-            ]  # get data into local scope
-            return eval(estimation_code()[0])
 
         def summary_code():
             return f"""sm.summary()"""
@@ -152,9 +140,18 @@ class basics_single_mean:
             ret="sm",
         )
 
+        # --- section standard for all apps ---
+        # stops returning code if moved to utils
+        @reactive.Effect
+        @reactive.event(input.stop, ignore_none=True)
+        async def stop_app():
+            rsm.md(f"```python\n{self.stop_code}\n```")
+            await session.app.stop()
+            os.kill(os.getpid(), signal.SIGTERM)
+
 
 def single_mean(
-    data_dct: dict,
+    data_dct: dict = None,
     descriptions_dct: dict = None,
     open: bool = True,
     host: str = "0.0.0.0",
@@ -164,6 +161,8 @@ def single_mean(
     """
     Launch a Radiant-for-Python app for single_mean hypothesis testing
     """
+    if data_dct is None:
+        data_dct, descriptions_dct = ru.get_dfs(pkg="basics", name="demand_uk")
     rc = basics_single_mean(data_dct, descriptions_dct, open)
     nest_asyncio.apply()
     webbrowser.open(f"http://{host}:{port}")
@@ -180,7 +179,7 @@ def single_mean(
 if __name__ == "__main__":
     import pyrsm as rsm
 
-    demand_uk, demand_uk_description = rsm.load_data(pkg="basics", name="demand_uk")
-    single_mean(
-        {"demand_uk": demand_uk}, {"demand_uk": demand_uk_description}, open=True
-    )
+    # demand_uk, demand_uk_description = rsm.load_data(pkg="basics", name="demand_uk")
+    # data_dct, descriptions_dct = ru.get_dfs(name="demand_uk")
+    # single_mean(data_dct, descriptions_dct, open=True)
+    single_mean()

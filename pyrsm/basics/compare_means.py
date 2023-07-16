@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import seaborn as sns
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -7,6 +8,7 @@ from ..utils import ifelse
 from typing import Union
 from statsmodels.stats import multitest
 import pyrsm.basics.utils as bu
+import pyrsm.radiant.utils as ru
 
 
 class compare_means:
@@ -15,32 +17,58 @@ class compare_means:
         data: Union[pd.DataFrame, dict[str, pd.DataFrame]],
         var1: str,
         var2: str,
-        combinations: list[tuple[str, str]] = None,
+        comb: list[tuple[str, str]] = [],
         alt_hyp: str = "two-sided",
         conf: float = 0.95,
         sample_type: str = "independent",
         adjust: str = None,
-    ) -> None:
+        test_type: str = "t-test",
+    ):
         if isinstance(data, dict):
             self.name = list(data.keys())[0]
-            self.data = data[self.name]
+            self.data = data[self.name].copy()
         else:
-            self.data = data
+            self.data = data.copy()
             self.name = "Not provided"
         self.var1 = var1
         self.var2 = var2
-        self.combinations = combinations
+        self.comb = comb
+
+        var1_series = self.data[self.var1]
+        if pd.api.types.is_numeric_dtype(var1_series):
+            var2 = ifelse(
+                isinstance(var2, str),
+                [var2],
+                ifelse(isinstance(var2, tuple), list(var2), var2),
+            )
+            if (
+                len(self.var2) > 1
+                or len([v for v in self.comb if self.var1 in v]) > 0
+                or var1_series.nunique() > 10
+            ):
+                self.data = self.data.loc[:, [self.var1] + var2].melt()
+                self.var1 = "variable"
+                self.var2 = "value"
+
+        self.data[self.var1] = self.data[self.var1].astype("category")
+        self.levels = list(self.data[self.var1].cat.categories)
+
+        if len(self.comb) == 0:
+            self.comb = ru.iterms(self.levels)
+
         self.alt_hyp = alt_hyp
         self.conf = conf
         self.sample_type = sample_type
         self.adjust = adjust
-        self.test_type = "t-test"
+        self.test_type = test_type
 
         def welch_dof(v1: str, v2: str) -> float:
             # stats.ttest_ind uses Welch's t-test when equal_var=False
             # but does not return the degrees of freedom
-            x = self.data[self.data[self.var1] == v1][self.var2]
-            y = self.data[self.data[self.var1] == v2][self.var2]
+            x = self.data.loc[self.data[self.var1] == v1, self.var2]
+            y = self.data.loc[self.data[self.var1] == v2, self.var2]
+            if x.size == 0 or y.size == 0:  # address division by zero
+                return np.nan
             dof = (x.var() / x.size + y.var() / y.size) ** 2 / (
                 (x.var() / x.size) ** 2 / (x.size - 1)
                 + (y.var() / y.size) ** 2 / (y.size - 1)
@@ -48,17 +76,9 @@ class compare_means:
 
             return dof
 
-        combinations_elements = set()
-        for combination in self.combinations:
-            combinations_elements.add(combination[0])
-            combinations_elements.add(combination[1])
-        combinations_elements = list(combinations_elements)
-
-        rows1 = []
-        mean = 0
-        for element in combinations_elements:
-            subset = self.data[self.data[self.var1] == element][self.var2]
-            row = []
+        descriptive_stats = []
+        for lev in self.levels:
+            subset = self.data.loc[self.data[self.var1] == lev, self.var2]
             mean = np.nanmean(subset)
             n_missing = subset.isna().sum()
             n = len(subset) - n_missing
@@ -66,43 +86,57 @@ class compare_means:
             se = subset.sem()
             tscore = stats.t.ppf((1 + self.conf) / 2, n - 1)
             me = (tscore * se).real
-            row = [element, mean, n, n_missing, sd, se, me]
-            rows1.append(row)
+            row = [lev, mean, n, n_missing, sd, se, me]
+            descriptive_stats.append(row)
 
-        self.table1 = pd.DataFrame(
-            rows1, columns=[self.var1, "mean", "n", "n_missing", "sd", "se", "me"]
+        self.descriptive_stats = pd.DataFrame(
+            descriptive_stats,
+            columns=[self.var1, "mean", "n", "n_missing", "sd", "se", "me"],
         )
 
         if self.alt_hyp == "less":
-            alt_hyp_sign = " < "
+            alt_hyp_sign = "less than"
         elif self.alt_hyp == "two-sided":
-            alt_hyp_sign = " != "
+            alt_hyp_sign = "not equal to"
         else:
-            alt_hyp_sign = " > "
+            alt_hyp_sign = "greater than"
 
-        rows2 = []
-        for v1, v2 in self.combinations:
-            null_hyp = v1 + " = " + v2
-            alt_hyp = v1 + alt_hyp_sign + v2
+        comp_stats = []
+        for c in self.comb:
+            v1, v2 = c.split(":")
+            null_hyp = f"{v1} = {v2}"
+            alt_hyp = f"{v1} {alt_hyp_sign} {v2}"
             diff = np.nanmean(
                 self.data[self.data[self.var1] == v1][self.var2]
             ) - np.nanmean(self.data[self.data[self.var1] == v2][self.var2])
 
-            if self.sample_type == "independent":
-                result = stats.ttest_ind(
-                    self.data[self.data[self.var1] == v1][self.var2],
-                    self.data[self.data[self.var1] == v2][self.var2],
-                    equal_var=False,
-                    nan_policy="omit",
-                    alternative=self.alt_hyp,
+            x = self.data.loc[self.data[self.var1] == v1, self.var2]
+            y = self.data.loc[self.data[self.var1] == v2, self.var2]
+            if x.size != y.size and self.sample_type == "paired":
+                raise ValueError(
+                    "The two samples must have the same size for a paired sample test. Choose independent samples instead."
                 )
-            else:
-                result = stats.ttest_rel(
-                    self.data[self.data[self.var1] == v1][self.var2],
-                    self.data[self.data[self.var1] == v2][self.var2],
-                    nan_policy="omit",
-                    alternative=self.alt_hyp,
-                )
+
+            if self.test_type == "t-test":
+                if self.sample_type == "independent":
+                    result = stats.ttest_ind(
+                        x,
+                        y,
+                        equal_var=False,
+                        nan_policy="omit",
+                        alternative=self.alt_hyp,
+                    )
+                else:
+                    result = stats.ttest_rel(
+                        x, y, nan_policy="omit", alternative=self.alt_hyp
+                    )
+            elif self.test_type == "wilcox":
+                if self.sample_type == "independent":
+                    result = stats.ranksums(x, y, alternative=self.alt_hyp)
+                else:
+                    result = stats.wilcoxon(
+                        x, y, correction=True, alternative=self.alt_hyp
+                    )
 
             t_val, p_val = result.statistic, result.pvalue
             se = diff / t_val
@@ -121,12 +155,12 @@ class compare_means:
             else:
                 ci = [diff - me, np.inf]
 
-            rows2.append(
+            comp_stats.append(
                 [
                     null_hyp,
                     alt_hyp,
                     diff,
-                    ifelse(p_val < 0.001, "< .001", p_val),
+                    p_val,
                     se,
                     t_val,
                     df,
@@ -137,8 +171,8 @@ class compare_means:
             )
 
         cl = bu.ci_label(self.alt_hyp, self.conf)
-        self.table2 = pd.DataFrame(
-            rows2,
+        self.comp_stats = pd.DataFrame(
+            comp_stats,
             columns=[
                 "Null hyp.",
                 "Alt. hyp.",
@@ -154,11 +188,11 @@ class compare_means:
         )
 
         if self.adjust is not None:
-            self.table2["p.value"] = multitest.multipletests(
-                self.table2["p.value"], method=self.adjust
+            self.comp_stats["p.value"] = multitest.multipletests(
+                self.comp_stats["p.value"], method=self.adjust
             )[1]
 
-    def summary(self, dec=3) -> None:
+    def summary(self, extra=False, dec=3) -> None:
         print(f"Pairwise mean comparisons ({self.test_type})")
         print(f"Data      : {self.name}")
         print(f"Variables : {self.var1}, {self.var2}")
@@ -166,8 +200,49 @@ class compare_means:
         print(f"Confidence: {self.conf}")
         print(f"Adjustment: {self.adjust}")
 
-        print(self.table1.round(dec).to_string(index=False))
-        print(self.table2.round(dec).to_string(index=False))
+        print(self.descriptive_stats.round(dec).to_string(index=False))
 
-    def plot(self) -> None:
-        pass
+        comp_stats = self.comp_stats.copy()
+        if not extra:
+            # comp_stats = comp_stats.drop(columns=["se", "t.value", "df"])
+            comp_stats = comp_stats.iloc[:, [0, 1, 2, 3, -1]]
+
+        comp_stats["p.value"] = ifelse(
+            comp_stats["p.value"] < 0.001, "< .001", comp_stats["p.value"]
+        )
+        print(comp_stats.round(dec).to_string(index=False))
+
+    def plot(self, plots: str = "hist") -> None:
+        if plots == "scatter":
+            sns.stripplot(data=self.data, x=self.var1, y=self.var2)
+
+            # Add horizontal lines for mean values
+            # for category, mean_value in mean_values.items():
+            #     plt.axhline(mean_value, color="blue", linestyle="--")
+
+            # Get the unique categories and their indices
+            categories = self.data[self.var1].cat.categories
+            category_indices = {category: i for i, category in enumerate(categories)}
+
+            category_means = self.data.groupby(self.var1)[self.var2].mean()
+
+            # Add a horizontal line for each category at the mean of the value for that category
+            for category, mean in category_means.items():
+                plt.hlines(
+                    y=mean,
+                    xmin=category_indices[category] - 0.2,
+                    xmax=category_indices[category] + 0.2,
+                    color="red",
+                    linestyle="--",
+                )
+
+        elif plots == "box":
+            self.data.boxplot(column=self.var2, by=self.var1)
+        elif plots == "density":
+            sns.kdeplot(data=self.data, x=self.var2, hue=self.var1)
+        elif plots == "bar":
+            sns.barplot(
+                data=self.data, y=self.var2, x=self.var1, errorbar=("ci", self.conf)
+            )
+        else:
+            print("Invalid plot type")

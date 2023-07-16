@@ -1,5 +1,5 @@
 from shiny import App, ui, render, reactive, Inputs, Outputs, Session
-import webbrowser, nest_asyncio, uvicorn
+import webbrowser, nest_asyncio, uvicorn, os, signal
 import pyrsm as rsm
 import pyrsm.radiant.utils as ru
 import pyrsm.radiant.model_utils as mu
@@ -86,8 +86,7 @@ class model_logistic:
 
     def shiny_server(self, input: Inputs, output: Outputs, session: Session):
         # --- section standard for all apps ---
-        get_data, stop_app = ru.standard_reactives(self, input, session)
-        ru.make_data_outputs(self, input, output)
+        get_data = ru.make_data_elements(self, input, output)
 
         # @reactive.Effect
         # def print_inputs():
@@ -95,7 +94,7 @@ class model_logistic:
         #     print(input.evar())
 
         # --- section standard for all model apps ---
-        run_refresh, run_done = ru.reestimate(input)
+        ru.reestimate(input)
 
         # --- section unique to each app ---
         mu.make_model_inputs(input, output, get_data, "isBin")
@@ -142,9 +141,18 @@ class model_logistic:
             ret="lr",
         )
 
+        # --- section standard for all apps ---
+        # stops returning code if moved to utils
+        @reactive.Effect
+        @reactive.event(input.stop, ignore_none=True)
+        async def stop_app():
+            rsm.md(f"```python\n{self.stop_code}\n```")
+            await session.app.stop()
+            os.kill(os.getpid(), signal.SIGTERM)
+
 
 def logistic(
-    data_dct: dict,
+    data_dct: dict = None,
     descriptions_dct: dict = None,
     open: bool = True,
     host: str = "0.0.0.0",
@@ -154,6 +162,8 @@ def logistic(
     """
     Launch a Radiant-for-Python app for logistic regression analysis
     """
+    if data_dct is None:
+        data_dct, descriptions_dct = ru.get_dfs(pkg="model")
     rc = model_logistic(data_dct, descriptions_dct, open=open)
     nest_asyncio.apply()
     webbrowser.open(f"http://{host}:{port}")
@@ -168,7 +178,6 @@ def logistic(
 
 
 if __name__ == "__main__":
-    import pyrsm as rsm
-
-    titanic, titanic_description = rsm.load_data(pkg="data", name="titanic")
-    logistic({"titanic": titanic}, {"titanic": titanic_description}, open=True)
+    # titanic, titanic_description = rsm.load_data(pkg="data", name="titanic")
+    # logistic({"titanic": titanic}, {"titanic": titanic_description}, open=True)
+    logistic()

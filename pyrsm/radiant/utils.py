@@ -1,11 +1,32 @@
-import black, os, signal, inspect
+import black, os, signal, inspect, time
 from htmltools import tags, div, css
 from itertools import combinations
 from shiny import render, ui, reactive
 from faicons import icon_svg
 from pathlib import Path
 import pandas as pd
+import polars as pl
 from pyrsm.utils import ifelse, md
+from pyrsm.example_data import load_data
+
+
+def get_dfs(pkg=None, name=None, obj=pd.DataFrame):
+    data_dct = {k: v for k, v in globals().items() if isinstance(v, obj)}
+    descriptions_dct = {
+        k: globals()[f"{k}_description"]
+        for k in data_dct
+        if f"{k}_description" in globals()
+    }
+    if len(data_dct) == 0 and name is not None:
+        data, description = load_data(pkg=pkg, name=name)
+        data_dct = {name: data}
+        descriptions_dct = {name: description}
+    elif len(data_dct) == 0 and pkg is not None:
+        data_dct, descriptions_dct = load_data(pkg=pkg)
+
+    return ifelse(len(data_dct) == 0, None, data_dct), ifelse(
+        len(descriptions_dct) == 0, None, descriptions_dct
+    )
 
 
 def message():
@@ -18,20 +39,24 @@ def head_content():
     """
     Return the head content for the shiny app
     """
+
+    www_dir = Path(__file__).parent / "www"  # (8)
     return ui.head_content(
         # from https://github.com/rstudio/py-shiny/issues/491#issuecomment-1579138681
         ui.tags.link(
             href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/agate.min.css",
             rel="stylesheet",
         ),
+        ui.tags.link(rel="shortcut icon", href=f"{www_dir}/imgs/icon.png"),
+        ui.tags.style((www_dir / "style.css").read_text()),
         ui.tags.script(
-            (Path(__file__).parent / "www/returnTextAreaBinding.js").read_text(),
+            (www_dir / "js/returnTextAreaBinding.js").read_text(),
         ),
         ui.tags.script(
-            (Path(__file__).parent / "www/radiantUI.js").read_text(),
+            (www_dir / "js/radiantUI.js").read_text(),
         ),
         ui.tags.script(
-            (Path(__file__).parent / "www/screenshot.js").read_text(),
+            (www_dir / "js/screenshot.js").read_text(),
         ),
         ui.tags.script(
             src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js",
@@ -39,7 +64,6 @@ def head_content():
         ui.tags.script(
             src="//html2canvas.hertzen.com/dist/html2canvas.min.js",
         ),
-        ui.tags.style((Path(__file__).parent / "www/style.css").read_text()),
     )
 
 
@@ -169,22 +193,7 @@ def get_data(self, input):
     }
 
 
-def standard_reactives(self, input, session):
-    @reactive.Calc
-    def rget_data():
-        return get_data(self, input)
-
-    @reactive.Effect
-    @reactive.event(input.stop, ignore_none=True)
-    async def stop_app():
-        md(f"```python\n{input.stop_code}\n```")
-        await session.app.stop()
-        os.kill(os.getpid(), signal.SIGTERM)
-
-    return rget_data, stop_app
-
-
-def make_data_outputs(self, input, output):
+def make_data_elements(self, input, output):
     @output(id="show_data_code")
     @render.ui
     def show_data_code():
@@ -205,6 +214,12 @@ def make_data_outputs(self, input, output):
     @render.ui
     def show_description():
         return ui.markdown(get_data(self, input)["description"])
+
+    @reactive.Calc
+    def rget_data():
+        return get_data(self, input)
+
+    return rget_data
 
 
 def input_return_text_area(id, label, value="", rows=1, placeholder=""):
@@ -452,6 +467,24 @@ def reestimate(input):
         if not is_empty(input.interactions()):
             update()
 
+    ## first bit works but can't reset on a timer
+    # @reactive.Effect
+    # @reactive.event(input.copy, ignore_none=True)
+    # def copy_success():
+    #     ui.update_action_link(
+    #         "copy",
+    #         icon=icon_svg("check", width="1.5em", height="1.5em"),
+    #     )
+
+    # @reactive.Effect
+    # @reactive.event(input.copy, ignore_none=True)
+    # def copy_reset():
+    #     reactive.invalidate_later(0.5)
+    #     ui.update_action_link(
+    #         "copy",
+    #         icon=icon_svg("copy", width="1.5em", height="1.5em"),
+    #     )
+
     @reactive.Effect
     @reactive.event(input.run, ignore_none=True)
     def run_done():
@@ -461,7 +494,7 @@ def reestimate(input):
             icon=icon_svg("play"),
         )
 
-    return run_refresh, run_done
+    return run_refresh, run_done  # , copy_success, copy_reset
 
 
 # radiant_screenshot_modal <- function(report_on = "") {

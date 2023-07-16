@@ -3,8 +3,7 @@ import matplotlib.pyplot as plt
 from shiny import render, ui, reactive, req
 from contextlib import redirect_stdout, redirect_stderr
 import pyrsm.radiant.utils as ru
-from ..utils import intersect, ifelse
-from shiny.types import MISSING_TYPE
+from ..utils import intersect
 import numpy as np
 import pandas as pd
 import pyrsm as rsm
@@ -145,20 +144,20 @@ def make_int_inputs(input, output, get_data):
             )
 
 
-def make_estimate(self, input, output, get_data, fun, ret, ec=None, debug=False):
+def make_estimate(
+    self, input, output, get_data, fun, ret, run=True, ec=None, debug=False
+):
     if ec is None:
 
         def estimation_code():
             data_name, code = (get_data()[k] for k in ["data_name", "code"])
-            # try:
-            #     inp = input.lev()
-            # except:
-            #     inp = None
-            # https://discord.com/channels/1109483223987277844/1127817202804985917/1128728788755288065
-            if isinstance(input.lev._value, MISSING_TYPE):
-                inp = None
-            else:
+            # from https://discord.com/channels/1109483223987277844/1127817202804985917/1129530385429176371
+            # does not work with ifelse for some reason
+            # inp = ifelse("lev" in input, input.lev(), None)
+            if "lev" in input:
                 inp = input.lev()
+            else:
+                inp = None
 
             args = {
                 "data": f"""{{"{data_name}": {data_name}}}""",
@@ -185,25 +184,35 @@ def make_estimate(self, input, output, get_data, fun, ret, ec=None, debug=False)
         def show_estimation_code():
             out = io.StringIO()
             with redirect_stdout(out), redirect_stderr(out):
-                # try:
-                #     print(input.x())  # why is there no error printed anywhere?
-                # except Exception as err:
-                #     print(err)  # why is there no error printed anywhere?
-
                 print(estimation_code())
+                eval(estimation_code()[0])
+
             return out.getvalue()
 
     def show_code():
         sc = estimation_code()
         return f"""{sc[1]}\n{ret} = {sc[0]}"""
 
-    @reactive.Calc
-    @reactive.event(input.run, ignore_none=True)
-    def estimate():
-        locals()[input.datasets()] = self.datasets[
-            input.datasets()
-        ]  # get data into local scope
-        return eval(estimation_code()[0])
+    if run:
+
+        @reactive.Calc
+        @reactive.event(input.run, ignore_none=True)
+        def estimate():
+            locals()[input.datasets()] = self.datasets[
+                input.datasets()
+            ]  # get data into local scope
+
+            return eval(estimation_code()[0])
+
+    else:
+
+        @reactive.Calc
+        def estimate():
+            locals()[input.datasets()] = self.datasets[
+                input.datasets()
+            ]  # get data into local scope
+
+            return eval(estimation_code()[0])
 
     return show_code, estimate
 

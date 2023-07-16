@@ -526,9 +526,6 @@ def coef_ci(fitted, alpha: float = 0.05, intercept: bool = True, dec: int = 3):
     if intercept is False:
         df = df[df.index != "Intercept"]
 
-    # df = df.set_index("index")
-    # df.index.name = None
-
     return df
 
 
