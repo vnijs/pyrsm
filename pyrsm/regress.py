@@ -1,7 +1,7 @@
 import pandas as pd
 import re
 import statsmodels.formula.api as smf
-from typing import Optional
+from typing import Optional, Union
 from statsmodels.regression.linear_model import RegressionResults as rrs
 from .utils import ifelse, format_nr, setdiff
 from .visualize import pred_plot_sm, vimp_plot_sm
@@ -26,7 +26,7 @@ from .basics.correlation import correlation
 class regress:
     def __init__(
         self,
-        data,
+        data: Union[pd.DataFrame, dict[str, pd.DataFrame]],
         rvar: Optional[str] = None,
         evar: Optional[list[str]] = None,
         ivar: Optional[list[str]] = None,

@@ -8,6 +8,8 @@ include pyrsm/data/model/*.parquet
 include pyrsm/data/model/*.md
 include pyrsm/data/multivariate/*.parquet
 include pyrsm/data/multivariate/*.md
+include pyrsm/radiant/www/imgs/*
+include pyrsm/radiant/www/js/*
 include pyrsm/radiant/www/*
 
 recursive-exclude pyrsm/data/model/ fraud_data.pkl

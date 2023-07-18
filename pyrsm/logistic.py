@@ -4,17 +4,12 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
-import statsmodels as sm
 from statsmodels.genmod.families import Binomial
-from statsmodels.genmod.families.links import logit
+from statsmodels.genmod.families.links import Logit
 import statsmodels.formula.api as smf
-from statsmodels.stats.outliers_influence import variance_inflation_factor
 from scipy import stats
-from scipy.special import expit
-from .utils import ifelse, setdiff, odir
-from .stats import weighted_mean, weighted_sd
-from .perf import auc
-from .model import sig_stars, model_fit, or_ci, or_plot, sim_prediction
+from .utils import ifelse, setdiff
+from .model import sig_stars, model_fit, or_ci, or_plot, sim_prediction, predict_ci
 from .model import vif as calc_vif
 
 # from statsmodels.regression.linear_model import RegressionResults as rrs
@@ -24,7 +19,7 @@ from .visualize import pred_plot_sm, vimp_plot_sm, extract_evars, extract_rvar
 class logistic:
     def __init__(
         self,
-        data,
+        data: Union[pd.DataFrame, dict[str, pd.DataFrame]],
         rvar: Optional[str] = None,
         lev: Optional[str] = None,
         evar: Optional[list[str]] = None,
@@ -36,7 +31,7 @@ class logistic:
 
         Parameters
         ----------
-        dataset: pandas DataFrame; dataset
+        data: pandas DataFrame; dataset
         evar: List of strings; contains the names of the columns of data to be used as explanatory variables
         lev: String; name of the level in the response variable
         rvar: String; name of the column to be used as the response variable
@@ -59,7 +54,7 @@ class logistic:
 
         if self.form:
             self.fitted = smf.glm(
-                formula=self.form, data=self.data, family=Binomial(link=logit())
+                formula=self.form, data=self.data, family=Binomial(link=Logit())
             ).fit()
             self.evar = extract_evars(self.fitted.model, self.data.columns)
             self.rvar = extract_rvar(self.fitted.model, self.data.columns)
@@ -73,7 +68,7 @@ class logistic:
             if self.ivar:
                 self.form += f" + {' + '.join(self.ivar)}"
             self.fitted = smf.glm(
-                formula=self.form, data=self.data, family=Binomial(link=logit())
+                formula=self.form, data=self.data, family=Binomial(link=Logit())
             ).fit()
         df = pd.DataFrame(np.exp(self.fitted.params), columns=["OR"]).dropna()
         df["OR%"] = 100 * ifelse(df["OR"] < 1, -(1 - df["OR"]), df["OR"] - 1)
@@ -246,7 +241,7 @@ class logistic:
 
         # LR test of competing models (slower but more accurate)
         sub_fitted = smf.glm(
-            formula=form, data=self.data, family=Binomial(link=logit())
+            formula=form, data=self.data, family=Binomial(link=Logit())
         ).fit()
 
         lrtest = -2 * (sub_fitted.llf - self.fitted.llf)

@@ -40,9 +40,10 @@ conda activate base
 python -m venv ~/testenv
 conda deactivate
 source ~/testenv/bin/activate
-# pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "pyrsm>=0.8.4.1"
-pip install "pyrsm>=0.8.7"
+# pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "pyrsm>=0.8.8"
+pip install "pyrsm>=0.8.8"
 python -c "import pyrsm as rsm; rsm.radiant.compare_means()"
+python -c "import pyrsm as rsm; rsm.radiant.regress()"
 deactivate
 
 ## assuming you are using conda

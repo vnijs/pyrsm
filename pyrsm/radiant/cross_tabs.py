@@ -1,9 +1,10 @@
 from shiny import App, render, ui, reactive, Inputs, Outputs, Session
 import webbrowser, nest_asyncio, uvicorn
-import io
+import io, os, signal
 import pyrsm as rsm
 from contextlib import redirect_stdout, redirect_stderr
 import pyrsm.radiant.utils as ru
+import pyrsm.radiant.model_utils as mu
 
 choices = {
     "observed": "Observed",
@@ -66,8 +67,7 @@ class basics_cross_tabs:
 
     def shiny_server(self, input: Inputs, output: Outputs, session: Session):
         # --- section standard for all apps ---
-        get_data, stop_app = ru.standard_reactives(self, input, session)
-        ru.make_data_outputs(self, input, output)
+        get_data = ru.make_data_elements(self, input, output)
 
         # --- section unique to each app ---
         @output(id="ui_var1")
@@ -107,59 +107,58 @@ class basics_cross_tabs:
             args_string = ru.drop_default_args(args, rsm.basics.cross_tabs)
             return f"""rsm.basics.cross_tabs({args_string})""", code
 
-        def show_code():
-            sc = estimation_code()
-            return f"""{sc[1]}\nct = {sc[0]}"""
-
-        @reactive.Calc
-        def estimate():
-            locals()[input.datasets()] = self.datasets[
-                input.datasets()
-            ]  # get data into local scope
-            return eval(estimation_code()[0])
+        show_code, estimate = mu.make_estimate(
+            self,
+            input,
+            output,
+            get_data,
+            fun="basics.cross_tabs",
+            ret="ct",
+            ec=estimation_code,
+            run=False,
+            debug=True,
+        )
 
         def summary_code():
             args = [c for c in input.select_output()]
             return f"""ct.summary(output={args})"""
 
-        @output(id="show_summary_code")
-        @render.text
-        def show_summary_code():
-            cmd = f"""{show_code()}\n{summary_code()}"""
-            return ru.code_formatter(cmd, self)
-
-        @output(id="summary")
-        @render.text
-        def summary():
-            out = io.StringIO()
-            with redirect_stdout(out), redirect_stderr(out):
-                ct = cross_tabs()  # get the reactive object into local scope
-                eval(summary_code())
-            return out.getvalue()
+        mu.make_summary(
+            self,
+            input,
+            output,
+            show_code,
+            estimate,
+            ret="ct",
+            sum_fun=rsm.basics.cross_tabs.summary,
+            sc=summary_code,
+        )
 
         def plot_code():
             return f"""ct.plot(output="{input.plots()}")"""
 
-        @output(id="show_plot_code")
-        @render.text
-        def show_plot_code():
-            plots = input.plots()
-            if plots != "None":
-                cmd = f"""{show_code()}\n{plot_code()}"""
-                return ru.code_formatter(cmd, self)
+        mu.make_plot(
+            self,
+            input,
+            output,
+            show_code,
+            estimate,
+            ret="ct",
+            pc=plot_code,
+        )
 
-        @output(id="plot")
-        @render.plot
-        def plot():
-            plots = input.plots()
-            if plots != "None":
-                ct = cross_tabs()  # get reactive object into local scope
-                cmd = f"""{plot_code()}"""
-                return eval(cmd)
+        # --- section standard for all apps ---
+        # stops returning code if moved to utils
+        @reactive.Effect
+        @reactive.event(input.stop, ignore_none=True)
+        async def stop_app():
+            rsm.md(f"```python\n{self.stop_code}\n```")
+            await session.app.stop()
+            os.kill(os.getpid(), signal.SIGTERM)
 
 
 def cross_tabs(
-    data_dct: dict,
+    data_dct: dict = None,
     descriptions_dct: dict = None,
     open: bool = True,
     host: str = "0.0.0.0",
@@ -167,8 +166,10 @@ def cross_tabs(
     log_level: str = "warning",
 ):
     """
-    Launch a Radiant-for-Python app for linear regression analysis
+    Launch a Radiant-for-Python app for cross-tabs hypothesis testing
     """
+    if data_dct is None:
+        data_dct, descriptions_dct = ru.get_dfs(pkg="basics", name="newspaper")
     rc = basics_cross_tabs(data_dct, descriptions_dct, open=open)
     nest_asyncio.apply()
     webbrowser.open(f"http://{host}:{port}")
@@ -185,8 +186,7 @@ def cross_tabs(
 if __name__ == "__main__":
     import pyrsm as rsm
 
-    newspaper, newspaper_description = rsm.load_data(pkg="basics", name="newspaper")
-    rc = cross_tabs(
-        {"newspaper": newspaper}, {"newspaper": newspaper_description}, open=True
-    )
-    app = App(rc.shiny_ui(), rc.shiny_server)
+    # newspaper, newspaper_description = rsm.load_data(pkg="basics", name="newspaper")
+    # data_dct, descriptions_dct = ru.get_dfs(name="newspaper")
+    # cross_tabs(data_dct, descriptions_dct, open=True)
+    # cross_tabs()

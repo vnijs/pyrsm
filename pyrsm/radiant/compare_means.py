@@ -250,6 +250,9 @@ class basics_compare_means:
             sc=summary_code,
         )
 
+        def plot_code():
+            return f"""ct.plot(output="{input.plots()}")"""
+
         mu.make_plot(
             self,
             input,
@@ -257,6 +260,7 @@ class basics_compare_means:
             show_code,
             estimate,
             ret="cm",
+            pc=plot_code,
         )
 
         # --- section standard for all apps ---
@@ -282,7 +286,7 @@ def compare_means(
     """
     if data_dct is None:
         data_dct, descriptions_dct = ru.get_dfs(pkg="basics", name="salary")
-    rc = basics_compare_means(data_dct, descriptions_dct, open)
+    rc = basics_compare_means(data_dct, descriptions_dct, open=open)
     nest_asyncio.apply()
     webbrowser.open(f"http://{host}:{port}")
     print(f"Listening on http://{host}:{port}")

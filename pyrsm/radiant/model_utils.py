@@ -295,21 +295,27 @@ def make_predict(self, input, output, show_code, estimate, ret, pred_fun):
             return None
 
 
-def make_plot(self, input, output, show_code, estimate, ret):
-    def plot_code():
-        plots = input.plots()
-        if plots == "pred":
-            incl = list(input.incl_evar())
-            incl_int = list(input.incl_interactions())
-            cmd = f""", incl={incl}"""
-            if len(incl_int) > 0:
-                cmd += f""", incl_int={incl_int}"""
-            cmd = f"""{ret}.plot(plots="{plots}" {cmd})"""
-        elif plots == "corr":
-            cmd = f"""{ret}.plot(plots="{plots}", nobs={input.nobs()})"""
-        else:
-            cmd = f"""{ret}.plot(plots="{plots}")"""
-        return cmd
+def make_plot(self, input, output, show_code, estimate, ret, pc=None):
+
+    if pc is None:
+
+        def plot_code():
+            plots = input.plots()
+            if plots == "pred":
+                incl = list(input.incl_evar())
+                incl_int = list(input.incl_interactions())
+                cmd = f""", incl={incl}"""
+                if len(incl_int) > 0:
+                    cmd += f""", incl_int={incl_int}"""
+                cmd = f"""{ret}.plot(plots="{plots}" {cmd})"""
+            elif plots == "corr":
+                cmd = f"""{ret}.plot(plots="{plots}", nobs={input.nobs()})"""
+            else:
+                cmd = f"""{ret}.plot(plots="{plots}")"""
+            return cmd
+
+    else:
+        plot_code = pc
 
     @output(id="show_plot_code")
     @render.text

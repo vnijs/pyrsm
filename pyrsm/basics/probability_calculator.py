@@ -1,204 +1,98 @@
-import matplotlib.pyplot as plt
-import numpy as np
-from scipy import stats
+from pyrsm.basics.probability_calculator_functions import *
+
+pc_dist = {
+    "Binomial": "binom",
+    "Chi-squared": "chisq",
+    "Discrete": "disc",
+    "Exponential": "expo",
+    "F": "fdist",
+    "Log normal": "lnorm",
+    "Normal": "norm",
+    "Poisson": "pois",
+    "t": "tdist",
+    "Uniform": "unif",
+}
 
 
 class prob_calc:
     # Probability calculator
-    def __init__(self, distribution: str, params: dict) -> None:
+    def __init__(self, distribution: str, **kwargs) -> None:
         self.distribution = distribution
-        self.__dict__.update(params)
-        print("Probability calculator")
-
-    def summary(self):
-        print(f"Distribution: {self.distribution}")
-
-        def calc_f_dist(
-            df1: int, df2: int, lb: float = 0, ub: float = 0.95, decimals: int = 3
-        ) -> tuple[float, float]:
-            print(f"Df 1        : {df1}")
-            print(f"Df 2        : {df2}")
-            print(f"Mean        : {round(stats.f.mean(df1, df2, loc=lb), decimals)}")
-            print(f"Variance    : {round(stats.f.var(df1, df2, loc=lb), decimals)}")
-            print(f"Lower bound : {lb}")
-            print(f"Upper bound : {ub}\n")
-
-            if lb == 0:
-                critical_f = round(stats.f.ppf(q=ub, dfn=df1, dfd=df2), decimals)
-
-                _num_decimal_places_in_ub = len(str(ub).split(".")[-1])
-
-                print(f"P(X < {critical_f}) = {ub}")
-                print(
-                    f"P(X > {critical_f}) = {round(1 - ub, _num_decimal_places_in_ub)}"
-                )
-                return (0, critical_f)
-
-            critical_f_lower = round(stats.f.ppf(q=lb, dfn=df1, dfd=df2), decimals)
-
-            _num_decimal_places_in_lb = len(str(lb).split(".")[-1])
-
-            print(f"P(X < {critical_f_lower}) = {lb}")
-            print(
-                f"P(X > {critical_f_lower}) = {round(1 - lb, _num_decimal_places_in_lb)}"
-            )
-            ########################################################################################
-            critical_f_upper = round(stats.f.ppf(q=ub, dfn=df1, dfd=df2), decimals)
-
-            _num_decimal_places_in_ub = len(str(ub).split(".")[-1])
-
-            print(f"P(X < {critical_f_upper}) = {ub}")
-            print(
-                f"P(X > {critical_f_upper}) = {round(1 - ub, _num_decimal_places_in_ub)}"
-            )
-            ########################################################################################
-            _num_decimal_places = max(
-                len(str(ub).split(".")[-1]), len(str(lb).split(".")[-1])
-            )
-
-            print(
-                f"P({critical_f_lower} < X < {critical_f_upper}) = {round((ub - lb), _num_decimal_places)}"
-            )
-            print(
-                f"1 - P({critical_f_lower} < X < {critical_f_upper} = {round(1 - (ub - lb), _num_decimal_places)}"
-            )
-
-            return (critical_f_lower, critical_f_upper)
-
-        def calc_t_dist(
-            df: int, lb: float = 0, ub: float = 0.95, decimals: int = 3
-        ) -> tuple[float, float]:
-            print(f"Df          : {df}")
-            print(f"Mean        : {round(stats.t.mean(df), decimals)}")
-            print(f"St. dev     : {round(stats.t.std(df), decimals)}")
-            print(f"Lower bound : {lb}")
-            print(f"Upper bound : {ub}\n")
-
-            if lb == 0:
-                critical_t = round(stats.t.ppf(q=ub, df=df), decimals)
-
-                _num_decimal_places_in_ub = len(str(ub).split(".")[-1])
-
-                print(f"P(X < {critical_t}) = {ub}")
-                print(
-                    f"P(X > {critical_t}) = {round(1 - ub, _num_decimal_places_in_ub)}"
-                )
-                return (0, critical_t)
-
-            critical_t_lower = round(stats.t.ppf(q=lb, df=df), decimals)
-
-            _num_decimal_places_in_lb = len(str(lb).split(".")[-1])
-
-            print(f"P(X < {critical_t_lower}) = {lb}")
-            print(
-                f"P(X > {critical_t_lower}) = {round(1 - lb, _num_decimal_places_in_lb)}"
-            )
-            ########################################################################################
-            critical_t_upper = round(stats.t.ppf(q=ub, df=df), decimals)
-
-            _num_decimal_places_in_ub = len(str(ub).split(".")[-1])
-
-            print(f"P(X < {critical_t_upper}) = {ub}")
-            print(
-                f"P(X > {critical_t_upper}) = {round(1 - ub, _num_decimal_places_in_ub)}"
-            )
-            ########################################################################################
-            _num_decimal_places = max(
-                len(str(ub).split(".")[-1]), len(str(lb).split(".")[-1])
-            )
-
-            print(
-                f"P({critical_t_lower} < X < {critical_t_upper}) = {round((ub - lb), _num_decimal_places)}"
-            )
-            print(
-                f"1 - P({critical_t_lower} < X < {critical_t_upper}) = {round(1 - (ub - lb), _num_decimal_places)}"
-            )
-
-            return (critical_t_lower, critical_t_upper)
-
-        if self.distribution == "F":
-            lb = self.lb if "lb" in self.__dict__ else 0
-            ub = self.ub if "ub" in self.__dict__ else 0.95
-            df1 = self.df1
-            df2 = self.df2
-            decimals = self.decimals if "decimals" in self.__dict__ else 3
-            calc_f_dist(df1, df2, lb, ub, decimals)
-
+        self.args = kwargs
+        if self.distribution == "binom":
+            self.dct = prob_binom(**kwargs)
+        elif self.distribution == "chisq":
+            self.dct = prob_chisq(**kwargs)
+        elif self.distribution == "disc":
+            self.dct = prob_disc(**kwargs)
+        elif self.distribution == "expo":
+            self.dct = prob_expo(**kwargs)
+        elif self.distribution == "F":
+            self.dct = prob_fdist(**kwargs)
+        elif self.distribution == "lnorm":
+            self.dct = prob_lnorm(**kwargs)
+        elif self.distribution == "norm":
+            self.dct = prob_norm(**kwargs)
+        elif self.distribution == "pois":
+            self.dct = prob_pois(**kwargs)
         elif self.distribution == "t":
-            lb = self.lb if "lb" in self.__dict__ else 0
-            ub = self.ub if "ub" in self.__dict__ else 0.95
-            df = self.df
-            decimals = self.decimals if "decimals" in self.__dict__ else 3
-            calc_t_dist(df, lb, ub, decimals)
+            self.dct = prob_tdist(**kwargs)
+        elif self.distribution == "unif":
+            self.dct = prob_unif(**kwargs)
+        else:
+            raise ValueError(f"Distribution must be one of {list(pc_dist.keys())}")
+
+    def summary(self, dec=3):
+        type = "probs" if ("plb" in self.args) or ("pub" in self.args) else "values"
+        if self.distribution == "binom":
+            summary_prob_binom(self.dct, type=type, dec=dec)
+        elif self.distribution == "chisq":
+            summary_prob_chisq(self.dct, type=type, dec=dec)
+        elif self.distribution == "disc":
+            summary_prob_disc(self.dct, type=type, dec=dec)
+        elif self.distribution == "expo":
+            summary_prob_expo(self.dct, type=type, dec=dec)
+        elif self.distribution == "F":
+            summary_prob_fdist(self.dct, type=type, dec=dec)
+        elif self.distribution == "lnorm":
+            summary_prob_lnorm(self.dct, type=type, dec=dec)
+        elif self.distribution == "norm":
+            summary_prob_norm(self.dct, type=type, dec=dec)
+        elif self.distribution == "pois":
+            summary_prob_pois(self.dct, type=type, dec=dec)
+        elif self.distribution == "t":
+            summary_prob_tdist(self.dct, type=type, dec=dec)
+        elif self.distribution == "unif":
+            summary_prob_unif(self.dct, type=type, dec=dec)
 
     def plot(self):
-        def plot_f_dist(
-            df1: int, df2: int, lb: float = 0, ub: float = 0.95, decimals: int = 3
-        ):
-            x = np.linspace(stats.f.ppf(0, df1, df2), stats.f.ppf(0.99, df1, df2), 200)
-            pdf = stats.f.pdf(x, df1, df2)
-            plt.plot(x, pdf, "black", lw=1, alpha=0.6, label="f pdf")
-
-            if lb == 0:
-                critical_f = round(stats.f.ppf(q=ub, dfn=df1, dfd=df2), decimals)
-                plt.fill_between(x, pdf, where=(x < critical_f), color="slateblue")
-                plt.fill_between(x, pdf, where=(x > critical_f), color="salmon")
-            else:
-                critical_f_lower = round(stats.f.ppf(q=lb, dfn=df1, dfd=df2), decimals)
-                critical_f_upper = round(stats.f.ppf(q=ub, dfn=df1, dfd=df2), decimals)
-
-                plt.fill_between(
-                    x,
-                    pdf,
-                    where=((x > critical_f_upper) | (x < critical_f_lower)),
-                    color="slateblue",
-                )
-                plt.fill_between(
-                    x,
-                    pdf,
-                    where=((x > critical_f_upper) | (x < critical_f_lower)),
-                    color="salmon",
-                )
-
-        def plot_t_dist(
-            df: int, lb: float = 0.025, ub: float = 0.975, decimals: int = 3
-        ):
-            x = np.linspace(stats.t.ppf(0.01, df), stats.t.ppf(0.99, df), 200)
-            pdf = stats.t.pdf(x, df)
-            plt.plot(x, pdf, "black", lw=1, alpha=0.6, label="t pdf")
-
-            if lb == 0:
-                critical_t = round(stats.t.ppf(q=ub, df=df), decimals)
-                plt.fill_between(x, pdf, where=(x < critical_t), color="slateblue")
-                plt.fill_between(x, pdf, where=(x > critical_t), color="salmon")
-            else:
-                critical_t_lower = round(stats.t.ppf(q=lb, df=df), decimals)
-                critical_t_upper = round(stats.t.ppf(q=ub, df=df), decimals)
-
-                plt.fill_between(
-                    x,
-                    pdf,
-                    where=((x < critical_t_upper) | (x > critical_t_lower)),
-                    color="slateblue",
-                )
-                plt.fill_between(
-                    x,
-                    pdf,
-                    where=((x > critical_t_upper) | (x < critical_t_lower)),
-                    color="salmon",
-                )
-
-        if self.distribution == "F":
-            lb = self.lb if "lb" in self.__dict__ else 0
-            ub = self.ub if "ub" in self.__dict__ else 0.95
-            df1 = self.df1
-            df2 = self.df2
-            decimals = self.decimals if "decimals" in self.__dict__ else 3
-            plot_f_dist(df1, df2, lb, ub, decimals)
-
+        type = "probs" if ("plb" in self.args) or ("pub" in self.args) else "values"
+        if self.distribution == "binom":
+            plot_prob_binom(self.dct, type=type)
+        elif self.distribution == "chisq":
+            plot_prob_chisq(self.dct, type=type)
+        elif self.distribution == "disc":
+            plot_prob_disc(self.dct, type=type)
+        elif self.distribution == "expo":
+            plot_prob_expo(self.dct, type=type)
+        elif self.distribution == "F":
+            plot_prob_fdist(self.dct, type=type)
+        elif self.distribution == "lnorm":
+            plot_prob_lnorm(self.dct, type=type)
+        elif self.distribution == "norm":
+            plot_prob_norm(self.dct, type=type)
+        elif self.distribution == "pois":
+            plot_prob_pois(self.dct, type=type)
         elif self.distribution == "t":
-            lb = self.lb if "lb" in self.__dict__ else 0
-            ub = self.ub if "ub" in self.__dict__ else 0.95
-            df = self.df
-            decimals = self.decimals if "decimals" in self.__dict__ else 3
-            plot_t_dist(df, lb, ub, decimals)
+            plot_prob_tdist(self.dct, type=type)
+        elif self.distribution == "unif":
+            plot_prob_unif(self.dct, type=type)
+
+
+if __file__ == "__main__":
+    pc = prob_calc("binom", n=10, p=0.1168, lb=4)
+    pc.summary()
+    pc.plot()
+    pc = prob_calc("binom", n=10, p=0.1168, pub=0.3)
+    pc.summary()
+    pc.plot()

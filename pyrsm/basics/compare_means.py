@@ -204,7 +204,6 @@ class compare_means:
 
         comp_stats = self.comp_stats.copy()
         if not extra:
-            # comp_stats = comp_stats.drop(columns=["se", "t.value", "df"])
             comp_stats = comp_stats.iloc[:, [0, 1, 2, 3, -1]]
 
         comp_stats["p.value"] = ifelse(
@@ -212,13 +211,9 @@ class compare_means:
         )
         print(comp_stats.round(dec).to_string(index=False))
 
-    def plot(self, plots: str = "hist") -> None:
+    def plot(self, plots: str = "scatter") -> None:
         if plots == "scatter":
-            sns.stripplot(data=self.data, x=self.var1, y=self.var2)
-
-            # Add horizontal lines for mean values
-            # for category, mean_value in mean_values.items():
-            #     plt.axhline(mean_value, color="blue", linestyle="--")
+            sns.swarmplot(data=self.data, x=self.var1, y=self.var2)
 
             # Get the unique categories and their indices
             categories = self.data[self.var1].cat.categories
@@ -230,14 +225,15 @@ class compare_means:
             for category, mean in category_means.items():
                 plt.hlines(
                     y=mean,
-                    xmin=category_indices[category] - 0.2,
-                    xmax=category_indices[category] + 0.2,
+                    xmin=category_indices[category] - 0.3,
+                    xmax=category_indices[category] + 0.3,
                     color="red",
                     linestyle="--",
+                    linewidth=3,
                 )
 
         elif plots == "box":
-            self.data.boxplot(column=self.var2, by=self.var1)
+            sns.boxplot(data=self.data, x=self.var1, y=self.var2)
         elif plots == "density":
             sns.kdeplot(data=self.data, x=self.var2, hue=self.var1)
         elif plots == "bar":

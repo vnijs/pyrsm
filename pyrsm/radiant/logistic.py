@@ -6,9 +6,9 @@ import pyrsm.radiant.model_utils as mu
 
 choices = {
     "None": "None",
-    "dist": "Distribution",
-    "corr": "Correlation",
-    "pred": "Prediction plot",
+    # "dist": "Distribution",
+    # "corr": "Correlation",
+    "pred": "Prediction plots",
     "vimp": "Permutation importance",
     "or": "OR plot",
 }

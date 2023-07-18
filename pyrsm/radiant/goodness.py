@@ -98,8 +98,7 @@ class basics_goodness:
 
     def shiny_server(self, input: Inputs, output: Outputs, session: Session):
         # --- section standard for all apps ---
-        get_data, stop_app = ru.standard_reactives(self, input, session)
-        ru.make_data_outputs(self, input, output)
+        get_data = ru.make_data_elements(self, input, output)
 
         # --- section unique to each app ---
         @output(id="ui_var")
@@ -174,6 +173,15 @@ class basics_goodness:
                 gf = estimate()  # get reactive object into local scope
                 cmd = f"""{plot_code()}"""
                 return eval(cmd)
+
+        # --- section standard for all apps ---
+        # stops returning code if moved to utils
+        @reactive.Effect
+        @reactive.event(input.stop, ignore_none=true)
+        async def stop_app():
+            rsm.md(f"```python\n{self.stop_code}\n```")
+            await session.app.stop()
+            os.kill(os.getpid(), signal.sigterm)
 
 
 def goodness(
