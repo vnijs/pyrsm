@@ -1,6 +1,6 @@
 from shiny import App, render, ui, reactive, Inputs, Outputs, Session
 import webbrowser, nest_asyncio, uvicorn
-import io, os, signal
+import signal, os, sys, tempfile
 import pyrsm as rsm
 from contextlib import redirect_stdout, redirect_stderr
 import pyrsm.radiant.utils as ru
@@ -24,7 +24,7 @@ def ui_summary():
             ui.output_ui("ui_var1"),
             ui.output_ui("ui_var2"),
             ui.input_checkbox_group(
-                id="select_output",
+                id="output",
                 label="Select output tables:",
                 choices=choices,
             ),
@@ -37,8 +37,8 @@ plots.update(choices)
 
 
 class basics_cross_tabs:
-    def __init__(self, datasets: dict, descriptions=None, open=True) -> None:
-        ru.init(self, datasets, descriptions=descriptions, open=open)
+    def __init__(self, datasets: dict, descriptions=None, code=True) -> None:
+        ru.init(self, datasets, descriptions=descriptions, code=code)
 
     def shiny_ui(self):
         return ui.page_navbar(
@@ -120,7 +120,7 @@ class basics_cross_tabs:
         )
 
         def summary_code():
-            args = [c for c in input.select_output()]
+            args = [c for c in input.output()]
             return f"""ct.summary(output={args})"""
 
         mu.make_summary(
@@ -135,7 +135,7 @@ class basics_cross_tabs:
         )
 
         def plot_code():
-            return f"""ct.plot(output="{input.plots()}")"""
+            return f"""ct.plot(plots="{input.plots()}")"""
 
         mu.make_plot(
             self,
@@ -160,7 +160,7 @@ class basics_cross_tabs:
 def cross_tabs(
     data_dct: dict = None,
     descriptions_dct: dict = None,
-    open: bool = True,
+    code: bool = True,
     host: str = "0.0.0.0",
     port: int = 8000,
     log_level: str = "warning",
@@ -170,11 +170,17 @@ def cross_tabs(
     """
     if data_dct is None:
         data_dct, descriptions_dct = ru.get_dfs(pkg="basics", name="newspaper")
-    rc = basics_cross_tabs(data_dct, descriptions_dct, open=open)
+    rc = basics_cross_tabs(data_dct, descriptions_dct, code=code)
     nest_asyncio.apply()
     webbrowser.open(f"http://{host}:{port}")
     print(f"Listening on http://{host}:{port}")
     ru.message()
+
+    # redirect stdout and stderr to the temporary file
+    temp = tempfile.NamedTemporaryFile()
+    sys.stdout = open(temp.name, "w")
+    sys.stderr = open(temp.name, "w")
+
     uvicorn.run(
         App(rc.shiny_ui(), rc.shiny_server),
         host=host,
@@ -184,9 +190,4 @@ def cross_tabs(
 
 
 if __name__ == "__main__":
-    import pyrsm as rsm
-
-    # newspaper, newspaper_description = rsm.load_data(pkg="basics", name="newspaper")
-    # data_dct, descriptions_dct = ru.get_dfs(name="newspaper")
-    # cross_tabs(data_dct, descriptions_dct, open=True)
-    # cross_tabs()
+    cross_tabs()

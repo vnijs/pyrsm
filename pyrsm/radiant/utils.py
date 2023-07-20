@@ -6,7 +6,7 @@ from faicons import icon_svg
 from pathlib import Path
 import pandas as pd
 import polars as pl
-from pyrsm.utils import ifelse, md
+from pyrsm.utils import ifelse
 from pyrsm.example_data import load_data
 
 
@@ -40,15 +40,22 @@ def head_content():
     Return the head content for the shiny app
     """
 
-    www_dir = Path(__file__).parent / "www"  # (8)
+    www_dir = Path(__file__).parent / "www"
+    ui.tags.link(rel="shortcut icon", href=f"{www_dir}/imgs/icon.png")
+
+    www_dir = Path(__file__).parent / "www"
     return ui.head_content(
         # from https://github.com/rstudio/py-shiny/issues/491#issuecomment-1579138681
         ui.tags.link(
             href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/agate.min.css",
             rel="stylesheet",
         ),
-        ui.tags.link(rel="shortcut icon", href=f"{www_dir}/imgs/icon.png"),
-        ui.tags.style((www_dir / "style.css").read_text()),
+        # ui.tags.link(rel="shortcut icon", href=f"{www_dir}/imgs/icon.png"),
+        ui.tags.link(rel="icon", type="image/png", href=f"{www_dir}/imgs/icon.png"),
+        ui.include_css((www_dir / "style.css")),
+        # ui.include_js(www_dir / "js/returnTextAreaBinding.js"),
+        # ui.include_js(www_dir / "js/radiantUI.js"), # too slow on startup? Throws an error
+        # ui.include_js(www_dir / "js/screenshot.js"),
         ui.tags.script(
             (www_dir / "js/returnTextAreaBinding.js").read_text(),
         ),
@@ -67,7 +74,7 @@ def head_content():
     )
 
 
-def init(self, datasets, descriptions=None, open=True):
+def init(self, datasets, descriptions=None, code=True):
     """
     Initialize key 'self' values to be used in an app class
     """
@@ -83,7 +90,7 @@ def init(self, datasets, descriptions=None, open=True):
             {"description": descriptions},
         )
     self.dataset_list = list(datasets.keys())
-    self.open = open  # keep code windows open or closed by default
+    self.code = code  # keep code windows open or closed by default
     self.stop_code = ""
 
 
@@ -91,8 +98,8 @@ def escape_quotes(cmd):
     return cmd.replace('"', '\\"').replace("'", "\\'")
 
 
-def quote(v, k):
-    if isinstance(v, str) and k not in ["data", "df"] and not (v[0] + v[-1] == "{}"):
+def quote(v, k, ignore=["data"]):
+    if isinstance(v, str) and k not in ignore and not (v[0] + v[-1] == "{}"):
         v = escape_quotes(v)
         return f'"{v}"'
     else:
@@ -119,7 +126,7 @@ def code_formatter(code, self):
     cmd = self.stop_code = black.format_str(code, mode=black.Mode())
     return ui.TagList(
         ui.HTML(
-            f"<details {ifelse(self.open, 'open', '')}><summary>View generated python code</summary>"
+            f"<details {ifelse(self.code, 'open', '')}><summary>View generated python code</summary>"
         ),
         copy_icon(cmd),
         ui.markdown(f"""\n```python\n{cmd.rstrip()}\n```"""),
@@ -129,7 +136,7 @@ def code_formatter(code, self):
     )
 
 
-def drop_default_args(args, func):
+def drop_default_args(args, func, ignore=["data"]):
     """
     Take a dictionary of arguments for a function and compare
     to the default arguments for that function
@@ -139,7 +146,14 @@ def drop_default_args(args, func):
     sig = inspect.signature(func).parameters
     keep = {k: args[k] for k, v in sig.items() if k in args and args[k] != v.default}
 
-    return ", ".join(f"{k}={quote(v, k)}" for k, v in keep.items())
+    return ", ".join(f"{k}={quote(v, k, ignore)}" for k, v in keep.items())
+
+
+def make_side_by_side(a, b):
+    """Put two inputs side-by-side in the UI"""
+    return ui.tags.table(
+        ui.tags.td(a, width="50%"), ui.tags.td(b, width="50%"), width="100%"
+    )
 
 
 def get_data(self, input):
@@ -358,7 +372,6 @@ def ui_main_basics(height="500px", width="700px"):
         ui.nav(
             "Plot",
             ui.output_ui("show_plot_code"),
-            # ui.output_plot("plot", height=height, width=width),
             ui.output_ui("plot_container"),
         ),
         id="tabs",

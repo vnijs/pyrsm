@@ -176,13 +176,13 @@ Chi-squared: {round(self.chisq_test[0], dec)} df({int(self.chisq_test[2])}), p.v
         pd.reset_option("display.max_columns")
         pd.reset_option("display.max_rows")
 
-    def plot(self, output: list[str] = "perc_col", **kwargs) -> None:
+    def plot(self, plots: list[str] = "perc_col", **kwargs) -> None:
         """
         Plot of correlations between numeric variables in a Pandas dataframe
 
         Parameters
         ----------
-        output : list of tables to show
+        plots : list of tables to show
             Options include "observed" (observed frequencies),
             "expected" (expected frequencies), "chisq" (chi-square values)
             for each cell, "dev_std" (standardized deviations from expected)
@@ -198,10 +198,10 @@ Chi-squared: {round(self.chisq_test[0], dec)} df({int(self.chisq_test[2])}), p.v
         ct = rsm.cross_tabs(newspaper, "Income", "Newspaper")
         ct.plot()
         """
-        output = ifelse(isinstance(output, str), [output], output)
+        plots = ifelse(isinstance(plots, str), [plots], plots)
 
         args = {"rot": False}
-        if "observed" in output:
+        if "observed" in plots:
             tab = (
                 self.observed.transpose()
                 .drop(columns="Total")
@@ -211,7 +211,7 @@ Chi-squared: {round(self.chisq_test[0], dec)} df({int(self.chisq_test[2])}), p.v
             args["title"] = "Observed frequencies"
             args.update(**kwargs)
             fig = tab.plot.bar(stacked=True, **args)
-        if "expected" in output:
+        if "expected" in plots:
             tab = (
                 self.expected.transpose()
                 .drop(columns="Total")
@@ -221,12 +221,12 @@ Chi-squared: {round(self.chisq_test[0], dec)} df({int(self.chisq_test[2])}), p.v
             args["title"] = "Expected frequencies"
             args.update(**kwargs)
             fig = tab.plot.bar(stacked=True, **args)
-        if "chisq" in output:
+        if "chisq" in plots:
             tab = self.chisq.transpose().drop(columns="Total").drop("Total", axis=0)
             args["title"] = "Contribution to chi-squared statistic"
             args.update(**kwargs)
             fig = tab.plot.bar(**args)
-        if "dev_std" in output:
+        if "dev_std" in plots:
             tab = self.dev_std.transpose()
             args["title"] = "Deviation standardized"
             args.update(**kwargs)
@@ -238,17 +238,17 @@ Chi-squared: {round(self.chisq_test[0], dec)} df({int(self.chisq_test[2])}), p.v
             ax.axhline(y=-1.64, color="black", linestyle="--")
             ax.annotate("95%", xy=(0, 2.1), va="bottom", ha="center")
             ax.annotate("90%", xy=(0, 1.4), va="top", ha="center")
-        if "perc_col" in output:
+        if "perc_col" in plots:
             tab = self.perc_col.transpose().drop(columns="Total").drop("Total", axis=0)
             args["title"] = "Column percentages"
             args.update(**kwargs)
             fig = tab.plot.bar(**args)
-        if "perc_row" in output:
+        if "perc_row" in plots:
             tab = self.perc_row.transpose().drop(columns="Total").drop("Total", axis=0)
             args["title"] = "Row percentages"
             args.update(**kwargs)
             fig = tab.plot.bar(**args)
-        if "perc" in output:
+        if "perc" in plots:
             tab = self.perc.transpose().drop(columns="Total").drop("Total", axis=0)
             args["title"] = "Table percentages"
             args.update(**kwargs)

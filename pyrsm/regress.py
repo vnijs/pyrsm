@@ -146,19 +146,21 @@ class regress:
         if test is not None and len(test) > 0:
             self.f_test(test=test, dec=dec)
 
-    def predict(self, df=None, cmd=None, dc=False, ci=False, conf=0.95) -> pd.DataFrame:
+    def predict(
+        self, data=None, cmd=None, dc=False, ci=False, conf=0.95
+    ) -> pd.DataFrame:
         """
         Predict values for a linear regression model
         """
-        if df is None:
-            df = self.data
-        df = df.loc[:, self.evar].copy()
+        if data is None:
+            data = self.data
+        data = data.loc[:, self.evar].copy()
         if cmd is not None:
             if dc:
                 for k, v in cmd.items():
-                    df[k] = v
+                    data[k] = v
             else:
-                df = sim_prediction(df=df, vary=cmd)
+                data = sim_prediction(data=data, vary=cmd)
 
         if ci:
             if dc:
@@ -166,10 +168,12 @@ class regress:
                     "Confidence intervals not available when using the Data & Command option"
                 )
             else:
-                return pd.concat([df, predict_ci(self.fitted, df, conf=conf)], axis=1)
+                return pd.concat(
+                    [data, predict_ci(self.fitted, data, conf=conf)], axis=1
+                )
         else:
-            pred = pd.DataFrame().assign(prediction=self.fitted.predict(df))
-            return pd.concat([df, pred], axis=1)
+            pred = pd.DataFrame().assign(prediction=self.fitted.predict(data))
+            return pd.concat([data, pred], axis=1)
 
     def plot(
         self,

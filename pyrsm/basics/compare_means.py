@@ -211,15 +211,21 @@ class compare_means:
         )
         print(comp_stats.round(dec).to_string(index=False))
 
-    def plot(self, plots: str = "scatter") -> None:
+    def plot(self, plots: str = "scatter", nobs: int = -1) -> None:
         if plots == "scatter":
-            sns.swarmplot(data=self.data, x=self.var1, y=self.var2)
+
+            if nobs < self.data.shape[0] and nobs != np.Inf and nobs != -1:
+                data = self.data.copy().sample(nobs)
+            else:
+                data = self.data.copy()
+
+            sns.swarmplot(data=data, x=self.var1, y=self.var2, alpha=0.5)
 
             # Get the unique categories and their indices
-            categories = self.data[self.var1].cat.categories
+            categories = data[self.var1].cat.categories
             category_indices = {category: i for i, category in enumerate(categories)}
 
-            category_means = self.data.groupby(self.var1)[self.var2].mean()
+            category_means = data.groupby(self.var1)[self.var2].mean()
 
             # Add a horizontal line for each category at the mean of the value for that category
             for category, mean in category_means.items():
@@ -227,9 +233,10 @@ class compare_means:
                     y=mean,
                     xmin=category_indices[category] - 0.3,
                     xmax=category_indices[category] + 0.3,
-                    color="red",
+                    color="blue",
                     linestyle="--",
-                    linewidth=3,
+                    linewidth=2,
+                    zorder=2,
                 )
 
         elif plots == "box":

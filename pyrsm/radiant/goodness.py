@@ -1,9 +1,10 @@
 from shiny import App, render, ui, reactive, Inputs, Outputs, Session
 import webbrowser, nest_asyncio, uvicorn
-import io, os, signal
+import signal, io, os, sys, tempfile
 import pyrsm as rsm
 from contextlib import redirect_stdout
 import pyrsm.radiant.utils as ru
+import pyrsm.radiant.model_utils as mu
 
 choices = {
     "observed": "Observed",
@@ -18,14 +19,14 @@ def ui_summary():
         "input.tabs == 'Summary'",
         ui.panel_well(
             ui.output_ui("ui_var"),
-            ui.input_numeric(
-                "prob_1", "Probability 1", value=0.9, min=0, max=1, step=0.01
-            ),
-            ui.input_numeric(
-                "prob_2", "Probability 2", value=0.9, min=0, max=1, step=0.01
+            ru.input_return_text_area(
+                "probs",
+                label="Probabilities:",
+                placeholder="Insert list [1/2, 1/2]",
+                value=None,
             ),
             ui.input_checkbox_group(
-                id="select_output",
+                id="output",
                 label="Select output tables:",
                 choices=choices,
             ),
@@ -33,43 +34,13 @@ def ui_summary():
     )
 
 
-def ui_plot():
-    plots = {"None": "None"}
-    plots.update(choices)
-    return (
-        ui.panel_conditional(
-            "input.tabs == 'Plot'",
-            ui.panel_well(
-                ui.input_select(
-                    id="select_plot",
-                    label="Select plot:",
-                    choices=plots,
-                ),
-            ),
-        ),
-    )
-
-
-def ui_main():
-    return ui.navset_tab_card(
-        ru.ui_data_main(),
-        ui.nav(
-            "Summary",
-            ui.output_ui("show_summary_code"),
-            ui.output_text_verbatim("summary"),
-        ),
-        ui.nav(
-            "Plot",
-            ui.output_ui("show_plot_code"),
-            ui.output_plot("plot", height="500px", width="700px"),
-        ),
-        id="tabs",
-    )
+plots = {"None": "None"}
+plots.update(choices)
 
 
 class basics_goodness:
-    def __init__(self, datasets: dict, descriptions=None, open=True) -> None:
-        ru.init(self, datasets, descriptions=descriptions, open=open)
+    def __init__(self, datasets: dict, descriptions=None, code=True) -> None:
+        ru.init(self, datasets, descriptions=descriptions, code=code)
 
     def shiny_ui(self):
         return ui.page_navbar(
@@ -81,13 +52,13 @@ class basics_goodness:
                         3,
                         ru.ui_data(self),
                         ui_summary(),
-                        ui_plot(),
+                        ru.ui_plot(plots),
                     ),
                     ui.column(8, ru.ui_main_basics()),
                 ),
             ),
             ru.ui_help(
-                "https://github.com/vnijs/pyrsm/blob/main/examples/basics-cross-tabs.ipynb",  # no example notebook for goodness of fit
+                "https://github.com/vnijs/pyrsm/blob/main/examples/basics-goodness.ipynb",
                 "Goodness-of-fit example notebook",
             ),
             ru.ui_stop(),
@@ -115,79 +86,76 @@ class basics_goodness:
         def estimation_code():
             data_name, code = (get_data()[k] for k in ["data_name", "code"])
 
+            if ru.is_empty(input.probs()):
+                probs = None
+            else:
+                probs = input.probs()
+
             args = {
                 "data": f"""{{"{data_name}": {data_name}}}""",
-                "variable": input.var(),
-                "probabilities": (input.prob_1(), input.prob_2()),
+                "var": input.var(),
+                "probs": probs,
             }
 
-            args_string = ru.drop_default_args(args, rsm.basics.goodness)
+            args_string = ru.drop_default_args(
+                args, rsm.basics.goodness, ignore=["data", "probs"]
+            )
             return f"""rsm.basics.goodness({args_string})""", code
 
-        def show_code():
-            sc = estimation_code()
-            return f"""{sc[1]}\nct = {sc[0]}"""
-
-        @reactive.Calc
-        def estimate():
-            locals()[input.datasets()] = self.datasets[
-                input.datasets()
-            ]  # get data into local scope
-            return eval(estimation_code()[0])
+        show_code, estimate = mu.make_estimate(
+            self,
+            input,
+            output,
+            get_data,
+            fun="basics.goodness",
+            ret="gf",
+            ec=estimation_code,
+            run=False,
+            debug=True,
+        )
 
         def summary_code():
-            args = [c for c in input.select_output()]
+            args = [c for c in input.output()]
             return f"""gf.summary(output={args})"""
 
-        @output(id="show_summary_code")
-        @render.text
-        def show_summary_code():
-            cmd = f"""{show_code()}\n{summary_code()}"""
-            return ru.code_formatter(cmd, self)
-
-        @output(id="summary")
-        @render.text
-        def summary():
-            out = io.StringIO()
-            with redirect_stdout(out):
-                gf = estimate()  # get the reactive object into local scope
-                eval(summary_code())
-            return out.getvalue()
+        mu.make_summary(
+            self,
+            input,
+            output,
+            show_code,
+            estimate,
+            ret="gf",
+            sum_fun=rsm.basics.goodness.summary,
+            sc=summary_code,
+        )
 
         def plot_code():
-            return f"""gf.plot(output="{input.select_plot()}")"""
+            return f"""gf.plot(plots="{input.plots()}")"""
 
-        @output(id="show_plot_code")
-        @render.text
-        def show_plot_code():
-            plots = input.select_plot()
-            if plots != "None":
-                cmd = f"""{show_code()}\n{plot_code()}"""
-                return ru.code_formatter(cmd, self)
-
-        @output(id="plot")
-        @render.plot
-        def plot():
-            plots = input.select_plot()
-            if plots != "None":
-                gf = estimate()  # get reactive object into local scope
-                cmd = f"""{plot_code()}"""
-                return eval(cmd)
+        mu.make_plot(
+            self,
+            input,
+            output,
+            show_code,
+            estimate,
+            ret="gf",
+            pc=plot_code,
+        )
 
         # --- section standard for all apps ---
         # stops returning code if moved to utils
         @reactive.Effect
-        @reactive.event(input.stop, ignore_none=true)
+        @reactive.event(input.stop, ignore_none=True)
         async def stop_app():
             rsm.md(f"```python\n{self.stop_code}\n```")
             await session.app.stop()
-            os.kill(os.getpid(), signal.sigterm)
+            os.kill(os.getpid(), signal.SIGTERM)
 
 
 def goodness(
-    data_dct: dict,
+    data_dct: dict = None,
     descriptions_dct: dict = None,
-    open: bool = True,
+    code: bool = True,
     host: str = "0.0.0.0",
     port: int = 8000,
     log_level: str = "warning",
@@ -195,11 +163,19 @@ def goodness(
     """
     Launch a Radiant-for-Python app for goodness of fit analysis
     """
-    rc = basics_goodness(data_dct, descriptions_dct, open=open)
+    if data_dct is None:
+        data_dct, descriptions_dct = ru.get_dfs(pkg="basics", name="newspaper")
+    rc = basics_goodness(data_dct, descriptions_dct, code=code)
     nest_asyncio.apply()
     webbrowser.open(f"http://{host}:{port}")
     print(f"Listening on http://{host}:{port}")
     ru.message()
+
+    # redirect stdout and stderr to the temporary file
+    temp = tempfile.NamedTemporaryFile()
+    sys.stdout = open(temp.name, "w")
+    sys.stderr = open(temp.name, "w")
+
     uvicorn.run(
         App(rc.shiny_ui(), rc.shiny_server),
         host=host,
@@ -209,10 +185,4 @@ def goodness(
 
 
 if __name__ == "__main__":
-    import pyrsm as rsm
-
-    newspaper, newspaper_description = rsm.load_data(pkg="basics", name="newspaper")
-    rc = basics_goodness(
-        {"newspaper": newspaper}, {"newspaper": newspaper_description}, open=True
-    )
-    app = App(rc.shiny_ui(), rc.shiny_server)
+    goodness()

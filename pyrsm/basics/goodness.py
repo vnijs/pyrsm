@@ -1,13 +1,9 @@
 from cmath import sqrt
-import matplotlib
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
-from scipy import stats
-import seaborn as sns
-from ..model import sig_stars
-from ..utils import ifelse
-from typing import Any, Optional, Union
+from pyrsm.utils import ifelse
+from pyrsm.radiant import utils as ru
+from typing import Optional, Union
 from scipy.stats import chisquare
 
 
@@ -15,9 +11,9 @@ class goodness:
     def __init__(
         self,
         data: Union[pd.DataFrame, dict[str, pd.DataFrame]],
-        variable: str,
+        var: str,
+        probs: Optional[tuple[float, ...]] = None,
         figsize: tuple[float, float] = None,
-        probabilities: Optional[tuple[float, ...]] = None,
     ) -> None:
         if isinstance(data, dict):
             self.name = list(data.keys())[0]
@@ -26,78 +22,64 @@ class goodness:
             self.data = data
             self.name = "Not provided"
 
-        self.variable = variable
+        self.var = var
         self.figsize = figsize
-        self.probabilities = probabilities
-        self._observed_frequencies = self.data[self.variable].value_counts().to_dict()
-        self._observed_df = pd.DataFrame(
-            {
-                key: [
-                    item,
-                ]
-                for key, item in self._observed_frequencies.items()
-            },
-            columns=sorted(self._observed_frequencies.keys()),
-        )
-        self._observed_df["Total"] = self._observed_df[
-            list(self._observed_df.columns)
-        ].sum(axis=1)
+        self.probs = probs
 
-        self._expected_df = pd.DataFrame(
-            {
-                sorted(self._observed_frequencies.keys())[i]: [
-                    self.probabilities[i] * self._observed_df.at[0, "Total"],
-                ]
-                for i in range(len(self._observed_frequencies.keys()))
-            },
-            columns=sorted(self._observed_frequencies.keys()),
-        )
-        self._expected_df["Total"] = self._expected_df[
-            list(self._expected_df.columns)
-        ].sum(axis=1)
+        self.freq = self.data[self.var].value_counts().to_dict()
+        self.nlev = len(self.freq)
+        if self.probs is None:
+            self.probs = [1 / self.nlev] * self.nlev
 
-        self._chisquared_df = pd.DataFrame(
+        self.observed = pd.DataFrame(
+            {k: [v] for k, v in self.freq.items()},
+            columns=sorted(self.freq.keys()),
+        )
+        self.observed["Total"] = self.observed[list(self.observed.columns)].sum(axis=1)
+        self.expected = pd.DataFrame(
+            {
+                sorted(self.freq.keys())[i]: [
+                    self.probs[i] * self.observed.at[0, "Total"],
+                ]
+                for i in range(len(self.freq.keys()))
+            },
+            columns=sorted(self.freq.keys()),
+        )
+        self.expected["Total"] = self.expected[list(self.expected.columns)].sum(axis=1)
+        self.chisq = pd.DataFrame(
             {
                 column: [
                     round(
                         (
-                            (
-                                self._observed_df.at[0, column]
-                                - self._expected_df.at[0, column]
-                            )
+                            (self.observed.at[0, column] - self.expected.at[0, column])
                             ** 2
                         )
-                        / self._expected_df.at[0, column],
+                        / self.expected.at[0, column],
                         2,
                     ),
                 ]
-                for column in self._expected_df.columns.tolist()[:-1]
+                for column in self.expected.columns.tolist()[:-1]
             },
-            columns=self._expected_df.columns.tolist(),
+            columns=self.expected.columns.tolist(),
         )
-        self._chisquared_df["Total"] = self._chisquared_df[
-            list(self._chisquared_df.columns)
-        ].sum(axis=1)
+        self.chisq["Total"] = self.chisq[list(self.chisq.columns)].sum(axis=1)
 
-        self._stdev_df = pd.DataFrame(
+        self.stdev = pd.DataFrame(
             {
                 column: [
                     round(
-                        (
-                            self._observed_df.at[0, column]
-                            - self._expected_df.at[0, column]
-                        )
-                        / sqrt(self._expected_df.at[0, column]).real,
+                        (self.observed.at[0, column] - self.expected.at[0, column])
+                        / sqrt(self.expected.at[0, column]).real,
                         2,
                     ),
                 ]
-                for column in self._expected_df.columns.tolist()[:-1]
+                for column in self.expected.columns.tolist()[:-1]
             },
-            columns=self._expected_df.columns.tolist()[:-1],
+            columns=self.expected.columns.tolist()[:-1],
         )
 
     def summary(
-        self, output: list[str] = ["observed", "expected"], dec: int = 2
+        self, output: list[str] = ["observed", "expected"], dec: int = 3
     ) -> None:
 
         pd.set_option("display.max_columns", 20)
@@ -106,170 +88,93 @@ class goodness:
         output = ifelse(isinstance(output, str), [output], output)
 
         print("Goodness of fit test")
-        print(f"Data: {self.name}")
-        if self.variable not in self.data.columns:
-            print(f"{self.variable} does not exist in chosen dataset")
-            return
+        print(f"Data         : {self.name}")
+        if self.var not in self.data.columns:
+            raise ValueError(f"{self.var} does not exist in chosen dataset")
 
-        print(f"Variable: {self.variable}")
-        num_levels = self.data[self.variable].nunique()
-        if self.probabilities is None:
-            self.probabilities = [1 / num_levels] * num_levels
-
-        if num_levels != len(self.probabilities):
-            print(
-                f'Number of elements in "probabilities" should match the number of levels in {self.variable} ({num_levels})'
+        print(f"Variable     : {self.var}")
+        if self.nlev != len(self.probs):
+            raise ValueError(
+                f'Number of elements in "probs" should match the number of levels in {self.var} ({self.nlev})'
             )
-            return
 
-        prob_sum = sum(self.probabilities)
-        if prob_sum != 1:
-            print(f"Probabilities do not sum to 1 ({prob_sum})")
-            print(
-                f"Use fractions if appropriate. Variable {self.variable} has {num_levels} unique values"
-            )
-            return
+        if not 0.999 <= sum(self.probs) <= 1.001:
+            raise ValueError("Probabilities do not sum to 1 ({sum(self.probs)})")
 
-        print(f'Specified: {" ".join(map(str, self.probabilities))}')
+        print(f'Probabilities: {" ".join(map(str, self.probs))}')
         print(
-            f"Null hyp.: The distribution of {self.variable} is consistent with the specified distribution"
+            f"Null hyp.    : The distribution of {self.var} is consistent with the specified distribution"
         )
         print(
-            f"Alt. hyp.: The distribution of {self.variable} is not consistent with the specified distribution"
+            f"Alt. hyp.    : The distribution of {self.var} is not consistent with the specified distribution"
         )
 
         if "observed" in output:
-            print("Observed:")
-            print(self._observed_df.to_string(index=False))
-            print()
+            print("\nObserved:")
+            print(self.observed.to_string(index=False))
 
         if "expected" in output:
-            print("Expected: total x p")
-            print(self._expected_df.to_string(index=False))
-            print()
+            print("\nExpected: total x p")
+            print(self.expected.to_string(index=False))
 
         if "chisq" in output:
-            print("Contribution to chi-squared: (observed - expected) ^ 2 / expected")
-            print(self._chisquared_df.to_string(index=False))
-            print()
+            print("\nContribution to chi-squared: (observed - expected) ^ 2 / expected")
+            print(self.chisq.to_string(index=False))
 
         if "dev_std" in output:
-            print("Deviation standardized: (observed - expected) / sqrt(expected)")
-            print()
-            print(self._stdev_df.to_string(index=False))
-            print()
+            print("\nDeviation standardized: (observed - expected) / sqrt(expected)\n")
+            print(self.stdev.to_string(index=False))
 
         chisq, p_val = chisquare(
-            [
-                self._observed_frequencies[key]
-                for key in sorted(self._observed_frequencies.keys())
-            ],
-            [
-                self._expected_df.at[0, key]
-                for key in sorted(self._observed_frequencies.keys())
-            ],
+            [self.freq[key] for key in sorted(self.freq.keys())],
+            [self.expected.at[0, key] for key in sorted(self.freq.keys())],
         )
-        chisq = round(chisq, 3)
 
         if p_val < 0.001:
             p_val = "< .001"
-        print(f"Chi-squared: {chisq} df ({num_levels - 1}), p.value {p_val}")
+        else:
+            p_val = round(p_val, dec)
+        print(
+            f"\nChi-squared: {round(chisq, dec)} df ({self.nlev - 1}), p.value {p_val}"
+        )
 
-    def plot(self, output: list[str] = [], **kwargs) -> None:
-        _, axes = plt.subplots(2, 2, figsize=self.figsize)
-        plt.subplots_adjust(wspace=0.2, hspace=0.2)
+    def plot(self, plots: list[str] = [], **kwargs) -> None:
+        plots = ifelse(isinstance(plots, str), [plots], plots)
 
-        if "observed" in output:
-            plt.axes(axes[0][0])
-            observed_frequency_percentages_df = pd.DataFrame(
-                {
-                    "levels": self._observed_df.columns.tolist()[:-1],
-                    "percentages": [
-                        (
-                            self._observed_df.at[0, level]
-                            / self._observed_df.at[0, "Total"]
-                        )
-                        * 100
-                        for level in self._observed_df.columns.tolist()[:-1]
-                    ],
-                }
-            )
-            sns.barplot(
-                data=observed_frequency_percentages_df, x="levels", y="percentages"
-            ).plot()
+        args = {"rot": False}
+        if "observed" in plots:
+            tab = self.observed.copy().drop(columns="Total").transpose()
+            args["title"] = "Observed frequencies"
+            args.update(**kwargs)
+            fig = tab.plot.bar(**args, legend=False)
+        if "expected" in plots:
+            tab = self.expected.copy().drop(columns="Total").transpose()
+            args["title"] = "Expected frequencies"
+            args.update(**kwargs)
+            fig = tab.plot.bar(**args, legend=False)
+        if "chisq" in plots:
+            tab = self.chisq.drop(columns="Total").transpose()
+            args["title"] = "Contribution to chi-squared statistic"
+            args.update(**kwargs)
+            fig = tab.plot.bar(**args, legend=False)
+        if "dev_std" in plots:
+            tab = self.stdev.transpose()
+            args["title"] = "Deviation standardized"
+            args.update(**kwargs, legend=False)
+            fig, ax = plt.subplots()
+            tab.plot.bar(**args, ax=ax)
+            ax.axhline(y=1.96, color="black", linestyle="--")
+            ax.axhline(y=1.64, color="black", linestyle="--")
+            ax.axhline(y=-1.96, color="black", linestyle="--")
+            ax.axhline(y=-1.64, color="black", linestyle="--")
+            ax.annotate("95%", xy=(0, 2.1), va="bottom", ha="center")
+            ax.annotate("90%", xy=(0, 1.4), va="top", ha="center")
 
-        if "expected" in output:
-            plt.axes(axes[0][1])
-            expected_frequency_percentages_df = pd.DataFrame(
-                {
-                    "levels": self._expected_df.columns.tolist()[:-1],
-                    "percentages": [
-                        (
-                            self._expected_df.at[0, level]
-                            / self._expected_df.at[0, "Total"]
-                        )
-                        * 100
-                        for level in self._expected_df.columns.tolist()[:-1]
-                    ],
-                }
-            )
-            sns.barplot(
-                data=expected_frequency_percentages_df, x="levels", y="percentages"
-            ).plot()
 
-        if "chisq" in output:
-            plt.axes(axes[1][0])
-            chisquared_contribution_df = pd.DataFrame(
-                {
-                    "levels": self._chisquared_df.columns.tolist()[:-1],
-                    "contribution": [
-                        self._chisquared_df.at[0, level]
-                        for level in self._chisquared_df.columns.tolist()[:-1]
-                    ],
-                }
-            )
-            sns.barplot(
-                data=chisquared_contribution_df, x="levels", y="contribution"
-            ).plot()
+if __name__ == "__main__":
+    import pyrsm as rsm
 
-        if "dev_std" in output:
-            plt.axes(axes[1][1])
-            standardized_deviation_df = pd.DataFrame(
-                {
-                    "levels": self._stdev_df.columns.tolist(),
-                    "stdev": [
-                        self._stdev_df.at[0, level]
-                        for level in self._stdev_df.columns.tolist()
-                    ],
-                }
-            )
-
-            barplot = sns.barplot(data=standardized_deviation_df, x="levels", y="stdev")
-
-            z_95, z_neg_95 = 1.96, -1.96
-            z_90, z_neg_90 = 1.64, -1.64
-
-            barplot.axhline(y=z_95, color="k", linestyle="dashed", linewidth=1)
-            plt.annotate(
-                "95%",
-                xy=(0, z_95),
-                xytext=(0, z_95 + 0.1),
-                color="black",
-                fontsize=7,
-            )
-
-            barplot.axhline(y=z_neg_95, color="k", linestyle="dashed", linewidth=1)
-            plt.annotate(
-                "95%",
-                xy=(1, z_neg_95),
-                xytext=(1, z_neg_95 - 0.35),
-                color="black",
-                fontsize=7,
-            )
-
-            barplot.axhline(y=z_90, color="k", linestyle="dashed", linewidth=1)
-            barplot.axhline(y=z_neg_90, color="k", linestyle="dashed", linewidth=1)
-
-            barplot.plot()
-
-        # plt.show()
+    data_dct, descriptions_dct = ru.get_dfs(pkg="basics", name="newspaper")
+    gf = rsm.basics.goodness(data=data_dct, var="Income", probs=[1 / 2, 1 / 2])
+    gf.summary(output=["observed"])
+    gf.plot(plots=["observed", "expected", "chisq", "dev_std"])

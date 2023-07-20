@@ -1,5 +1,6 @@
 from shiny import App, ui, reactive, Inputs, Outputs, Session
 import webbrowser, nest_asyncio, uvicorn, os, signal
+import signal, os, io, sys, tempfile
 import pyrsm as rsm
 import pyrsm.radiant.utils as ru
 import pyrsm.radiant.model_utils as mu
@@ -59,8 +60,8 @@ plots_extra = (
 
 
 class model_regress:
-    def __init__(self, datasets: dict, descriptions=None, open=True) -> None:
-        ru.init(self, datasets, descriptions=descriptions, open=open)
+    def __init__(self, datasets: dict, descriptions=None, code=True) -> None:
+        ru.init(self, datasets, descriptions=descriptions, code=code)
 
     def shiny_ui(self):
         return ui.page_navbar(
@@ -141,7 +142,7 @@ class model_regress:
 def regress(
     data_dct: dict = None,
     descriptions_dct: dict = None,
-    open: bool = True,
+    code: bool = True,
     host: str = "0.0.0.0",
     port: int = 8000,
     log_level: str = "warning",
@@ -151,11 +152,17 @@ def regress(
     """
     if data_dct is None:
         data_dct, descriptions_dct = ru.get_dfs(pkg="model")
-    rc = model_regress(data_dct, descriptions_dct, open=open)
+    rc = model_regress(data_dct, descriptions_dct, code=code)
     nest_asyncio.apply()
     webbrowser.open(f"http://{host}:{port}")
     print(f"Listening on http://{host}:{port}")
     ru.message()
+
+    # redirect stdout and stderr to the temporary file
+    temp = tempfile.NamedTemporaryFile()
+    sys.stdout = open(temp.name, "w")
+    sys.stderr = open(temp.name, "w")
+
     uvicorn.run(
         App(rc.shiny_ui(), rc.shiny_server),
         host=host,
@@ -165,6 +172,4 @@ def regress(
 
 
 if __name__ == "__main__":
-    # diamonds, diamonds_description = rsm.load_data(pkg="data", name="diamonds")
-    # regress({"diamonds": diamonds}, {"diamonds": diamonds_description}, open=True)
     regress()

@@ -628,7 +628,7 @@ def reg_dashboard(fitted, nobs: int = 1000):
 
 
 def sim_prediction(
-    df: pd.DataFrame,
+    data: pd.DataFrame,
     vary: list = [],
     nnv: int = 5,
     minq: float = 0,
@@ -639,7 +639,7 @@ def sim_prediction(
 
     Parameters
     ----------
-    df : Pandas DataFrame
+    data : Pandas DataFrame
     vary : List of column names or Dictionary with keys and values to use
     nnv : int
         Number of values to use to simulate the effect of a numeric variable
@@ -659,8 +659,8 @@ def sim_prediction(
         else:
             return s.value_counts().idxmax()
 
-    dct = {c: [fix_value(df[c])] for c in df.columns}
-    dt = df.dtypes
+    dct = {c: [fix_value(data[c])] for c in data.columns}
+    dt = data.dtypes
     if isinstance(vary, dict):
         # user provided values and ranges
         for key, val in vary.items():
@@ -669,18 +669,18 @@ def sim_prediction(
         # auto derived values and ranges
         vary = ifelse(isinstance(vary, str), [vary], vary)
         for v in vary:
-            if pd.api.types.is_numeric_dtype(df[v].dtype):
-                nu = df[v].nunique()
+            if pd.api.types.is_numeric_dtype(data[v].dtype):
+                nu = data[v].nunique()
                 if nu > 2:
                     dct[v] = np.linspace(
-                        np.quantile(df[v], minq),
-                        np.quantile(df[v], maxq),
+                        np.quantile(data[v], minq),
+                        np.quantile(data[v], maxq),
                         min([nu, nnv]),
                     )
                 else:
-                    dct[v] = [df[v].min(), df[v].max()]
+                    dct[v] = [data[v].min(), data[v].max()]
             else:
-                dct[v] = df[v].unique()
+                dct[v] = data[v].unique()
 
     return expand_grid(dct, dt)
 

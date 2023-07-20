@@ -325,14 +325,6 @@ def make_plot(self, input, output, show_code, estimate, ret, pc=None):
             cmd = f"""{show_code()}\n{plot_code()}"""
             return ru.code_formatter(cmd, self)
 
-    # functionality not yet available in shiny-for-python
-    # def plot_height():
-    #     plots = input.plots()
-    #     if plots == "pred":
-    #         return "800px"
-    #     else:
-    #         return "1000px"
-
     @reactive.Calc
     def gen_plot():
         locals()[ret] = estimate()
