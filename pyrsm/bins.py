@@ -92,8 +92,10 @@ def xtile(x, n=5, rev=False):
     xtile(np.arange(10), 5)
     xtile(np.arange(10), 5, rev=True)
     """
+
     x = np.array(x)
-    breaks = np.quantile(x[np.isnan(x) == False], np.arange(0, n + 1) / n)
+    breaks = np.quantile(x[~np.isnan(x)], np.arange(0, n + 1) / n)
+    breaks
     if len(np.unique(breaks)) == len(breaks):
         bins = pd.cut(x, breaks, include_lowest=True, labels=False) + 1
     else:

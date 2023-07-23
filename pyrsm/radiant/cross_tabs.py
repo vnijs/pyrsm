@@ -40,11 +40,11 @@ class basics_cross_tabs:
     def __init__(self, datasets: dict, descriptions=None, code=True) -> None:
         ru.init(self, datasets, descriptions=descriptions, code=code)
 
-    def shiny_ui(self):
+    def shiny_ui(self, *args):
         return ui.page_navbar(
             ru.head_content(),
             ui.nav(
-                "Basics > Cross-tabs",
+                "<< Basics > Cross-tabs >>",
                 ui.row(
                     ui.column(
                         3,
@@ -55,6 +55,7 @@ class basics_cross_tabs:
                     ui.column(8, ru.ui_main_basics()),
                 ),
             ),
+            *args,
             ru.ui_help(
                 "https://github.com/vnijs/pyrsm/blob/main/examples/basics-cross-tabs.ipynb",
                 "Cross-tabs example notebook",
@@ -67,7 +68,7 @@ class basics_cross_tabs:
 
     def shiny_server(self, input: Inputs, output: Outputs, session: Session):
         # --- section standard for all apps ---
-        get_data = ru.make_data_elements(self, input, output)
+        get_data = ru.make_data_elements(self, input, output, session)
 
         # --- section unique to each app ---
         @output(id="ui_var1")
@@ -127,6 +128,7 @@ class basics_cross_tabs:
             self,
             input,
             output,
+            session,
             show_code,
             estimate,
             ret="ct",
@@ -141,6 +143,7 @@ class basics_cross_tabs:
             self,
             input,
             output,
+            session,
             show_code,
             estimate,
             ret="ct",

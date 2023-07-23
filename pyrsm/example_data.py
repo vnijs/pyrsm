@@ -60,13 +60,21 @@ def load_data(pkg=None, name=None, dct=None):
 
     if pkg is None and name is None:
         data, description = mkdct(
-            [d for d in os.listdir(base_path) if not d.startswith("__")]
+            [
+                d
+                for d in os.listdir(base_path)
+                if not d.startswith("__") and not d.startswith(".")
+            ]
         )
     elif pkg is not None and name is None:
         data, description = mkdct([pkg])
     elif pkg is None and name is not None:
         data, description = mkdct(
-            [d for d in os.listdir(base_path) if not d.startswith("__")]
+            [
+                d
+                for d in os.listdir(base_path)
+                if not d.startswith("__") and not d.startswith(".")
+            ]
         )
         if dct is None:
             data = data[name]

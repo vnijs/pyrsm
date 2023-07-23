@@ -1,6 +1,10 @@
+from starlette.applications import Starlette
+from starlette.routing import Mount
+from starlette.staticfiles import StaticFiles
 from shiny import App, ui, reactive, Inputs, Outputs, Session
+from pathlib import Path
 import webbrowser, nest_asyncio, uvicorn, os, signal
-import signal, os, io, sys, tempfile
+import signal, os, sys, tempfile
 import pyrsm as rsm
 import pyrsm.radiant.utils as ru
 import pyrsm.radiant.model_utils as mu
@@ -63,11 +67,11 @@ class model_regress:
     def __init__(self, datasets: dict, descriptions=None, code=True) -> None:
         ru.init(self, datasets, descriptions=descriptions, code=code)
 
-    def shiny_ui(self):
+    def shiny_ui(self, *args):
         return ui.page_navbar(
             ru.head_content(),
             ui.nav(
-                "Model > Linear regression (OLS)",
+                "<< Model > Linear regression (OLS) >>",
                 ui.row(
                     ui.column(
                         3,
@@ -79,6 +83,7 @@ class model_regress:
                     ui.column(8, ru.ui_main_model()),
                 ),
             ),
+            *args,
             ru.ui_help(
                 "https://github.com/vnijs/pyrsm/blob/main/examples/model-linear-regression.ipynb",
                 "Linear regression (OLS) example notebook",
@@ -91,7 +96,7 @@ class model_regress:
 
     def shiny_server(self, input: Inputs, output: Outputs, session: Session):
         # --- section standard for all apps ---
-        get_data = ru.make_data_elements(self, input, output)
+        get_data = ru.make_data_elements(self, input, output, session)
 
         # --- section standard for all model apps ---
         ru.reestimate(input)
@@ -106,6 +111,7 @@ class model_regress:
             self,
             input,
             output,
+            session,
             show_code,
             estimate,
             ret="reg",
@@ -115,6 +121,7 @@ class model_regress:
             self,
             input,
             output,
+            session,
             show_code,
             estimate,
             ret="reg",
@@ -124,6 +131,7 @@ class model_regress:
             self,
             input,
             output,
+            session,
             show_code,
             estimate,
             ret="reg",
@@ -146,6 +154,7 @@ def regress(
     host: str = "0.0.0.0",
     port: int = 8000,
     log_level: str = "warning",
+    debug: bool = False,
 ):
     """
     Launch a Radiant-for-Python app for linear regression analysis
@@ -159,12 +168,22 @@ def regress(
     ru.message()
 
     # redirect stdout and stderr to the temporary file
-    temp = tempfile.NamedTemporaryFile()
-    sys.stdout = open(temp.name, "w")
-    sys.stderr = open(temp.name, "w")
+    if not debug:
+        temp = tempfile.NamedTemporaryFile()
+        sys.stdout = open(temp.name, "w")
+        sys.stderr = open(temp.name, "w")
+
+    app = App(rc.shiny_ui(ru.radiant_navbar()), rc.shiny_server)
+    www_dir = Path(__file__).parent.parent / "radiant" / "www"
+    app_static = StaticFiles(directory=www_dir, html=False)
+
+    routes = [
+        Mount("/www", app=app_static),
+        Mount("/", app=app),
+    ]
 
     uvicorn.run(
-        App(rc.shiny_ui(), rc.shiny_server),
+        Starlette(debug=debug, routes=routes),
         host=host,
         port=port,
         log_level=log_level,
@@ -172,4 +191,4 @@ def regress(
 
 
 if __name__ == "__main__":
-    regress()
+    regress(debug=True)

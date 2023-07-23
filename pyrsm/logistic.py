@@ -1,9 +1,6 @@
 from typing import Union, Optional
-import re
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
 from statsmodels.genmod.families import Binomial
 from statsmodels.genmod.families.links import Logit
 import statsmodels.formula.api as smf
@@ -101,7 +98,7 @@ class logistic:
             df["p.value"] < 0.001, "< .001", df["p.value"].round(dec)
         )
         df["OR%"] = [f"{round(o, max(dec-2, 0))}%" for o in df["OR%"]]
-
+        df["index"] = df["index"].str.replace("[T.", "[", regex=False)
         df = df.set_index("index")
         df.index.name = None
         print(f"\n{df.to_string()}")
@@ -125,7 +122,7 @@ class logistic:
             self.chisq_test(test=test, dec=dec)
 
     def predict(
-        self, data=None, cmd=None, dc=False, ci=False, conf=0.95
+        self, data=None, cmd=None, data_cmd=None, ci=False, conf=0.95
     ) -> pd.DataFrame:
         """
         Predict values for a linear regression model
@@ -133,15 +130,14 @@ class logistic:
         if data is None:
             data = self.data
         data = data.loc[:, self.evar].copy()
-        if cmd is not None:
-            if dc:
-                for k, v in cmd.items():
-                    data[k] = v
-            else:
-                data = sim_prediction(data=data, vary=cmd)
+        if data_cmd is not None:
+            for k, v in data_cmd.items():
+                data[k] = v
+        elif cmd is not None:
+            data = sim_prediction(data=data, vary=cmd)
 
         if ci:
-            if dc:
+            if data_cmd is not None:
                 raise ValueError(
                     "Confidence intervals not available when using the Data & Command option"
                 )
@@ -217,21 +213,21 @@ class logistic:
             form += f"{' + '.join(evar + sint)}"
 
         # ensure constraints are unique
-        pattern = r"(\[T\.[^\]]*\])\:"
-        hypotheses = list(
-            set(
-                [
-                    f"({c} = 0)"
-                    for c in self.fitted.model.exog_names
-                    for v in test
-                    if f"{v}:" in c
-                    or f":{v}" in c
-                    or f"{v}[T." in c
-                    or v == c
-                    or v == re.sub(pattern, ":", c)
-                ]
-            )
-        )
+        # pattern = r"(\[T\.[^\]]*\])\:"
+        # hypotheses = list(
+        #     set(
+        #         [
+        #             f"({c} = 0)"
+        #             for c in self.fitted.model.exog_names
+        #             for v in test
+        #             if f"{v}:" in c
+        #             or f":{v}" in c
+        #             or f"{v}[T." in c
+        #             or v == c
+        #             or v == re.sub(pattern, ":", c)
+        #         ]
+        #     )
+        # )
 
         print(f"\nModel 1: {form}")
         print(f"Model 2: {self.form}")

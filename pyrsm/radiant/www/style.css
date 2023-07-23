@@ -25,7 +25,11 @@ pre code {
     word-wrap: normal;
 }
 
-#copy {
+#copy,
+#copy_data,
+#copy_summary,
+#copy_predict,
+#copy_plot {
     position: absolute;
     right: 14px;
     font-size: 14px;
@@ -34,14 +38,22 @@ pre code {
     opacity: 1;
 }
 
-#copy:hover {
+#copy:hover,
+#copy_data:hover,
+#copy_summary:hover,
+#copy_predict:hover,
+#copy_plot:hover {
     color: white;
     opacity: 0.9;
 }
 
-#copy:active {
+/* #copy:active,
+#copy_data:active,
+#copy_summary:active,
+#copy_predict:active,
+#copy_plot:active {
     opacity: 0.5;
-}
+} */
 
 #run:active {
     opacity: 0.5;

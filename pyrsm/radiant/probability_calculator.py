@@ -76,11 +76,11 @@ class basics_probability_calculator:
     def __init__(self, code=True) -> None:
         self.code = code
 
-    def shiny_ui(self):
+    def shiny_ui(self, *args):
         return ui.page_navbar(
             ru.head_content(),
             ui.nav(
-                "Basics > Probability calculator",
+                "<< Basics > Probability calculator >>",
                 ui.row(
                     ui.column(
                         3,
@@ -90,6 +90,7 @@ class basics_probability_calculator:
                     ui.column(8, ui_main_pc()),
                 ),
             ),
+            *args,
             ru.ui_help(
                 "https://github.com/vnijs/pyrsm/blob/main/examples/basics-probability-calculator.ipynb",
                 "Probability calculator example notebook",
@@ -136,7 +137,7 @@ class basics_probability_calculator:
 
         @output(id="ui_pc_expo")
         @render.ui
-        def ui_pc_chisq():
+        def ui_pc_expo():
             return ui.input_numeric("expo_rate", label="Rate:", value=1, min=1)
 
         @output(id="ui_pc_fdist")
@@ -153,7 +154,7 @@ class basics_probability_calculator:
 
         @output(id="ui_pc_lnorm")
         @render.ui
-        def ui_pc_norm():
+        def ui_pc_lnorm():
             return ru.make_side_by_side(
                 ui.input_numeric("lnorm_mean", label="Mean log:", value=0),
                 ui.input_numeric("lnorm_stdev", label="St. dev. log:", value=1, min=0),
@@ -262,7 +263,7 @@ class basics_probability_calculator:
         @render.text
         def show_summary_code():
             cmd = f"""import pyrsm as rsm\npc = {estimation_code()}\n{summary_code()}\npc.plot()"""
-            return ru.code_formatter(cmd, self)  # , id="copy_pc")
+            return ru.code_formatter(cmd, self, input, session)
 
         @output(id="summary")
         @render.text
@@ -276,7 +277,7 @@ class basics_probability_calculator:
         @reactive.Calc
         def gen_plot():
             locals()["pc"] = estimate()
-            eval(f"""pc.plot()""")
+            eval("""pc.plot()""")
             fig = plt.gcf()
             width, height = fig.get_size_inches()  # Get the size in inches
             return fig, width * 96, height * 96

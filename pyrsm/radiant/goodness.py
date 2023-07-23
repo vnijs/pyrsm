@@ -42,11 +42,11 @@ class basics_goodness:
     def __init__(self, datasets: dict, descriptions=None, code=True) -> None:
         ru.init(self, datasets, descriptions=descriptions, code=code)
 
-    def shiny_ui(self):
+    def shiny_ui(self, *args):
         return ui.page_navbar(
             ru.head_content(),
             ui.nav(
-                "Basics > Goodness-of-fit",
+                "<< Basics > Goodness-of-fit >>",
                 ui.row(
                     ui.column(
                         3,
@@ -57,6 +57,7 @@ class basics_goodness:
                     ui.column(8, ru.ui_main_basics()),
                 ),
             ),
+            *args,
             ru.ui_help(
                 "https://github.com/vnijs/pyrsm/blob/main/examples/basics-goodness.ipynb",
                 "Goodness-of-fit example notebook",
@@ -69,7 +70,7 @@ class basics_goodness:
 
     def shiny_server(self, input: Inputs, output: Outputs, session: Session):
         # --- section standard for all apps ---
-        get_data = ru.make_data_elements(self, input, output)
+        get_data = ru.make_data_elements(self, input, output, session)
 
         # --- section unique to each app ---
         @output(id="ui_var")
@@ -122,6 +123,7 @@ class basics_goodness:
             self,
             input,
             output,
+            session,
             show_code,
             estimate,
             ret="gf",
@@ -136,6 +138,7 @@ class basics_goodness:
             self,
             input,
             output,
+            session,
             show_code,
             estimate,
             ret="gf",

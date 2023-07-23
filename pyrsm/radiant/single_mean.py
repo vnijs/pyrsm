@@ -1,4 +1,8 @@
+from starlette.applications import Starlette
+from starlette.routing import Mount
+from starlette.staticfiles import StaticFiles
 from shiny import App, render, ui, reactive, Inputs, Outputs, Session
+from pathlib import Path
 import webbrowser, nest_asyncio, uvicorn
 import signal, os, sys, tempfile
 import pyrsm as rsm
@@ -50,11 +54,11 @@ class basics_single_mean:
     def __init__(self, datasets: dict, descriptions=None, code=True) -> None:
         ru.init(self, datasets, descriptions=descriptions, code=code)
 
-    def shiny_ui(self):
+    def shiny_ui(self, *args):
         return ui.page_navbar(
             ru.head_content(),
             ui.nav(
-                "Basics > Single mean",
+                "<< Basics > Single mean >>",
                 ui.row(
                     ui.column(
                         3,
@@ -65,6 +69,7 @@ class basics_single_mean:
                     ui.column(8, ru.ui_main_basics()),
                 ),
             ),
+            *args,
             ru.ui_help(
                 "https://github.com/vnijs/pyrsm/blob/main/examples/basics-single-mean.ipynb",
                 "Single mean example notebook",
@@ -77,7 +82,7 @@ class basics_single_mean:
 
     def shiny_server(self, input: Inputs, output: Outputs, session: Session):
         # --- section standard for all apps ---
-        get_data = ru.make_data_elements(self, input, output)
+        get_data = ru.make_data_elements(self, input, output, session)
 
         # --- section unique to each app ---
         @output(id="ui_var")
@@ -124,6 +129,7 @@ class basics_single_mean:
             self,
             input,
             output,
+            session,
             show_code,
             estimate,
             ret="sm",
@@ -135,6 +141,7 @@ class basics_single_mean:
             self,
             input,
             output,
+            session,
             show_code,
             estimate,
             ret="sm",
@@ -157,6 +164,7 @@ def single_mean(
     host: str = "0.0.0.0",
     port: int = 8000,
     log_level: str = "warning",
+    debug: bool = False,
 ):
     """
     Launch a Radiant-for-Python app for single_mean hypothesis testing
@@ -170,12 +178,22 @@ def single_mean(
     ru.message()
 
     # redirect stdout and stderr to the temporary file
-    temp = tempfile.NamedTemporaryFile()
-    sys.stdout = open(temp.name, "w")
-    sys.stderr = open(temp.name, "w")
+    if not debug:
+        temp = tempfile.NamedTemporaryFile()
+        sys.stdout = open(temp.name, "w")
+        sys.stderr = open(temp.name, "w")
+
+    app = App(rc.shiny_ui(ru.radiant_navbar()), rc.shiny_server)
+    www_dir = Path(__file__).parent.parent / "radiant" / "www"
+    app_static = StaticFiles(directory=www_dir, html=False)
+
+    routes = [
+        Mount("/www", app=app_static),
+        Mount("/", app=app),
+    ]
 
     uvicorn.run(
-        App(rc.shiny_ui(), rc.shiny_server),
+        Starlette(debug=debug, routes=routes),
         host=host,
         port=port,
         log_level=log_level,
@@ -186,4 +204,4 @@ if __name__ == "__main__":
     # demand_uk, demand_uk_description = rsm.load_data(pkg="basics", name="demand_uk")
     # data_dct, descriptions_dct = ru.get_dfs(name="demand_uk")
     # single_mean(data_dct, descriptions_dct, code=True)
-    single_mean()
+    single_mean(debug=True)

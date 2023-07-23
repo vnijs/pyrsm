@@ -165,6 +165,7 @@ class goodness:
             tab.plot.bar(**args, ax=ax)
             ax.axhline(y=1.96, color="black", linestyle="--")
             ax.axhline(y=1.64, color="black", linestyle="--")
+            ax.axhline(y=0, color="black")
             ax.axhline(y=-1.96, color="black", linestyle="--")
             ax.axhline(y=-1.64, color="black", linestyle="--")
             ax.annotate("95%", xy=(0, 2.1), va="bottom", ha="center")

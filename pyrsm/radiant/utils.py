@@ -1,9 +1,10 @@
-import black, os, signal, inspect, time
+import black
+import inspect
+from shiny import req
 from htmltools import tags, div, css
 from itertools import combinations
 from shiny import render, ui, reactive
 from faicons import icon_svg
-from pathlib import Path
 import pandas as pd
 import polars as pl
 from pyrsm.utils import ifelse
@@ -39,32 +40,17 @@ def head_content():
     """
     Return the head content for the shiny app
     """
-
-    www_dir = Path(__file__).parent / "www"
-    ui.tags.link(rel="shortcut icon", href=f"{www_dir}/imgs/icon.png")
-
-    www_dir = Path(__file__).parent / "www"
     return ui.head_content(
         # from https://github.com/rstudio/py-shiny/issues/491#issuecomment-1579138681
         ui.tags.link(
             href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/agate.min.css",
             rel="stylesheet",
         ),
-        # ui.tags.link(rel="shortcut icon", href=f"{www_dir}/imgs/icon.png"),
-        ui.tags.link(rel="icon", type="image/png", href=f"{www_dir}/imgs/icon.png"),
-        ui.include_css((www_dir / "style.css")),
-        # ui.include_js(www_dir / "js/returnTextAreaBinding.js"),
-        # ui.include_js(www_dir / "js/radiantUI.js"), # too slow on startup? Throws an error
-        # ui.include_js(www_dir / "js/screenshot.js"),
-        ui.tags.script(
-            (www_dir / "js/returnTextAreaBinding.js").read_text(),
-        ),
-        ui.tags.script(
-            (www_dir / "js/radiantUI.js").read_text(),
-        ),
-        ui.tags.script(
-            (www_dir / "js/screenshot.js").read_text(),
-        ),
+        ui.tags.link(rel="shortcut icon", href=f"/www/imgs/icon.png"),
+        ui.tags.link(href="/www/style.css", rel="stylesheet"),
+        ui.tags.script(src="/www/js/returnTextAreaBinding.js"),
+        ui.tags.script(src="/www/js/radiantUI.js"),
+        ui.tags.script(src="/www/js/screenshot.js"),
         ui.tags.script(
             src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js",
         ),
@@ -92,6 +78,7 @@ def init(self, datasets, descriptions=None, code=True):
     self.dataset_list = list(datasets.keys())
     self.code = code  # keep code windows open or closed by default
     self.stop_code = ""
+    self.state = {}
 
 
 def escape_quotes(cmd):
@@ -106,11 +93,11 @@ def quote(v, k, ignore=["data"]):
         return v
 
 
-def copy_icon(cmd):
+def copy_icon(cmd, id):
     cmd = escape_quotes(cmd).replace("\n", "\\n")
     return (
         ui.input_action_link(
-            "copy",
+            id,
             None,
             icon=icon_svg("copy", width="1.5em", height="1.5em"),
             title="Copy to clipboard",
@@ -119,16 +106,37 @@ def copy_icon(cmd):
     )
 
 
-def code_formatter(code, self):
+def copy_reset(input, session, id="copy"):
+    @reactive.Effect
+    @reactive.event(input[id], ignore_none=True)
+    async def copy_success():
+        ui.update_action_link(
+            id,
+            icon=icon_svg("check", fill="green", width="1.5em", height="1.5em"),
+        )
+        # await session.send_custom_message("reset_copy", "")
+
+    @reactive.Effect
+    @reactive.event(input.copy_reset, ignore_none=True)
+    async def copy_reset():
+        req(input[id])
+        ui.update_action_link(
+            id,
+            icon=icon_svg("copy", width="1.5em", height="1.5em"),
+        )
+
+
+def code_formatter(code, self, input, session, id="copy"):
     """
     Format python code using black
     """
     cmd = self.stop_code = black.format_str(code, mode=black.Mode())
+    copy_reset(input, session, id=id)
     return ui.TagList(
         ui.HTML(
             f"<details {ifelse(self.code, 'open', '')}><summary>View generated python code</summary>"
         ),
-        copy_icon(cmd),
+        copy_icon(cmd, id=id),
         ui.markdown(f"""\n```python\n{cmd.rstrip()}\n```"""),
         ui.tags.script("hljs.highlightAll();"),
         ui.HTML("</details>"),
@@ -207,11 +215,13 @@ def get_data(self, input):
     }
 
 
-def make_data_elements(self, input, output):
+def make_data_elements(self, input, output, session):
     @output(id="show_data_code")
     @render.ui
     def show_data_code():
-        return code_formatter(get_data(self, input)["code"], self)
+        return code_formatter(
+            get_data(self, input)["code"], self, input, session, id="copy_data"
+        )
 
     @output(id="show_data")
     @render.data_frame
@@ -278,43 +288,48 @@ def iterms(vars, nway=2, sep=":"):
     return [f"{sep}".join(c) for c in cvars]
 
 
-def ui_data(self):
-    return (
+def ui_view(self):
+    return ui.panel_well(
+        ui.input_select(
+            "datasets",
+            "Datasets:",
+            self.dataset_list,
+            selected=self.state.get("datasets", None),
+        ),
+        ui.input_checkbox("show_filter", "Show data filter", value=True),
         ui.panel_conditional(
-            "input.tabs == 'Data'",
-            ui.panel_well(
-                ui.input_select("datasets", "Datasets:", self.dataset_list),
-                ui.input_checkbox("show_filter", "Show data filter", value=True),
-                ui.panel_conditional(
-                    "input.show_filter == true",
-                    # ui.input_radio_buttons(
-                    #     "data_language",
-                    #     "Data language",
-                    #     ["Pandas", "Polars", "SQL"],
-                    #     inline=True,
-                    # ),
-                    input_return_text_area(
-                        "data_filter",
-                        "Data Filter:",
-                        rows=2,
-                        placeholder="Provide a filter (e.g., price >  5000) and press return",
-                    ),
-                    input_return_text_area(
-                        "data_sort",
-                        "Data sort:",
-                        rows=2,
-                        placeholder="Sort (e.g., ['color', 'price'], ascending=[True, False])) and press return",
-                    ),
-                    input_return_text_area(
-                        "data_slice",
-                        "Data slice (rows):",
-                        rows=1,
-                        placeholder="e.g., 0:50 and press return",
-                    ),
-                ),
+            "input.show_filter == true",
+            # ui.input_radio_buttons(
+            #     "data_language",
+            #     "Data language",
+            #     ["Pandas", "Polars", "SQL"],
+            #     inline=True,
+            # ),
+            input_return_text_area(
+                "data_filter",
+                "Data Filter:",
+                rows=2,
+                value=self.state.get("data_filter", ""),
+                placeholder="Provide a filter (e.g., price >  5000) and press return",
+            ),
+            input_return_text_area(
+                "data_sort",
+                "Data sort:",
+                rows=2,
+                placeholder="Sort (e.g., ['color', 'price'], ascending=[True, False])) and press return",
+            ),
+            input_return_text_area(
+                "data_slice",
+                "Data slice (rows):",
+                rows=1,
+                placeholder="e.g., 0:50 and press return",
             ),
         ),
     )
+
+
+def ui_data(self):
+    return ui.panel_conditional("input.tabs == 'Data'", ui_view(self))
 
 
 def ui_summary(*args):
@@ -352,18 +367,19 @@ def ui_plot(choices, *args):
 
 
 def ui_data_main():
-    data_main = ui.nav(
-        "Data",
+    return ui.div(
         ui.output_ui("show_data_code"),
         ui.output_data_frame("show_data"),
         ui.output_ui("show_description"),
     )
-    return data_main
 
 
 def ui_main_basics(height="500px", width="700px"):
     return ui.navset_tab_card(
-        ui_data_main(),
+        ui.nav(
+            "Data",
+            ui_data_main(),
+        ),
         ui.nav(
             "Summary",
             ui.output_ui("show_summary_code"),
@@ -380,7 +396,10 @@ def ui_main_basics(height="500px", width="700px"):
 
 def ui_main_model():
     return ui.navset_tab_card(
-        ui_data_main(),
+        ui.nav(
+            "Data",
+            ui_data_main(),
+        ),
         ui.nav(
             "Summary",
             ui.output_ui("show_estimation_code"),
@@ -399,6 +418,67 @@ def ui_main_model():
             ui.output_ui("plot_container"),
         ),
         id="tabs",
+    )
+
+
+def radiant_navbar():
+    return (
+        ui.nav_control(
+            ui.input_action_link("data", "Data", onclick='window.location.href = "/";')
+        ),
+        ui.nav_menu(
+            "Basics",
+            ui.nav_control(
+                # "Probability",
+                ui.input_action_link(
+                    "pc",
+                    "Probability Calculator",
+                    # onclick='window.location.href = "/basics/prob-calc/?SSUID=local-e47b75";',
+                    onclick='window.location.href = "/basics/prob-calc/";',
+                ),
+                # "----",
+                # "Means",
+                ui.input_action_link(
+                    "sm",
+                    "Single mean",
+                    onclick='window.location.href = "/basics/single-mean/";',
+                ),
+                ui.input_action_link(
+                    "cm",
+                    "Compare means",
+                    onclick='window.location.href = "/basics/compare-means/";',
+                ),
+                # "----",
+                # "Proportions",
+                # "----",
+                # "Tables",
+                ui.input_action_link(
+                    "gt",
+                    "Goodness of fit",
+                    onclick='window.location.href = "/basics/goodness/";',
+                ),
+                ui.input_action_link(
+                    "ct",
+                    "Cross-tabs",
+                    onclick='window.location.href = "/basics/cross-tabs/";',
+                ),
+            ),
+        ),
+        ui.nav_menu(
+            "Models",
+            ui.nav_control(
+                ui.input_action_link(
+                    "reg",
+                    "Linear Regression (OLS)",
+                    onclick='window.location.href = "/models/regress/";',
+                ),
+                ui.input_action_link(
+                    "lr",
+                    "Logistic Regression (GLM)",
+                    onclick='window.location.href = "/models/logistic/";',
+                ),
+            ),
+        ),
     )
 
 

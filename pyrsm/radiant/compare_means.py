@@ -1,6 +1,11 @@
 from shiny import App, render, ui, reactive, Inputs, Outputs, Session, req
-import webbrowser, nest_asyncio, uvicorn
-import signal, os, sys, tempfile
+import webbrowser
+import nest_asyncio
+import uvicorn
+import signal
+import os
+import sys
+import tempfile
 import pyrsm as rsm
 from pyrsm.utils import ifelse
 import pyrsm.radiant.utils as ru
@@ -112,11 +117,11 @@ class basics_compare_means:
     def __init__(self, datasets: dict, descriptions=None, code=True) -> None:
         ru.init(self, datasets, descriptions=descriptions, code=code)
 
-    def shiny_ui(self):
+    def shiny_ui(self, *args):
         return ui.page_navbar(
             ru.head_content(),
             ui.nav(
-                "Basics > Compare means",
+                "<< Basics > Compare means >>",
                 ui.row(
                     ui.column(
                         3,
@@ -127,6 +132,7 @@ class basics_compare_means:
                     ui.column(8, ru.ui_main_basics()),
                 ),
             ),
+            *args,
             ru.ui_help(
                 "https://github.com/vnijs/pyrsm/blob/main/examples/basics-compare-means.ipynb",
                 "Compare means example notebook",
@@ -139,7 +145,7 @@ class basics_compare_means:
 
     def shiny_server(self, input: Inputs, output: Outputs, session: Session):
         # --- section standard for all apps ---
-        get_data = ru.make_data_elements(self, input, output)
+        get_data = ru.make_data_elements(self, input, output, session)
 
         # --- section unique to each app ---
         @output(id="ui_cvar1")
@@ -254,6 +260,7 @@ class basics_compare_means:
             self,
             input,
             output,
+            session,
             show_code,
             estimate,
             ret="cm",
@@ -272,6 +279,7 @@ class basics_compare_means:
             self,
             input,
             output,
+            session,
             show_code,
             estimate,
             ret="cm",
@@ -321,6 +329,4 @@ def compare_means(
 
 
 if __name__ == "__main__":
-    import pyrsm as rsm
-
     compare_means()

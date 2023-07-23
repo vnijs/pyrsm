@@ -1,4 +1,8 @@
+from starlette.applications import Starlette
+from starlette.routing import Mount
+from starlette.staticfiles import StaticFiles
 from shiny import App, ui, render, reactive, Inputs, Outputs, Session
+from pathlib import Path
 import webbrowser, nest_asyncio, uvicorn
 import signal, os, sys, tempfile
 import pyrsm as rsm
@@ -59,11 +63,11 @@ class model_logistic:
     def __init__(self, datasets: dict, descriptions=None, code=True) -> None:
         ru.init(self, datasets, descriptions=descriptions, code=code)
 
-    def shiny_ui(self):
+    def shiny_ui(self, *args):
         return ui.page_navbar(
             ru.head_content(),
             ui.nav(
-                "Model > Logistic regression (GLM)",
+                "<< Model > Logistic regression (GLM) >>",
                 ui.row(
                     ui.column(
                         3,
@@ -75,6 +79,7 @@ class model_logistic:
                     ui.column(8, ru.ui_main_model()),
                 ),
             ),
+            *args,
             ru.ui_help(
                 "https://github.com/vnijs/pyrsm/blob/main/examples/model-logistic-regression.ipynb",
                 "Logistic regression (GLM) example notebook",
@@ -87,7 +92,7 @@ class model_logistic:
 
     def shiny_server(self, input: Inputs, output: Outputs, session: Session):
         # --- section standard for all apps ---
-        get_data = ru.make_data_elements(self, input, output)
+        get_data = ru.make_data_elements(self, input, output, session)
 
         # @reactive.Effect
         # def print_inputs():
@@ -119,6 +124,7 @@ class model_logistic:
             self,
             input,
             output,
+            session,
             show_code,
             estimate,
             ret="lr",
@@ -128,6 +134,7 @@ class model_logistic:
             self,
             input,
             output,
+            session,
             show_code,
             estimate,
             ret="lr",
@@ -137,6 +144,7 @@ class model_logistic:
             self,
             input,
             output,
+            session,
             show_code,
             estimate,
             ret="lr",
@@ -159,6 +167,7 @@ def logistic(
     host: str = "0.0.0.0",
     port: int = 8000,
     log_level: str = "warning",
+    debug: bool = False,
 ):
     """
     Launch a Radiant-for-Python app for logistic regression analysis
@@ -172,12 +181,22 @@ def logistic(
     ru.message()
 
     # redirect stdout and stderr to the temporary file
-    temp = tempfile.NamedTemporaryFile()
-    sys.stdout = open(temp.name, "w")
-    sys.stderr = open(temp.name, "w")
+    if not debug:
+        temp = tempfile.NamedTemporaryFile()
+        sys.stdout = open(temp.name, "w")
+        sys.stderr = open(temp.name, "w")
+
+    app = App(rc.shiny_ui(ru.radiant_navbar()), rc.shiny_server)
+    www_dir = Path(__file__).parent.parent / "radiant" / "www"
+    app_static = StaticFiles(directory=www_dir, html=False)
+
+    routes = [
+        Mount("/www", app=app_static),
+        Mount("/", app=app),
+    ]
 
     uvicorn.run(
-        App(rc.shiny_ui(), rc.shiny_server),
+        Starlette(debug=debug, routes=routes),
         host=host,
         port=port,
         log_level=log_level,
@@ -187,4 +206,4 @@ def logistic(
 if __name__ == "__main__":
     # titanic, titanic_description = rsm.load_data(pkg="data", name="titanic")
     # logistic({"titanic": titanic}, {"titanic": titanic_description}, code=True)
-    logistic()
+    logistic(debug=True)

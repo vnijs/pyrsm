@@ -104,6 +104,7 @@ class regress:
         df["p.value"] = ifelse(
             df["p.value"] < 0.001, "< .001", df["p.value"].round(dec)
         )
+        df["index"] = df["index"].str.replace("[T.", "[", regex=False)
         df = df.set_index("index")
         df.index.name = None
         print(f"\n{df.to_string()}")
@@ -147,7 +148,7 @@ class regress:
             self.f_test(test=test, dec=dec)
 
     def predict(
-        self, data=None, cmd=None, dc=False, ci=False, conf=0.95
+        self, data=None, cmd=None, data_cmd=None, ci=False, conf=0.95
     ) -> pd.DataFrame:
         """
         Predict values for a linear regression model
@@ -155,15 +156,14 @@ class regress:
         if data is None:
             data = self.data
         data = data.loc[:, self.evar].copy()
-        if cmd is not None:
-            if dc:
-                for k, v in cmd.items():
-                    data[k] = v
-            else:
-                data = sim_prediction(data=data, vary=cmd)
+        if data_cmd is not None:
+            for k, v in data_cmd.items():
+                data[k] = v
+        elif cmd is not None:
+            data = sim_prediction(data=data, vary=cmd)
 
         if ci:
-            if dc:
+            if data_cmd is not None:
                 raise ValueError(
                     "Confidence intervals not available when using the Data & Command option"
                 )

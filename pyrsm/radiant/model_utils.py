@@ -217,7 +217,9 @@ def make_estimate(
     return show_code, estimate
 
 
-def make_summary(self, input, output, show_code, estimate, ret, sum_fun, sc=None):
+def make_summary(
+    self, input, output, session, show_code, estimate, ret, sum_fun, sc=None
+):
     if sc is None:
 
         def summary_code():
@@ -235,7 +237,8 @@ def make_summary(self, input, output, show_code, estimate, ret, sum_fun, sc=None
     @render.text
     def show_summary_code():
         cmd = f"""{show_code()}\n{summary_code()}"""
-        return ru.code_formatter(cmd, self)
+        # return ru.code_formatter(cmd, self)
+        return ru.code_formatter(cmd, self, input, session, id="copy_summary")
 
     @output(id="summary")
     @render.text
@@ -247,20 +250,19 @@ def make_summary(self, input, output, show_code, estimate, ret, sum_fun, sc=None
         return out.getvalue()
 
 
-def make_predict(self, input, output, show_code, estimate, ret, pred_fun):
+def make_predict(self, input, output, session, show_code, estimate, ret, pred_fun):
     def predict_code():
         args = {}
         cmd = input.pred_cmd().strip()
 
         if input.pred_type() == "Data":
-            args["df"] = input.pred_datasets()
+            args["data"] = input.pred_datasets()
         elif input.pred_type() == "Command" and not ru.is_empty(cmd):
-            args["df"] = None
+            args["data"] = None
             args["cmd"] = cmd
         elif input.pred_type() == "Data & Command" and not ru.is_empty(cmd):
-            args["df"] = input.pred_datasets()
-            args["cmd"] = cmd
-            args["dc"] = True
+            args["data"] = input.pred_datasets()
+            args["data_cmd"] = cmd
 
         ci = input.pred_ci()
         if ci:
@@ -272,7 +274,13 @@ def make_predict(self, input, output, show_code, estimate, ret, pred_fun):
     @output(id="show_predict_code")
     @render.text
     def show_predict_code():
-        return ru.code_formatter(f"""{show_code()}\npred = {predict_code()}""", self)
+        return ru.code_formatter(
+            f"""{show_code()}\npred = {predict_code()}""",
+            self,
+            input,
+            session,
+            id="copy_predict",
+        )
 
     @output(id="predict")
     @render.data_frame
@@ -295,7 +303,7 @@ def make_predict(self, input, output, show_code, estimate, ret, pred_fun):
             return None
 
 
-def make_plot(self, input, output, show_code, estimate, ret, pc=None):
+def make_plot(self, input, output, session, show_code, estimate, ret, pc=None):
 
     if pc is None:
 
@@ -323,7 +331,8 @@ def make_plot(self, input, output, show_code, estimate, ret, pc=None):
         plots = input.plots()
         if plots != "None":
             cmd = f"""{show_code()}\n{plot_code()}"""
-            return ru.code_formatter(cmd, self)
+            # return ru.code_formatter(cmd, self)
+            return ru.code_formatter(cmd, self, input, session, id="copy_plot")
 
     @reactive.Calc
     def gen_plot():

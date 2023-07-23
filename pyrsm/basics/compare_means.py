@@ -207,7 +207,7 @@ class compare_means:
             comp_stats = comp_stats.iloc[:, [0, 1, 2, 3, -1]]
 
         comp_stats["p.value"] = ifelse(
-            comp_stats["p.value"] < 0.001, "< .001", comp_stats["p.value"]
+            comp_stats["p.value"] < 0.001, "< .001", round(comp_stats["p.value"], dec)
         )
         print(comp_stats.round(dec).to_string(index=False))
 

@@ -3,14 +3,14 @@ from starlette.routing import Mount
 from starlette.staticfiles import StaticFiles
 from pathlib import Path
 from shiny import App
-from pyrsm.radiant.single_mean import basics_single_mean
+from pyrsm.radiant.data_view import data_view
 import pyrsm.radiant.utils as ru
 
 www_dir = Path(__file__).parent.parent / "radiant" / "www"
 app_static = StaticFiles(directory=www_dir, html=False)
 
-data_dct, descriptions_dct = ru.get_dfs(pkg="basics", name="demand_uk")
-rc = basics_single_mean(data_dct, descriptions_dct, code=True)
+data_dct, descriptions_dct = ru.get_dfs(pkg="data")
+rc = data_view(data_dct, descriptions_dct, code=True)
 
 routes = [
     Mount("/www", app=app_static),
