@@ -3,8 +3,13 @@ from starlette.routing import Mount
 from starlette.staticfiles import StaticFiles
 from shiny import App, render, ui, reactive, Inputs, Outputs, Session
 from pathlib import Path
-import webbrowser, nest_asyncio, uvicorn
-import signal, os, sys, tempfile
+import webbrowser
+import nest_asyncio
+import uvicorn
+import signal
+import os
+import sys
+import tempfile
 import pyrsm as rsm
 import pyrsm.radiant.utils as ru
 import pyrsm.radiant.model_utils as mu
@@ -123,7 +128,7 @@ class basics_single_mean:
         )
 
         def summary_code():
-            return f"""sm.summary()"""
+            return """sm.summary()"""
 
         mu.make_summary(
             self,
