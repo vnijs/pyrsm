@@ -1,8 +1,12 @@
 from shiny import App, render, ui, reactive, Inputs, Outputs, Session
-import webbrowser, nest_asyncio, uvicorn
-import signal, io, os, sys, tempfile
+import webbrowser
+import nest_asyncio
+import uvicorn
+import signal
+import os
+import sys
+import tempfile
 import pyrsm as rsm
-from contextlib import redirect_stdout
 import pyrsm.radiant.utils as ru
 import pyrsm.radiant.model_utils as mu
 
@@ -162,6 +166,7 @@ def goodness(
     host: str = "0.0.0.0",
     port: int = 8000,
     log_level: str = "warning",
+    debug: bool = False,
 ):
     """
     Launch a Radiant-for-Python app for goodness of fit analysis
@@ -175,9 +180,10 @@ def goodness(
     ru.message()
 
     # redirect stdout and stderr to the temporary file
-    temp = tempfile.NamedTemporaryFile()
-    sys.stdout = open(temp.name, "w")
-    sys.stderr = open(temp.name, "w")
+    if not debug:
+        temp = tempfile.NamedTemporaryFile()
+        sys.stdout = open(temp.name, "w")
+        sys.stderr = open(temp.name, "w")
 
     uvicorn.run(
         App(rc.shiny_ui(), rc.shiny_server),
@@ -188,4 +194,4 @@ def goodness(
 
 
 if __name__ == "__main__":
-    goodness()
+    goodness(debug=False)

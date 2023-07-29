@@ -1,6 +1,12 @@
 from shiny import App, render, ui, reactive, Inputs, Outputs, Session, req
-import webbrowser, nest_asyncio, uvicorn
-import signal, os, io, sys, tempfile
+import webbrowser
+import nest_asyncio
+import uvicorn
+import signal
+import os
+import io
+import sys
+import tempfile
 import matplotlib.pyplot as plt
 from contextlib import redirect_stdout, redirect_stderr
 import pyrsm as rsm
@@ -311,6 +317,7 @@ def prob_calc(
     host: str = "0.0.0.0",
     port: int = 8000,
     log_level: str = "critical",
+    debug: bool = False,
 ):
     """
     Launch a Radiant-for-Python app for compare means hypothesis testing
@@ -322,9 +329,10 @@ def prob_calc(
     ru.message()
 
     # redirect stdout and stderr to the temporary file
-    temp = tempfile.NamedTemporaryFile()
-    sys.stdout = open(temp.name, "w")
-    sys.stderr = open(temp.name, "w")
+    if not debug:
+        temp = tempfile.NamedTemporaryFile()
+        sys.stdout = open(temp.name, "w")
+        sys.stderr = open(temp.name, "w")
 
     uvicorn.run(
         App(rc.shiny_ui(), rc.shiny_server),
@@ -335,4 +343,4 @@ def prob_calc(
 
 
 if __name__ == "__main__":
-    prob_calc()
+    prob_calc(debug=False)

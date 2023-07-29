@@ -13,12 +13,16 @@ from pyrsm.radiant.probability_calculator import basics_probability_calculator
 from pyrsm.radiant.regress import model_regress
 from pyrsm.radiant.single_mean import basics_single_mean
 
+# import polars as pl
+# import pandas as pd
+
 # linear regression app
+# polars reads dates from parquet just fine, pandas does not
+# date format is maintained when using to_pandas
+# data_dct, descriptions_dct = ru.get_dfs(pkg="model", name="diamonds", polars=True)
+# data_dct["diamonds"] = data_dct["diamonds"].to_pandas()
 data_dct, descriptions_dct = ru.get_dfs(pkg="model", name="diamonds")
 data_dct.update({"diamonds100": data_dct["diamonds"].sample(100)})
-
-# rv["diamonds100"]
-# dct = {"a": reactive.Value(data_dct)}
 
 # main path to www folder
 www_dir = Path(__file__).parent.parent / "radiant" / "www"

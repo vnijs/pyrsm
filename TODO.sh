@@ -34,15 +34,18 @@ conda activate base
 pip uninstall --user pyrsm
 pip install --user -e ~/gh/pyrsm
 
+# poetry
+poetry env list
+
 # create a new 
 sudo rm -rf ~/testenv
 conda activate base
 python -m venv ~/testenv
 conda deactivate
 source ~/testenv/bin/activate
-pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "pyrsm==0.9.0.9"
+# pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "pyrsm==0.9.0.9"
 # pip install "polars==0.18.7" # 0.18.8 requires rust and cargo to be installed
-# pip install "pyrsm>=0.9.1"
+pip install "pyrsm>=0.9.1"
 python -c "import pyrsm as rsm; rsm.radiant.regress()"
 python -c "import pyrsm as rsm; rsm.radiant.logistic()"
 python -c "import pyrsm as rsm; rsm.radiant.compare_means()"

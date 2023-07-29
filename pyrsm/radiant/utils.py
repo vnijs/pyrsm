@@ -11,7 +11,8 @@ from pyrsm.utils import ifelse
 from pyrsm.example_data import load_data
 
 
-def get_dfs(pkg=None, name=None, obj=pd.DataFrame):
+def get_dfs(pkg=None, name=None, polars=False):
+    obj = pd.DataFrame if not polars else pl.DataFrame
     data_dct = {k: v for k, v in globals().items() if isinstance(v, obj)}
     descriptions_dct = {
         k: globals()[f"{k}_description"]
@@ -19,7 +20,7 @@ def get_dfs(pkg=None, name=None, obj=pd.DataFrame):
         if f"{k}_description" in globals()
     }
     if len(data_dct) == 0 and name is not None:
-        data, description = load_data(pkg=pkg, name=name)
+        data, description = load_data(pkg=pkg, name=name, polars=polars)
         data_dct = {name: data}
         descriptions_dct = {name: description}
     elif len(data_dct) == 0 and pkg is not None:
@@ -46,7 +47,7 @@ def head_content():
             href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/agate.min.css",
             rel="stylesheet",
         ),
-        ui.tags.link(rel="shortcut icon", href=f"/www/imgs/icon.png"),
+        ui.tags.link(rel="shortcut icon", href="/www/imgs/icon.png"),
         ui.tags.link(href="/www/style.css", rel="stylesheet"),
         ui.tags.script(src="/www/js/returnTextAreaBinding.js"),
         ui.tags.script(src="/www/js/radiantUI.js"),
@@ -310,7 +311,7 @@ def ui_view(self):
                 "Data Filter:",
                 rows=2,
                 value=self.state.get("data_filter", ""),
-                placeholder="Provide a filter (e.g., price >  5000) and press return",
+                placeholder="Provide a filter (e.g., price > 5000) and press return",
             ),
             input_return_text_area(
                 "data_sort",
@@ -484,14 +485,14 @@ def radiant_navbar():
 
 def ui_stop():
     return (
-        ui.nav_control(
-            ui.input_action_link(
-                "screenshot",
-                "Screenshot",
-                icon=icon_svg("camera"),
-                onclick="generate_screenshot();",
-            ),
-        ),
+        # ui.nav_control(
+        #     ui.input_action_link(
+        #         "screenshot",
+        #         "Screenshot",
+        #         icon=icon_svg("camera"),
+        #         onclick="generate_screenshot();",
+        #     ),
+        # ),
         ui.nav_control(
             ui.input_action_link(
                 "stop", "Stop", icon=icon_svg("stop"), onclick="window.close();"
@@ -559,24 +560,6 @@ def reestimate(input):
         # not clear why this needs to be separate from the above
         if not is_empty(input.interactions()):
             update()
-
-    ## first bit works but can't reset on a timer
-    # @reactive.Effect
-    # @reactive.event(input.copy, ignore_none=True)
-    # def copy_success():
-    #     ui.update_action_link(
-    #         "copy",
-    #         icon=icon_svg("check", width="1.5em", height="1.5em"),
-    #     )
-
-    # @reactive.Effect
-    # @reactive.event(input.copy, ignore_none=True)
-    # def copy_reset():
-    #     reactive.invalidate_later(0.5)
-    #     ui.update_action_link(
-    #         "copy",
-    #         icon=icon_svg("copy", width="1.5em", height="1.5em"),
-    #     )
 
     @reactive.Effect
     @reactive.event(input.run, ignore_none=True)
@@ -655,53 +638,3 @@ def reestimate(input):
 #   class = "btn-primary",
 #   onclick = "get_img_src();"
 # )
-
-# getting data to work as a separate nav item caused problems
-# def ui_data(self):
-#     return ui.nav(
-#         "Data",
-#         ui.row(
-#             ui.column(
-#                 3,
-#                 ui.panel_well(
-#                     ui.input_select("datasets", "Datasets:", self.dataset_list)
-#                 ),
-#                 ui.panel_well(
-#                     ui.input_checkbox("show_filter", "Show data filter", value=True),
-#                     ui.panel_conditional(
-#                         "input.show_filter == true",
-#                         ui.input_radio_buttons(
-#                             "data_language",
-#                             "Data language",
-#                             choices=["Pandas", "Polars", "SQL"],
-#                             inline=True,
-#                         ),
-#                         input_return_text_area(
-#                             "data_filter",
-#                             "Data Filter:",
-#                             rows=2,
-#                             placeholder="Provide a filter (e.g., price >  5000) and press return",
-#                         ),
-#                         input_return_text_area(
-#                             "data_sort",
-#                             "Data sort:",
-#                             rows=2,
-#                             placeholder="Sort (e.g., ['color', 'price'], ascending=[True, False])) and press return",
-#                         ),
-#                         input_return_text_area(
-#                             "data_slice",
-#                             "Data slice (rows):",
-#                             rows=1,
-#                             placeholder="e.g., 1:50 and press return",
-#                         ),
-#                     ),
-#                 ),
-#             ),
-#             ui.column(
-#                 8,
-#                 ui.output_ui("show_data_code"),
-#                 ui.output_data_frame("show_data"),
-#                 ui.output_ui("show_description"),
-#             ),
-#         ),
-#     )

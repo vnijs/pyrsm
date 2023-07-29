@@ -3,8 +3,13 @@ from starlette.routing import Mount
 from starlette.staticfiles import StaticFiles
 from shiny import App, ui, render, reactive, Inputs, Outputs, Session
 from pathlib import Path
-import webbrowser, nest_asyncio, uvicorn
-import signal, os, sys, tempfile
+import webbrowser
+import nest_asyncio
+import uvicorn
+import signal
+import os
+import sys
+import tempfile
 import pyrsm as rsm
 import pyrsm.radiant.utils as ru
 import pyrsm.radiant.model_utils as mu
@@ -206,4 +211,4 @@ def logistic(
 if __name__ == "__main__":
     # titanic, titanic_description = rsm.load_data(pkg="data", name="titanic")
     # logistic({"titanic": titanic}, {"titanic": titanic_description}, code=True)
-    logistic(debug=True)
+    logistic(debug=False)

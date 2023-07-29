@@ -268,7 +268,9 @@ def make_predict(self, input, output, session, show_code, estimate, ret, pred_fu
         if ci:
             args.update({"ci": ci, "conf": input.conf()})
 
-        args_string = ru.drop_default_args(args, pred_fun)
+        args_string = ru.drop_default_args(
+            args, pred_fun, ignore=["data", "cmd", "data_cmd"]
+        )
         return f"""{ret}.predict({args_string})"""
 
     @output(id="show_predict_code")
@@ -304,7 +306,6 @@ def make_predict(self, input, output, session, show_code, estimate, ret, pred_fu
 
 
 def make_plot(self, input, output, session, show_code, estimate, ret, pc=None):
-
     if pc is None:
 
         def plot_code():
@@ -331,7 +332,6 @@ def make_plot(self, input, output, session, show_code, estimate, ret, pc=None):
         plots = input.plots()
         if plots != "None":
             cmd = f"""{show_code()}\n{plot_code()}"""
-            # return ru.code_formatter(cmd, self)
             return ru.code_formatter(cmd, self, input, session, id="copy_plot")
 
     @reactive.Calc

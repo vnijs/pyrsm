@@ -1,9 +1,10 @@
 import os
 from importlib import import_module
 import pandas as pd
+import polars as pl
 
 
-def load_data(pkg=None, name=None, dct=None):
+def load_data(pkg=None, name=None, dct=None, polars=False):
     """
     Load example data included in the pyrsm package
 
@@ -33,7 +34,10 @@ def load_data(pkg=None, name=None, dct=None):
     base_path = import_module(base).__path__[0]
 
     def load_data(file_path):
-        return pd.read_parquet(file_path)
+        if polars:
+            return pl.read_parquet(file_path)
+        else:
+            return pd.read_parquet(file_path)
 
     def load_description(file_path):
         # read a text file into a string

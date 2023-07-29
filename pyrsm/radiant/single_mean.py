@@ -1,7 +1,7 @@
 from starlette.applications import Starlette
 from starlette.routing import Mount
 from starlette.staticfiles import StaticFiles
-from shiny import App, render, ui, reactive, Inputs, Outputs, Session
+from shiny import App, render, ui, reactive, Inputs, Outputs, Session, req
 from pathlib import Path
 import webbrowser
 import nest_asyncio
@@ -103,6 +103,7 @@ class basics_single_mean:
 
         def estimation_code():
             data_name, code = (get_data()[k] for k in ["data_name", "code"])
+            req(input.comp_value() is not None, "comp_value must be specified")
 
             args = {
                 "data": f"""{{"{data_name}": {data_name}}}""",
@@ -209,4 +210,4 @@ if __name__ == "__main__":
     # demand_uk, demand_uk_description = rsm.load_data(pkg="basics", name="demand_uk")
     # data_dct, descriptions_dct = ru.get_dfs(name="demand_uk")
     # single_mean(data_dct, descriptions_dct, code=True)
-    single_mean(debug=True)
+    single_mean(debug=False)

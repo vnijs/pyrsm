@@ -2,10 +2,9 @@ import pandas as pd
 import re
 import statsmodels.formula.api as smf
 from typing import Optional, Union
-from statsmodels.regression.linear_model import RegressionResults as rrs
-from .utils import ifelse, format_nr, setdiff
-from .visualize import pred_plot_sm, vimp_plot_sm
-from .model import (
+from pyrsm.utils import ifelse, format_nr, setdiff
+from pyrsm.visualize import pred_plot_sm, vimp_plot_sm
+from pyrsm.model import (
     sig_stars,
     model_fit,
     extract_evars,
@@ -32,7 +31,6 @@ class regress:
         ivar: Optional[list[str]] = None,
         form: Optional[str] = None,
     ) -> None:
-
         """
         Estimate linear regression model
 

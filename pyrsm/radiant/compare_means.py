@@ -303,6 +303,7 @@ def compare_means(
     host: str = "0.0.0.0",
     port: int = 8000,
     log_level: str = "warning",
+    debug: bool = False,
 ):
     """
     Launch a Radiant-for-Python app for compare means hypothesis testing
@@ -316,9 +317,10 @@ def compare_means(
     ru.message()
 
     # redirect stdout and stderr to the temporary file
-    temp = tempfile.NamedTemporaryFile()
-    sys.stdout = open(temp.name, "w")
-    sys.stderr = open(temp.name, "w")
+    if not debug:
+        temp = tempfile.NamedTemporaryFile()
+        sys.stdout = open(temp.name, "w")
+        sys.stderr = open(temp.name, "w")
 
     uvicorn.run(
         App(rc.shiny_ui(), rc.shiny_server),
@@ -329,4 +331,4 @@ def compare_means(
 
 
 if __name__ == "__main__":
-    compare_means()
+    compare_means(debug=False)

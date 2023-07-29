@@ -3,8 +3,13 @@ from starlette.routing import Mount
 from starlette.staticfiles import StaticFiles
 from shiny import App, ui, reactive, Inputs, Outputs, Session
 from pathlib import Path
-import webbrowser, nest_asyncio, uvicorn, os, signal
-import signal, os, sys, tempfile
+import webbrowser
+import nest_asyncio
+import uvicorn
+import os
+import signal
+import sys
+import tempfile
 import pyrsm as rsm
 import pyrsm.radiant.utils as ru
 import pyrsm.radiant.model_utils as mu
@@ -191,4 +196,4 @@ def regress(
 
 
 if __name__ == "__main__":
-    regress(debug=True)
+    regress(debug=False)

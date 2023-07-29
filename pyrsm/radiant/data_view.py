@@ -128,4 +128,4 @@ if __name__ == "__main__":
     # demand_uk, demand_uk_description = rsm.load_data(pkg="basics", name="demand_uk")
     # data_dct, descriptions_dct = ru.get_dfs(name="demand_uk")
     # single_mean(data_dct, descriptions_dct, code=True)
-    view(debug=True)
+    view(debug=False)

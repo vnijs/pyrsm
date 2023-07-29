@@ -1,8 +1,12 @@
 from shiny import App, render, ui, reactive, Inputs, Outputs, Session
-import webbrowser, nest_asyncio, uvicorn
-import signal, os, sys, tempfile
+import webbrowser
+import nest_asyncio
+import uvicorn
+import signal
+import os
+import sys
+import tempfile
 import pyrsm as rsm
-from contextlib import redirect_stdout, redirect_stderr
 import pyrsm.radiant.utils as ru
 import pyrsm.radiant.model_utils as mu
 
@@ -167,6 +171,7 @@ def cross_tabs(
     host: str = "0.0.0.0",
     port: int = 8000,
     log_level: str = "warning",
+    debug: bool = False,
 ):
     """
     Launch a Radiant-for-Python app for cross-tabs hypothesis testing
@@ -180,9 +185,10 @@ def cross_tabs(
     ru.message()
 
     # redirect stdout and stderr to the temporary file
-    temp = tempfile.NamedTemporaryFile()
-    sys.stdout = open(temp.name, "w")
-    sys.stderr = open(temp.name, "w")
+    if not debug:
+        temp = tempfile.NamedTemporaryFile()
+        sys.stdout = open(temp.name, "w")
+        sys.stderr = open(temp.name, "w")
 
     uvicorn.run(
         App(rc.shiny_ui(), rc.shiny_server),
@@ -193,4 +199,4 @@ def cross_tabs(
 
 
 if __name__ == "__main__":
-    cross_tabs()
+    cross_tabs(debug=False)
