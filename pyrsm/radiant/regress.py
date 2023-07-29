@@ -178,7 +178,7 @@ def regress(
         sys.stdout = open(temp.name, "w")
         sys.stderr = open(temp.name, "w")
 
-    app = App(rc.shiny_ui(ru.radiant_navbar()), rc.shiny_server)
+    app = App(rc.shiny_ui(), rc.shiny_server)
     www_dir = Path(__file__).parent.parent / "radiant" / "www"
     app_static = StaticFiles(directory=www_dir, html=False)
 

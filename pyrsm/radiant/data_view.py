@@ -39,7 +39,8 @@ import pyrsm.radiant.utils as ru
 class data_view:
     def __init__(self, datasets: dict, descriptions=None, code=True) -> None:
         ru.init(self, datasets, descriptions=descriptions, code=code)
-        self.state = {"data_filter": "price > 1000", "datasets": "diamonds"}
+        # self.state = {"data_filter": "price > 1000", "datasets": "diamonds"}
+        self.state = {}
 
     def shiny_ui(self, *args):
         return ui.page_navbar(
@@ -107,7 +108,7 @@ def view(
         sys.stdout = open(temp.name, "w")
         sys.stderr = open(temp.name, "w")
 
-    app = App(rc.shiny_ui(ru.radiant_navbar()), rc.shiny_server)
+    app = App(rc.shiny_ui(), rc.shiny_server)
     www_dir = Path(__file__).parent.parent / "radiant" / "www"
     app_static = StaticFiles(directory=www_dir, html=False)
 

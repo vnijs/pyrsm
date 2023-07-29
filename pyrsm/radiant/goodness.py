@@ -1,4 +1,8 @@
+from starlette.applications import Starlette
+from starlette.routing import Mount
+from starlette.staticfiles import StaticFiles
 from shiny import App, render, ui, reactive, Inputs, Outputs, Session
+from pathlib import Path
 import webbrowser
 import nest_asyncio
 import uvicorn
@@ -185,8 +189,17 @@ def goodness(
         sys.stdout = open(temp.name, "w")
         sys.stderr = open(temp.name, "w")
 
+    app = App(rc.shiny_ui(), rc.shiny_server)
+    www_dir = Path(__file__).parent.parent / "radiant" / "www"
+    app_static = StaticFiles(directory=www_dir, html=False)
+
+    routes = [
+        Mount("/www", app=app_static),
+        Mount("/", app=app),
+    ]
+
     uvicorn.run(
-        App(rc.shiny_ui(), rc.shiny_server),
+        Starlette(debug=debug, routes=routes),
         host=host,
         port=port,
         log_level=log_level,
