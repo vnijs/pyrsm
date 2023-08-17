@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import pandas as pd
 import numpy as np
 from scipy import stats
 from math import floor, ceil
@@ -19,7 +20,6 @@ def check(lb, ub, plb, pub):
 
 def make_colors_discrete(ub, lb, x_range):
     if lb is not None and ub is not None:
-        # colors = ["red" if i < lb else "blue" if i <= ub else "red" for i in x_range]
         colors = [
             "red"
             if i < lb
@@ -99,7 +99,6 @@ def make_barplot(ub, lb, x_range, y_range):
 
 
 def prob_binom(n: int, p: float, lb=None, ub=None, plb=None, pub=None):
-
     # Helper function to convert to int if not None
     def to_int(x):
         return int(max(0, x)) if x is not None else None
@@ -261,7 +260,6 @@ def summary_prob_binom(dct, type="values", dec=3):
         print("Upper bound :", "" if pub is None else f"{pub} ({v_ub})\n")
 
         if pub is not None or plb is not None:
-
             if plb is not None:
                 print(f"P(X  = {v_lb}) = {vp_elb}")
                 if v_lb > 0:
@@ -294,9 +292,13 @@ def plot_prob_binom(dct, type="values"):
     n, p = dct["n"], dct["p"]
 
     x_range = np.arange(0, n)
-    y_range = stats.binom.pmf(x_range, n, p)
+    df = (
+        pd.DataFrame()
+        .assign(x_range=x_range, y_range=stats.binom.pmf(x_range, n, p))
+        .query("y_range > 0.00001")
+    )
 
-    make_barplot(ub, lb, x_range, y_range)
+    make_barplot(ub, lb, df.x_range, df.y_range)
 
 
 def prob_chisq(df, lb=None, ub=None, plb=None, pub=None):
@@ -396,7 +398,6 @@ def summary_prob_chisq(dct, type="values", dec=3):
 
 
 def plot_prob_chisq(dct, type="values"):
-
     if type == "values":
         lb, ub = dct["lb"], dct["ub"]
     else:
@@ -407,7 +408,7 @@ def plot_prob_chisq(dct, type="values"):
         floor(stats.chi2.ppf(0.001, df)), ceil(stats.chi2.ppf(1 - 0.001, df)), 1000
     )
     y_range = stats.chi2.pdf(x_range, df)
-    ax = make_colors_continuous(ub, lb, x_range, y_range)
+    make_colors_continuous(ub, lb, x_range, y_range)
 
 
 def prob_disc(v, p, lb=None, ub=None, plb=None, pub=None):
@@ -509,7 +510,6 @@ def summary_prob_disc(dct, type="values", dec=3):
     header = {
         "Distribution :": "Discrete",
         "Values       :": v,
-        "Probabilities:": p,
         "Probabilities:": [round(i, dec) for i in p],
         "Mean         :": round(mean, dec),
         "St. dev      :": round(std_dev, dec),
@@ -595,7 +595,6 @@ def summary_prob_disc(dct, type="values", dec=3):
                 )
 
         if pub is not None:
-
             header.update({"Upper bound  :": f"{pub} ({dct.get('vub')})"})
             summary.update({f"P(X  = {vub}) =": dct.get("vp_eub", 0)})
             if vub > min(v):
@@ -771,7 +770,7 @@ def plot_prob_expo(dct, type="values"):
     rate = dct["rate"]
     x_range = np.linspace(0, stats.expon.ppf(0.99, scale=1 / rate), 1000)
     y_range = stats.expon.pdf(x_range, scale=1 / rate)
-    ax = make_colors_continuous(ub, lb, x_range, y_range)
+    make_colors_continuous(ub, lb, x_range, y_range)
 
 
 def prob_fdist(df1, df2, lb=None, ub=None, plb=None, pub=None):
@@ -909,7 +908,7 @@ def plot_prob_fdist(dct, type="values"):
     df1, df2 = dct["df1"], dct["df2"]
     x_range = np.linspace(0, stats.f.ppf(0.99, df1, df2), 1000)
     y_range = stats.f.pdf(x_range, df1, df2)
-    ax = make_colors_continuous(ub, lb, x_range, y_range)
+    make_colors_continuous(ub, lb, x_range, y_range)
 
 
 def prob_lnorm(meanlog, sdlog, lb=None, ub=None, plb=None, pub=None):
@@ -1035,7 +1034,7 @@ def plot_prob_lnorm(dct, type="values"):
 
     x_range = np.linspace(0, (np.exp(meanlog) + scale(lb, ub)) * sdlog, 1000)
     y_range = stats.lognorm.pdf(x_range, sdlog, scale=np.exp(meanlog))
-    ax = make_colors_continuous(ub, lb, x_range, y_range)
+    make_colors_continuous(ub, lb, x_range, y_range)
 
 
 def prob_norm(mean, stdev, lb=None, ub=None, plb=None, pub=None):
@@ -1147,7 +1146,7 @@ def plot_prob_norm(dct, type="values"):
     mean, stdev = dct["mean"], dct["stdev"]
     x_range = np.linspace(mean - 3 * stdev, mean + 3 * stdev, 1000)
     y_range = stats.norm.pdf(x_range, mean, stdev)
-    ax = make_colors_continuous(ub, lb, x_range, y_range)
+    make_colors_continuous(ub, lb, x_range, y_range)
 
 
 def prob_pois(lamb, lb=None, ub=None, plb=None, pub=None):
@@ -1290,12 +1289,17 @@ def plot_prob_pois(dct, type="values"):
     else:
         lb, ub = dct["v_lb"], dct["v_ub"]
 
-    lamb = dct["lamb"]
-    n = max(lb, ub) if lb is not None and ub is not None else 100
+    lmb = dct["lamb"]
+    x_range = range(int(stats.poisson.ppf(1 - 0.00001, lmb)))
+    y_range = [stats.poisson.pmf(k, lmb) for k in x_range]
 
-    x_range = range(int(stats.poisson.ppf(1 - 0.00001, lamb)))
-    y_range = [stats.poisson.pmf(k, lamb) for k in x_range]
-    make_barplot(ub, lb, x_range, y_range)
+    df = (
+        pd.DataFrame()
+        .assign(x_range=x_range, y_range=y_range)
+        .query("y_range > 0.00001")
+    )
+
+    make_barplot(ub, lb, df.x_range, df.y_range)
 
 
 def prob_tdist(df, lb=None, ub=None, plb=None, pub=None):
@@ -1420,7 +1424,7 @@ def plot_prob_tdist(dct, type="values"):
 
     x_range = np.linspace(-3, 3, 1000)
     y_range = stats.t.pdf(x_range, dct["df"])
-    ax = make_colors_continuous(ub, lb, x_range, y_range)
+    make_colors_continuous(ub, lb, x_range, y_range)
 
 
 def prob_unif(min, max, lb=None, ub=None, plb=None, pub=None):
