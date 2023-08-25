@@ -322,9 +322,12 @@ def compare_means(
 
     # redirect stdout and stderr to the temporary file
     if not debug:
+        org_stdout = sys.stdout
+        org_stderr = sys.stderr
         temp = tempfile.NamedTemporaryFile()
-        sys.stdout = open(temp.name, "w")
-        sys.stderr = open(temp.name, "w")
+        temp_file = open(temp.name, "w")
+        sys.stdout = temp_file
+        sys.stderr = temp_file
 
     app = App(rc.shiny_ui(), rc.shiny_server)
     www_dir = Path(__file__).parent.parent / "radiant" / "www"
@@ -341,6 +344,11 @@ def compare_means(
         port=port,
         log_level=log_level,
     )
+
+    if not debug:
+        sys.stdout = org_stdout
+        sys.stderr = org_stderr
+        temp_file.close()
 
 
 if __name__ == "__main__":

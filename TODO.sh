@@ -46,7 +46,7 @@ conda deactivate
 source ~/testenv/bin/activate
 # pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "pyrsm==0.9.0.9"
 # pip install "polars==0.18.7" # 0.18.8 requires rust and cargo to be installed
-pip install "pyrsm>=0.9.3"
+pip install "pyrsm>=0.9.4"
 python -c "import pyrsm as rsm; rsm.radiant.regress()"
 python -c "import pyrsm as rsm; rsm.radiant.logistic()"
 python -c "import pyrsm as rsm; rsm.radiant.compare_means()"
