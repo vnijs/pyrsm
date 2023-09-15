@@ -61,7 +61,7 @@ def head_content():
     )
 
 
-def init(self, datasets, descriptions=None, code=True):
+def init(self, datasets, descriptions=None, state=None, code=True, navbar=None):
     """
     Initialize key 'self' values to be used in an app class
     """
@@ -79,7 +79,14 @@ def init(self, datasets, descriptions=None, code=True):
     self.dataset_list = list(datasets.keys())
     self.code = code  # keep code windows open or closed by default
     self.stop_code = ""
-    self.state = {}
+    if state is None:
+        self.state = {}
+    else:
+        self.state = state
+    if navbar is None:
+        self.navbar = ()
+    else:
+        self.navbar = navbar
 
 
 def escape_quotes(cmd):
@@ -241,10 +248,50 @@ def make_data_elements(self, input, output, session):
         return ui.markdown(get_data(self, input)["description"])
 
     @reactive.Calc
-    def rget_data():
+    def reactive_get_data():
         return get_data(self, input)
 
-    return rget_data
+    return reactive_get_data
+
+
+def check_input_value(k, i):
+    """
+    The '... in input' approach fails with some regulariy (see app_state.py).
+    see https://discord.com/channels/1109483223987277844/1127817202804985917/1129530385429176371
+    Also tuples need to be converted to lists to be picked up on refresh. Not
+    clear why that is needed but it is
+    """
+    try:
+        # print(f"Working on {k}")
+        value = i[k]()
+        if isinstance(value, tuple):
+            return list(value)
+        else:
+            return value
+    except Exception as err:
+        # print(f"Extracting value for {k} failed")
+        print(err)  # no error message printed
+        return None
+
+
+def dct_update(self, input):
+    input_keys = [k for k in input.__dict__["_map"].keys() if k[0] != "."]
+    self.state.update({k: check_input_value(k, input) for k in input_keys})
+
+
+# def update_state():
+#     with reactive.isolate():
+#         avoid = ["copy_reset"]  # issue because async?
+#         input_keys = [
+#             k
+#             for k in input.__dict__["_map"].keys()
+#             if k[0] != "." and k not in avoid
+#         ]
+#         # print(type(input.copy_reset())) # can't even run this without an error
+#         self.state.update({k: input[k]() for k in input_keys})
+#         self.state.update(
+#             {k: list(v) for k, v in self.state.items() if isinstance(v, tuple)}
+#         )
 
 
 def input_return_text_area(id, label, value="", rows=1, placeholder=""):
@@ -297,7 +344,9 @@ def ui_view(self):
             self.dataset_list,
             selected=self.state.get("datasets", None),
         ),
-        ui.input_checkbox("show_filter", "Show data filter", value=True),
+        ui.input_checkbox(
+            "show_filter", "Show data filter", value=self.state.get("show_filter", True)
+        ),
         ui.panel_conditional(
             "input.show_filter == true",
             # ui.input_radio_buttons(
@@ -317,12 +366,14 @@ def ui_view(self):
                 "data_sort",
                 "Data sort:",
                 rows=2,
+                value=self.state.get("data_sort", ""),
                 placeholder="Sort (e.g., ['color', 'price'], ascending=[True, False])) and press return",
             ),
             input_return_text_area(
                 "data_slice",
                 "Data slice (rows):",
                 rows=1,
+                value=self.state.get("data_slice", ""),
                 placeholder="e.g., 0:50 and press return",
             ),
         ),
@@ -352,14 +403,14 @@ def ui_summary(*args):
     )
 
 
-def ui_plot(choices, *args):
+def ui_plot(self, choices, *args):
     return ui.panel_conditional(
         "input.tabs == 'Plot'",
         ui.panel_well(
             ui.input_select(
                 id="plots",
                 label="Plots",
-                selected=None,
+                selected=self.state.get("plots", None),
                 choices=choices,
             ),
             *args,
@@ -437,7 +488,7 @@ def radiant_navbar():
                     # onclick='window.location.href = "/basics/prob-calc/?SSUID=local-e47b75";',
                     onclick='window.location.href = "/basics/prob-calc/";',
                 ),
-                # "----",
+                # "-----",
                 # "Means",
                 ui.input_action_link(
                     "sm",
@@ -451,6 +502,11 @@ def radiant_navbar():
                 ),
                 # "----",
                 # "Proportions",
+                ui.input_action_link(
+                    "sm",
+                    "Single proportion",
+                    onclick='window.location.href = "/basics/single-prop/";',
+                ),
                 # "----",
                 # "Tables",
                 ui.input_action_link(

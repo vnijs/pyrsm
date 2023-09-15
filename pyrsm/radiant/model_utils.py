@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from shiny import render, ui, reactive, req
 from contextlib import redirect_stdout, redirect_stderr
 import pyrsm.radiant.utils as ru
-from ..utils import intersect
+from pyrsm.utils import intersect
 import numpy as np
 import pandas as pd
 import pyrsm as rsm
@@ -17,10 +17,16 @@ def ui_predict(self):
                 "pred_type",
                 "Prediction input type:",
                 ["None", "Data", "Command", "Data & Command"],
+                selected=self.state.get("pred_type", "None"),
             ),
             ui.panel_conditional(
                 "input.pred_type == 'Data' || input.pred_type == 'Data & Command'",
-                ui.input_select("pred_datasets", "Prediction data:", self.dataset_list),
+                ui.input_select(
+                    "pred_datasets",
+                    "Prediction data:",
+                    self.dataset_list,
+                    selected=self.state.get("pred_data", None),
+                ),
             ),
             ui.panel_conditional(
                 "input.pred_type == 'Command' || input.pred_type == 'Data & Command'",
@@ -28,10 +34,15 @@ def ui_predict(self):
                     "pred_cmd",
                     "Prediction command:",
                     rows=3,
+                    value=self.state.get("pred_cmd", ""),
                     placeholder="Specify a dictionary of values to to use for prediction, e.g., {'carat': 1, 'cut': 'Ideal'}",
                 ),
             ),
-            ui.input_checkbox("pred_ci", "Show conf. intervals"),
+            ui.input_checkbox(
+                "pred_ci",
+                "Show conf. intervals",
+                value=self.state.get("pred_ci", False),
+            ),
             ui.panel_conditional(
                 "input.pred_ci == true",
                 ui.input_slider(
@@ -39,14 +50,14 @@ def ui_predict(self):
                     label="Confidence level:",
                     min=0,
                     max=1,
-                    value=0.95,
+                    value=self.state.get("conf", 0.95),
                 ),
             ),
         ),
     )
 
 
-def make_model_inputs(input, output, get_data, type):
+def make_model_inputs(self, input, output, get_data, type):
     @output(id="ui_rvar")
     @render.ui
     def ui_rvar():
@@ -54,21 +65,21 @@ def make_model_inputs(input, output, get_data, type):
         return ui.input_select(
             id="rvar",
             label="Response Variable:",
-            selected=None,
+            selected=self.state.get("rvar", None),
             choices=isType,
         )
 
     @output(id="ui_evar")
     @render.ui
     def ui_evar():
-        vars = get_data()["var_types"]["all"]
+        vars = get_data()["var_types"]["all"].copy()
         if (input.rvar() is not None) and (input.rvar() in vars):
             del vars[input.rvar()]
 
         return ui.input_select(
             id="evar",
             label="Explanatory Variables:",
-            selected=None,
+            selected=self.state.get("evar", []),
             choices=vars,
             multiple=True,
             size=min(8, len(vars)),
@@ -76,23 +87,24 @@ def make_model_inputs(input, output, get_data, type):
         )
 
 
-def make_int_inputs(input, output, get_data):
+def make_int_inputs(self, input, output, get_data):
     @output(id="ui_interactions")
     @render.ui
     def ui_interactions():
-        if len(input.evar()) > 1:
+        if len(input.evar()) > 1 and input.show_interactions() is not None:
             choices = []
             nway = int(input.show_interactions())
             isNum = intersect(
                 list(input.evar()), list(get_data()["var_types"]["isNum"].keys())
             )
             if len(isNum) > 0:
-                choices += ru.qterms(isNum, nway=int(input.show_interactions()[0]))
+                # choices += ru.qterms(isNum, nway=int(input.show_interactions()[0]))
+                choices += ru.qterms(isNum, nway=nway)
             choices += ru.iterms(input.evar(), nway=nway)
             return ui.input_select(
                 id="interactions",
                 label=None,
-                selected=None,
+                selected=self.state.get("interactions", None),
                 choices=choices,
                 multiple=True,
                 size=min(8, len(choices)),
@@ -103,12 +115,15 @@ def make_int_inputs(input, output, get_data):
     @render.ui
     def ui_evar_test():
         choices = {e: e for e in input.evar()}
-        if int(input.show_interactions()[0]) > 1:
+        if (
+            input.show_interactions() is not None
+            and int(input.show_interactions()[0]) > 1
+        ):
             choices.update({e: e for e in input.interactions()})
         return ui.input_selectize(
             id="evar_test",
             label="Variables to test:",
-            selected=None,
+            selected=self.state.get("evar_test", None),
             choices=choices,
             multiple=True,
         )
@@ -120,7 +135,7 @@ def make_int_inputs(input, output, get_data):
             return ui.input_select(
                 id="incl_evar",
                 label="Explanatory variables to include:",
-                selected=None,
+                selected=self.state.get("incl_evar", None),
                 choices=input.evar(),
                 multiple=True,
                 size=min(8, len(input.evar())),
@@ -131,12 +146,15 @@ def make_int_inputs(input, output, get_data):
     @render.ui
     def ui_incl_interactions():
         if len(input.evar()) > 1:
-            nway = int(input.show_interactions())
+            if input.show_interactions() is not None:
+                nway = int(input.show_interactions())
+            else:
+                nway = 2
             choices = ru.iterms(input.evar(), nway=nway)
             return ui.input_select(
                 id="incl_interactions",
                 label="Interactions to include:",
-                selected=None,
+                selected=self.state.get("incl_interactions", None),
                 choices=choices,
                 multiple=True,
                 size=min(8, len(choices)),
@@ -166,7 +184,11 @@ def make_estimate(
                 "evar": list(input.evar()),
             }
 
-            if int(input.show_interactions()) > 0 and len(input.interactions()) > 0:
+            if (
+                input.show_interactions() is not None
+                and int(input.show_interactions()) > 0
+                and len(input.interactions()) > 0
+            ):
                 args["ivar"] = list(input.interactions())
 
             args_str = ", ".join(

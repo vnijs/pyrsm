@@ -3,19 +3,22 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 from typing import Union
+from statsmodels.stats import multitest
+import pyrsm.basics.utils as bu
+import pyrsm.radiant.utils as ru
 
 
 class compare_props:
     def __init__(
         self,
         data: Union[pd.DataFrame, dict[str, pd.DataFrame]],
-        grouping_var: str,
+        gvar: str,
         var: str,
-        level: str,
-        combinations: list[tuple[str, str]],
-        alt_hyp: str,
-        conf: float,
-        multiple_comp_adjustment: str = "none",
+        lev: str,
+        comb: list[tuple[str, str]] = [],
+        alt_hyp: str = "two-sided",
+        conf: float = 0.95,
+        adjust: str = None,
     ) -> None:
         if isinstance(data, dict):
             self.name = list(data.keys())[0]
@@ -23,52 +26,41 @@ class compare_props:
         else:
             self.data = data
             self.name = "Not provided"
-        self.grouping_var = grouping_var
+        self.gvar = gvar
         self.var = var
-        self.level = level
-        self.combinations = combinations
+        self.lev = lev
+        self.comb = comb
         self.alt_hyp = alt_hyp
         self.conf = conf
-        self.multiple_comp_adjustment = multiple_comp_adjustment
+        self.alpha = 1 - self.conf
+        self.adjust = adjust
 
-        # self.p_val = None
+        self.data[self.gvar] = self.data[self.gvar].astype("category")
+        self.levels = list(self.data[self.gvar].cat.categories)
 
-        # print("Pairwise proportion comparisons")
+        if len(self.comb) == 0:
+            self.comb = ru.iterms(self.levels)
 
-        # def calculate(self) -> None:
-        combinations_elements = set()
-        for combination in self.combinations:
-            combinations_elements.add(combination[0])
-            combinations_elements.add(combination[1])
-        combinations_elements = list(combinations_elements)
-
-        rows1 = []
-        for element in combinations_elements:
+        descriptive_stats = []
+        for lev in self.levels:
             subset = self.data[
-                (self.data[self.var] == self.level)
-                & (self.data[self.grouping_var] == element)
+                (self.data[self.var] == self.lev) & (self.data[self.gvar] == lev)
             ][self.var]
             ns = len(subset)
             n_missing = subset.isna().sum()
-            n = (
-                len(self.data[(self.data[self.grouping_var] == element)][self.var])
-                - n_missing
-            )
+            n = len(self.data[(self.data[self.gvar] == lev)][self.var]) - n_missing
             p = ns / n
-            # print(f"ns: {ns}, n: {n}, p: {p}, nmissing: {n_missing}")
-            sd = sqrt(p * (1 - p))
-            se = sd / sqrt(n)
-            z_score = stats.norm.ppf((1 + self.conf) / 2)
-            # was printing out imaginary part in som cases
-            me = np.real(z_score * sd / sqrt(n))
-            row = [element, ns, p, n, n_missing, sd, se, me]
-            rows1.append(row)
+            sd = sqrt(p * (1 - p)).real
+            se = (sd / sqrt(n)).real
+            z_score = stats.norm.ppf(1 - self.alpha / 2)
+            me = (z_score * sd / sqrt(n)).real
+            descriptive_stats.append([lev, ns, p, n, n_missing, sd, se, me])
 
-        self.table1 = pd.DataFrame(
-            rows1,
+        self.descritive_stats = pd.DataFrame(
+            descriptive_stats,
             columns=[
-                self.grouping_var,
-                self.level,
+                self.gvar,
+                self.lev,
                 "p",
                 "n",
                 "n_missing",
@@ -78,91 +70,81 @@ class compare_props:
             ],
         )
 
-        alt_hyp_sign = " > "
         if self.alt_hyp == "less":
-            alt_hyp_sign = " < "
+            alt_hyp_sign = "less than"
         elif self.alt_hyp == "two-sided":
-            alt_hyp_sign = " != "
-
-        rows2 = []
-        for v1, v2 in self.combinations:
-            null_hyp = v1 + " = " + v2
-            alt_hyp = v1 + alt_hyp_sign + v2
-
-            subset1 = self.data[
-                (self.data[self.var] == self.level)
-                & (self.data[self.grouping_var] == v1)
-            ][self.var]
-
-            ns1 = len(subset1)
-            n_missing1 = subset1.isna().sum()
-            n1 = (
-                len(self.data[(self.data[self.grouping_var] == v1)][self.var])
-                - n_missing1
-            )
-            p1 = ns1 / n1
-
-            subset2 = self.data[
-                (self.data[self.var] == self.level)
-                & (self.data[self.grouping_var] == v2)
-            ][self.var]
-
-            ns2 = len(subset2)
-            n_missing2 = subset2.isna().sum()
-            n2 = (
-                len(self.data[self.data[self.grouping_var] == v2][self.var])
-                - n_missing2
-            )
-            p2 = ns2 / n2
-
-            diff = p1 - p2
-
-            observed = pd.crosstab(
-                self.data[v1], columns=self.data[v2], margins=True, margins_name="Total"
-            )
-            chisq, self.p_val, df, _ = stats.chi2_contingency(
-                self.observed.drop(columns="Total").drop("Total", axis=0),
-                correction=False,
-            )
-            # chisq, self.p_val, df, _ = stats.chi2_contingency()  # unsure about this
-
-            # print(f"chisq: {chisq}")
-
-            row = [
-                null_hyp,
-                alt_hyp,
-                diff,
-                self.p_val,
-                chisq,
-                df,
-                # zero_percent,
-                # x_percent,
-            ]
-            rows2.append(row)
-
-        self.table2 = pd.DataFrame(
-            rows2,
-            columns=[
-                "Null hyp.",
-                "Alt. hyp.",
-                "diff",
-                "p.value",
-                "chisq.value",
-                "df",
-                # "0%",
-                # str(self.conf * 100) + "%",
-            ],
-        )
-
-    def summary(self, dec: int = 3) -> None:
-        if hasattr(self.data, "description"):
-            data_name = self.data.description.split("\n")[0].split()[1].lower()
+            alt_hyp_sign = "not equal to"
         else:
-            data_name = "Not available"
-        print(f"Data: {data_name}")
-        print(f"Variables: {self.grouping_var}, {self.var}")
-        print(f"Level: {self.level} in {self.var}")
+            alt_hyp_sign = "greater than"
+
+        # rows2 = []
+        # for v1, v2 in self.comb:
+        #     null_hyp = v1 + " = " + v2
+        #     alt_hyp = v1 + alt_hyp_sign + v2
+
+        #     subset1 = self.data[
+        #         (self.data[self.var] == self.lev) & (self.data[self.gvar] == v1)
+        #     ][self.var]
+
+        #     ns1 = len(subset1)
+        #     n_missing1 = subset1.isna().sum()
+        #     n1 = len(self.data[(self.data[self.gvar] == v1)][self.var]) - n_missing1
+        #     p1 = ns1 / n1
+
+        #     subset2 = self.data[
+        #         (self.data[self.var] == self.lev) & (self.data[self.gvar] == v2)
+        #     ][self.var]
+
+        #     ns2 = len(subset2)
+        #     n_missing2 = subset2.isna().sum()
+        #     n2 = len(self.data[self.data[self.gvar] == v2][self.var]) - n_missing2
+        #     p2 = ns2 / n2
+
+        #     diff = p1 - p2
+
+        #     observed = pd.crosstab(
+        #         self.data[v1], columns=self.data[v2], margins=True, margins_name="Total"
+        #     )
+        #     chisq, self.p_val, df, _ = stats.chi2_contingency(
+        #         self.observed.drop(columns="Total").drop("Total", axis=0),
+        #         correction=False,
+        #     )
+        #     # chisq, self.p_val, df, _ = stats.chi2_contingency()  # unsure about this
+
+        #     # print(f"chisq: {chisq}")
+
+        #     row = [
+        #         null_hyp,
+        #         alt_hyp,
+        #         diff,
+        #         self.p_val,
+        #         chisq,
+        #         df,
+        #         # zero_percent,
+        #         # x_percent,
+        #     ]
+        #     rows2.append(row)
+
+        # self.table2 = pd.DataFrame(
+        #     rows2,
+        #     columns=[
+        #         "Null hyp.",
+        #         "Alt. hyp.",
+        #         "diff",
+        #         "p.value",
+        #         "chisq.value",
+        #         "df",
+        #         # "0%",
+        #         # str(self.conf * 100) + "%",
+        #     ],
+        # )
+
+    def summary(self, extra=False, dec: int = 3) -> None:
+        print(f"Pairwise proportion comparisons")
+        print(f"Data      : {self.name}")
+        print(f"Variables : {self.gvar}, {self.var}")
+        print(f'Level     : "{self.lev}" in {self.var}')
         print(f"Confidence: {self.conf}")
-        print(f"Adjustment: {self.multiple_comp_adjustment}\n")
-        print(self.table1.round(dec).to_string(index=False))
-        print(self.table2.round(dec).to_string(index=False))
+        print(f"Adjustment: {self.adjust}\n")
+        print(self.descritive_stats.round(dec).to_string(index=False))
+        # print(self.table2.round(dec).to_string(index=False))

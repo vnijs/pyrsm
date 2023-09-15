@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 import seaborn as sns
-from ..model import sig_stars
+from pyrsm.model.model import sig_stars
 from typing import Optional, Union
 
 
@@ -11,7 +11,7 @@ class correlation:
     def __init__(
         self,
         data: Union[pd.DataFrame, dict[str, pd.DataFrame]],
-        figsize: Optional[tuple[float, float]] = None
+        figsize: Optional[tuple[float, float]] = None,
     ) -> None:
         """
         Calculate correlations between numeric variables in a Pandas dataframe
@@ -205,7 +205,6 @@ class correlation:
             ax_sub.axes.yaxis.set_visible(False)
 
         def cor_mat(data, cmat, pmat, dec=2, nobs=1000, figsize=None):
-
             cn = data.columns
             ncol = len(cn)
             longest = max(cn, key=len)

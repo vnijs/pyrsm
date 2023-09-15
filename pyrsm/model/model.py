@@ -13,8 +13,8 @@ from math import ceil
 from scipy import stats
 from sklearn import metrics
 from scipy.special import expit
-from .utils import ifelse, expand_grid
-from .stats import weighted_mean, weighted_sd
+from pyrsm.utils import ifelse, expand_grid
+from pyrsm.stats import weighted_mean, weighted_sd
 from .perf import auc
 
 # from statsmodels.regression.linear_model import RegressionResults as rrs

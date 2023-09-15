@@ -2,8 +2,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy import stats
-from ..model import sig_stars
-from ..utils import ifelse
+from pyrsm.model import sig_stars
+from pyrsm.utils import ifelse
 import pyrsm.basics.utils as bu
 from typing import Union
 
@@ -94,7 +94,6 @@ class single_mean:
         print("\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1")
 
     def plot(self, plots: str = "hist") -> None:
-
         if plots == "hist":
             fig = self.data[self.var].plot.hist(title=self.var, color="slateblue")
             plt.vlines(

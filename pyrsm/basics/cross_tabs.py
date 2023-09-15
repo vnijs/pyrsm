@@ -1,9 +1,8 @@
-from cmath import sqrt
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy import stats
-from ..utils import ifelse
+from pyrsm.utils import ifelse
 from typing import Union
 
 

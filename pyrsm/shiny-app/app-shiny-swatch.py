@@ -1,13 +1,15 @@
 from shiny import App, Inputs, Outputs, Session, ui, reactive, render
 import shinyswatch
 
+# based on https://github.com/posit-dev/py-shinyswatch/issues/11#issuecomment-1647868499
+from starlette.requests import Request as StarletteRequest
 
 if "theme" not in globals():
     print("Define theme dictionary. Was not in globals()")
     theme = {"theme": "superhero"}
 
 
-def app_ui():
+def app_ui(request: StarletteRequest):
     print("ui function was called")
     return ui.page_fluid(
         shinyswatch.get_theme(theme.get("theme", "superhero")),
@@ -18,13 +20,13 @@ def app_ui():
             });
             """
         ),
-        # ui.input_select(
-        #     id="select_theme",
-        #     label="Select a theme:",
-        #     selected=theme.get("theme", "superhero"),
-        #     choices=["superhero", "darkly", "sketchy"],
-        # ),
-        ui.output_ui("ui_select_theme"),
+        ui.input_select(
+            id="select_theme",
+            label="Select a theme:",
+            selected=theme.get("theme", "superhero"),
+            choices=["superhero", "darkly", "sketchy"],
+        ),
+        # ui.output_ui("ui_select_theme"),
     )
 
 
@@ -40,17 +42,17 @@ def server(input: Inputs, output: Outputs, session: Session):
             await session.send_custom_message("refresh", "")
         # ui.update_select("select_theme", selected=theme.get("theme", "superhero"))
 
-    @output(id="ui_select_theme")
-    @render.ui
-    def ui_select_theme():
-        return (
-            ui.input_select(
-                id="select_theme",
-                label="Select a theme:",
-                selected=theme.get("theme", "superhero"),
-                choices=["superhero", "darkly", "sketchy"],
-            ),
-        )
+    # @output(id="ui_select_theme")
+    # @render.ui
+    # def ui_select_theme():
+    #     return (
+    #         ui.input_select(
+    #             id="select_theme",
+    #             label="Select a theme:",
+    #             selected=theme.get("theme", "superhero"),
+    #             choices=["superhero", "darkly", "sketchy"],
+    #         ),
+    #     )
 
 
-app = App(app_ui(), server, debug=False)
+app = App(app_ui, server, debug=False)

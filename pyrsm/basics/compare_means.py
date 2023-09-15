@@ -3,8 +3,8 @@ import seaborn as sns
 import numpy as np
 import pandas as pd
 from scipy import stats
-from ..model import sig_stars
-from ..utils import ifelse
+from pyrsm.model import sig_stars
+from pyrsm.utils import ifelse
 from typing import Union
 from statsmodels.stats import multitest
 import pyrsm.basics.utils as bu
@@ -58,6 +58,7 @@ class compare_means:
 
         self.alt_hyp = alt_hyp
         self.conf = conf
+        self.alpha = 1 - self.conf
         self.sample_type = sample_type
         self.adjust = adjust
         self.test_type = test_type
@@ -213,7 +214,6 @@ class compare_means:
 
     def plot(self, plots: str = "scatter", nobs: int = -1) -> None:
         if plots == "scatter":
-
             if nobs < self.data.shape[0] and nobs != np.Inf and nobs != -1:
                 data = self.data.copy().sample(nobs)
             else:

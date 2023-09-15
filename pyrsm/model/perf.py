@@ -5,8 +5,8 @@ import matplotlib.ticker as mtick
 import seaborn as sns
 
 # from pyrsm import xtile, bincode
-from .bins import xtile, bincode
-from .utils import ifelse, table2data
+from ..bins import xtile, bincode
+from ..utils import ifelse, table2data
 from sklearn import metrics
 from scipy.stats import rankdata
 

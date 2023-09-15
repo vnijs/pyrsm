@@ -146,3 +146,7 @@ About
 
 .vscode
 tests/manual_test_perf.py
+
+pyrsm/shiny-app/model-DecisionTree-classification.ipynb
+pyrsm/shiny-app/model-RandomForest-classification.ipynb
+pyrsm/shiny-app/model-XGB-classification.ipynb

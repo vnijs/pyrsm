@@ -5,7 +5,7 @@ import numpy as np
 import seaborn as sns
 import statsmodels as sm
 from sklearn.inspection import permutation_importance
-from .utils import ifelse, intersect, setdiff
+from pyrsm.utils import ifelse, intersect, setdiff
 from .model import sim_prediction, extract_evars, extract_rvar
 from .perf import auc
 
@@ -91,7 +91,6 @@ def pred_plot_sm(
     minq=0.025,
     maxq=0.975,
 ):
-
     """
     Generate prediction plots for statsmodels regression models (OLS and Logistic).
     A faster alternative to PDP plots.
@@ -136,7 +135,7 @@ def pred_plot_sm(
     plot_margin = 0.025
 
     def calc_ylim(lab, lst, min_max):
-        if isinstance(fix, bool) and fix == True:
+        if isinstance(fix, bool) and fix:
             vals = lst[lab]
             min_vals = min(vals)
             max_vals = max(vals)
@@ -208,7 +207,7 @@ def pred_plot_sm(
             )
         if isinstance(min_max, tuple) and len(min_max) == 2:
             ax[row, col].set(ylim=min_max)
-        if hline != False:
+        if hline:
             ax[row, col].axhline(y=hline, linestyle="--")
 
         if col == 1:
@@ -251,7 +250,7 @@ def pred_plot_sm(
 
         if isinstance(min_max, tuple) and len(min_max) == 2 and sum(is_num) < 2:
             ax[row, col].set(ylim=min_max)
-        if sum(is_num) < 2 and hline != False:
+        if sum(is_num) < 2 and hline:
             ax[row, col].axhline(y=hline, linestyle="--")
 
         if col == 1:
@@ -385,7 +384,7 @@ def pred_plot_sk(
         min_max = (hline - plot_margin * hline, hline + plot_margin * hline)
 
     def calc_ylim(lab, lst, min_max):
-        if isinstance(fix, bool) and fix == True:
+        if isinstance(fix, bool) and fix:
             vals = lst[lab]
             min_vals = min(vals)
             max_vals = max(vals)
@@ -453,7 +452,7 @@ def pred_plot_sk(
             )
         if isinstance(min_max, tuple) and len(min_max) == 2:
             ax[row, col].set(ylim=min_max)
-        if hline != False:
+        if hline:
             ax[row, col].axhline(y=hline, linestyle="--")
 
         if col == 1:
@@ -496,7 +495,7 @@ def pred_plot_sk(
 
         if isinstance(min_max, tuple) and len(min_max) == 2 and sum(is_num) < 2:
             ax[row, col].set(ylim=min_max)
-        if sum(is_num) < 2 and hline != False:
+        if sum(is_num) < 2 and hline:
             ax[row, col].axhline(y=hline, linestyle="--")
 
         if col == 1:

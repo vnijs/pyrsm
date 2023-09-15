@@ -1,6 +1,7 @@
 from starlette.applications import Starlette
 from starlette.routing import Mount
 from starlette.staticfiles import StaticFiles
+from starlette.requests import Request as StarletteRequest
 from pathlib import Path
 from shiny import App, render, ui, reactive, Inputs, Outputs, Session, req
 import webbrowser
@@ -16,14 +17,14 @@ import pyrsm.radiant.utils as ru
 import pyrsm.radiant.model_utils as mu
 
 
-def ui_summary():
+def ui_summary(self):
     return ui.panel_conditional(
         "input.tabs == 'Summary'",
         ui.panel_well(
             ui.input_radio_buttons(
                 id="var_type",
                 label="Variable type:",
-                selected="categorical",
+                selected=self.state.get("var_type", "categorical"),
                 choices=["categorical", "numeric"],
                 inline=True,
             ),
@@ -41,7 +42,7 @@ def ui_summary():
             ui.input_select(
                 id="alt_hyp",
                 label="Alternative hypothesis:",
-                selected="two-sided",
+                selected=self.state.get("alt_hyp", "two-sided"),
                 choices={
                     "two-sided": "Two sided",
                     "greater": "Greater than",
@@ -51,7 +52,7 @@ def ui_summary():
             ui.input_checkbox(
                 id="extra",
                 label="Show extra statistics:",
-                value=False,
+                value=self.state.get("extra", False),
             ),
             ui.panel_conditional(
                 "input.extra == true",
@@ -60,13 +61,13 @@ def ui_summary():
                     label="Confidence level:",
                     min=0,
                     max=1,
-                    value=0.95,
+                    value=self.state.get("conf", 0.95),
                 ),
             ),
             ui.input_radio_buttons(
                 id="sample_type",
                 label="Sample Type:",
-                selected="independent",
+                selected=self.state.get("sample_type", "independent"),
                 choices={
                     "independent": "independent",
                     "paired": "paired",
@@ -76,7 +77,7 @@ def ui_summary():
             ui.input_radio_buttons(
                 id="adjust",
                 label="Multiple comp. adjustment:",
-                selected=None,
+                selected=self.state.get("adjust", None),
                 choices={
                     "None": "None",
                     "bonferroni": "Bonferroni",
@@ -86,7 +87,7 @@ def ui_summary():
             ui.input_radio_buttons(
                 id="test_type",
                 label="Test type:",
-                selected="t-test",
+                selected=self.state.get("test_type", "t-test"),
                 choices={
                     "t-test": "t-test",
                     "wilcox": "Wilcox",
@@ -105,38 +106,50 @@ choices = {
     "bar": "Bar chart",
 }
 
-plots_extra = (
-    ui.panel_conditional(
-        "input.plots == 'scatter'",
-        ui.input_select(
-            "nobs",
-            "Number of data points plotted:",
-            {1_000: "1,000", -1: "All"},
+
+def plots_extra(self):
+    return (
+        ui.panel_conditional(
+            "input.plots == 'scatter'",
+            ui.input_select(
+                "nobs",
+                "Number of data points plotted:",
+                selected=self.state.get("nobs", "1,000"),
+                choices={1_000: "1,000", -1: "All"},
+            ),
         ),
-    ),
-)
+    )
 
 
 class basics_compare_means:
-    def __init__(self, datasets: dict, descriptions=None, code=True) -> None:
-        ru.init(self, datasets, descriptions=descriptions, code=code)
+    def __init__(
+        self, datasets: dict, descriptions=None, state=None, code=True, navbar=None
+    ) -> None:
+        ru.init(
+            self,
+            datasets,
+            descriptions=descriptions,
+            state=state,
+            code=code,
+            navbar=navbar,
+        )
 
-    def shiny_ui(self, *args):
+    def shiny_ui(self, request: StarletteRequest):
         return ui.page_navbar(
             ru.head_content(),
             ui.nav(
-                "<< Basics > Compare means >>",
+                "Basics > Compare means",
                 ui.row(
                     ui.column(
                         3,
                         ru.ui_data(self),
-                        ui_summary(),
-                        ru.ui_plot(choices, plots_extra),
+                        ui_summary(self),
+                        ru.ui_plot(self, choices, plots_extra(self)),
                     ),
-                    ui.column(8, ru.ui_main_basics()),
+                    ui.column(8, ru.ui_main_basics(self)),
                 ),
             ),
-            *args,
+            self.navbar,
             ru.ui_help(
                 "https://github.com/vnijs/pyrsm/blob/main/examples/basics-compare-means.ipynb",
                 "Compare means example notebook",
@@ -151,6 +164,12 @@ class basics_compare_means:
         # --- section standard for all apps ---
         get_data = ru.make_data_elements(self, input, output, session)
 
+        def update_state():
+            with reactive.isolate():
+                ru.dct_update(self, input)
+
+        session.on_ended(update_state)
+
         # --- section unique to each app ---
         @output(id="ui_cvar1")
         @render.ui
@@ -159,6 +178,7 @@ class basics_compare_means:
             return ui.input_select(
                 id="cvar1",
                 label="Select a categorical variable:",
+                selected=self.state.get("cvar1", None),
                 choices=isCat,
             )
 
@@ -169,7 +189,7 @@ class basics_compare_means:
             return ui.input_select(
                 id="cvar2",
                 label="Numeric Variable:",
-                selected=None,
+                selected=self.state.get("cvar2", None),
                 choices=isNum,
             )
 
@@ -180,6 +200,7 @@ class basics_compare_means:
             return ui.input_select(
                 id="nvar1",
                 label="Select a numeric variable:",
+                selected=self.state.get("nvar1", None),
                 choices=isNum,
             )
 
@@ -192,8 +213,8 @@ class basics_compare_means:
             return ui.input_select(
                 id="nvar2",
                 label="Numeric Variable:",
+                selected=self.state.get("nvar2", None),
                 choices=isNum,
-                selected=list(isNum.keys())[0],
                 multiple=True,
             )
 
@@ -214,7 +235,7 @@ class basics_compare_means:
             return ui.input_select(
                 id="comb",
                 label="Choose combinations:",
-                selected=None,
+                selected=self.state.get("comb", None),
                 choices=combo_choices(),
                 multiple=True,
             )
@@ -303,6 +324,7 @@ class basics_compare_means:
 def compare_means(
     data_dct: dict = None,
     descriptions_dct: dict = None,
+    state: dict = None,
     code: bool = True,
     host: str = "0.0.0.0",
     port: int = 8000,
@@ -314,7 +336,7 @@ def compare_means(
     """
     if data_dct is None:
         data_dct, descriptions_dct = ru.get_dfs(pkg="basics", name="salary")
-    rc = basics_compare_means(data_dct, descriptions_dct, code=code)
+    rc = basics_compare_means(data_dct, descriptions_dct, state=state, code=code)
     nest_asyncio.apply()
     webbrowser.open(f"http://{host}:{port}")
     print(f"Listening on http://{host}:{port}")
@@ -329,7 +351,7 @@ def compare_means(
         sys.stdout = temp_file
         sys.stderr = temp_file
 
-    app = App(rc.shiny_ui(), rc.shiny_server)
+    app = App(rc.shiny_ui, rc.shiny_server)
     www_dir = Path(__file__).parent.parent / "radiant" / "www"
     app_static = StaticFiles(directory=www_dir, html=False)
 

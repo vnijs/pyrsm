@@ -2,8 +2,8 @@ from starlette.applications import Starlette
 from starlette.routing import Mount
 from starlette.staticfiles import StaticFiles
 from starlette.requests import Request as StarletteRequest
-from pathlib import Path
 from shiny import App, render, ui, reactive, Inputs, Outputs, Session
+from pathlib import Path
 import webbrowser
 import nest_asyncio
 import uvicorn
@@ -15,38 +15,60 @@ import pyrsm as rsm
 import pyrsm.radiant.utils as ru
 import pyrsm.radiant.model_utils as mu
 
-choices = {
-    "observed": "Observed",
-    "expected": "Expected",
-    "chisq": "Chi-squared",
-    "dev_std": "Deviation std.",
-    "perc_row": "Row percentages",
-    "perc_col": "Column percentages",
-    "perc": "Table percentages",
-}
-
 
 def ui_summary(self):
-    return ui.panel_conditional(
-        "input.tabs == 'Summary'",
-        ui.panel_well(
-            ui.output_ui("ui_var1"),
-            ui.output_ui("ui_var2"),
-            ui.input_checkbox_group(
-                id="output",
-                label="Select output tables:",
-                selected=self.state.get("output", None),
-                choices=choices,
+    return (
+        ui.panel_conditional(
+            "input.tabs == 'Summary'",
+            ui.panel_well(
+                ui.output_ui("ui_var"),
+                ui.output_ui("ui_lev"),
+                ui.input_select(
+                    id="alt_hyp",
+                    label="Alternative hypothesis:",
+                    selected=self.state.get("alt_hyp", "two-sided"),
+                    choices={
+                        "two-sided": "Two sided",
+                        "greater": "Greater than",
+                        "less": "Less than",
+                    },
+                ),
+                ui.input_slider(
+                    id="conf",
+                    label="Confidence level:",
+                    # ticks=True,
+                    min=0,
+                    max=1,
+                    value=self.state.get("conf", 0.95),
+                ),
+                ui.input_numeric(
+                    id="comp_value",
+                    label="Comparison value:",
+                    min=0,
+                    max=1,
+                    step=0.01,
+                    value=self.state.get("comp_value", 0.5),
+                ),
+                ui.input_radio_buttons(
+                    id="test_type",
+                    label="Test type:",
+                    selected="binomial",
+                    choices={"binomial": "Binomial exact", "z-test": "Z-test"},
+                    inline=True,
+                ),
             ),
         ),
     )
 
 
-plots = {"None": "None"}
-plots.update(choices)
+choices = {
+    # "None": "None",
+    "bar": "Bar",
+    # "sim": "Simulate",
+}
 
 
-class basics_cross_tabs:
+class basics_single_prop:
     def __init__(
         self, datasets: dict, descriptions=None, state=None, code=True, navbar=None
     ) -> None:
@@ -63,21 +85,21 @@ class basics_cross_tabs:
         return ui.page_navbar(
             ru.head_content(),
             ui.nav(
-                "Basics > Cross-tabs",
+                "Basics > Single prop",
                 ui.row(
                     ui.column(
                         3,
                         ru.ui_data(self),
                         ui_summary(self),
-                        ru.ui_plot(self, plots),
+                        ru.ui_plot(self, choices),
                     ),
                     ui.column(8, ru.ui_main_basics(self)),
                 ),
             ),
             self.navbar,
             ru.ui_help(
-                "https://github.com/vnijs/pyrsm/blob/main/examples/basics-cross-tabs.ipynb",
-                "Cross-tabs example notebook",
+                "https://github.com/vnijs/pyrsm/blob/main/examples/basics-single-prop.ipynb",
+                "Single proportion example notebook",
             ),
             ru.ui_stop(),
             title="Radiant for Python",
@@ -95,46 +117,28 @@ class basics_cross_tabs:
 
         session.on_ended(update_state)
 
-        def update_state():
-            with reactive.isolate():
-                avoid = ["copy_reset"]  # because async?
-                input_keys = [
-                    k
-                    for k in input.__dict__["_map"].keys()
-                    if k[0] != "." and k not in avoid
-                ]
-                # print(type(input.copy_reset())) # can't even run this without an error
-                self.state.update({k: input[k]() for k in input_keys})
-                self.state.update(
-                    {k: list(v) for k, v in self.state.items() if isinstance(v, tuple)}
-                )
-
-        session.on_ended(update_state)
-
         # --- section unique to each app ---
-        @output(id="ui_var1")
+        @output(id="ui_var")
         @render.ui
-        def ui_var1():
-            isCat = get_data()["var_types"]["isCat"]
+        def ui_var():
+            isNum = get_data()["var_types"]["isCat"]
             return ui.input_select(
-                id="var1",
-                label="Select a categorical variable:",
-                selected=self.state.get("var1", None),
-                choices=isCat,
+                id="var",
+                label="Variable (select one)",
+                selected=self.state.get("var", None),
+                choices=isNum,
             )
 
-        @output(id="ui_var2")
+        @output(id="ui_lev")
         @render.ui
-        def ui_var2():
-            isCat = get_data()["var_types"]["isCat"].copy()
-            if (input.var1() is not None) and (input.var1() in isCat):
-                del isCat[input.var1()]
-
+        def ui_lev():
+            levs = list(get_data()["data"][input.var()].unique())
+            # levs = ["yes", "no"]
             return ui.input_select(
-                id="var2",
-                label="Select a categorical variable:",
-                selected=self.state.get("var2", None),
-                choices=isCat,
+                id="lev",
+                label="Choose level:",
+                selected=self.state.get("lev", levs[0]),
+                choices=levs,
             )
 
         def estimation_code():
@@ -142,28 +146,31 @@ class basics_cross_tabs:
 
             args = {
                 "data": f"""{{"{data_name}": {data_name}}}""",
-                "var1": input.var1(),
-                "var2": input.var2(),
+                "var": input.var(),
+                "lev": input.lev(),
+                "alt_hyp": input.alt_hyp(),
+                "conf": input.conf(),
+                "comp_value": input.comp_value(),
+                "test_type": input.test_type(),
             }
 
-            args_string = ru.drop_default_args(args, rsm.basics.cross_tabs)
-            return f"""rsm.basics.cross_tabs({args_string})""", code
+            args_string = ru.drop_default_args(args, rsm.basics.single_prop)
+            return f"""rsm.basics.single_prop({args_string})""", code
 
         show_code, estimate = mu.make_estimate(
             self,
             input,
             output,
             get_data,
-            fun="basics.cross_tabs",
-            ret="ct",
+            fun="basics.single_prop",
+            ret="sp",
             ec=estimation_code,
             run=False,
             debug=True,
         )
 
         def summary_code():
-            args = [c for c in input.output()]
-            return f"""ct.summary(output={args})"""
+            return """sp.summary()"""
 
         mu.make_summary(
             self,
@@ -172,13 +179,10 @@ class basics_cross_tabs:
             session,
             show_code,
             estimate,
-            ret="ct",
-            sum_fun=rsm.basics.cross_tabs.summary,
+            ret="sp",
+            sum_fun=rsm.basics.single_prop.summary,
             sc=summary_code,
         )
-
-        def plot_code():
-            return f"""ct.plot(plots="{input.plots()}")"""
 
         mu.make_plot(
             self,
@@ -187,8 +191,7 @@ class basics_cross_tabs:
             session,
             show_code,
             estimate,
-            ret="ct",
-            pc=plot_code,
+            ret="sp",
         )
 
         # --- section standard for all apps ---
@@ -201,7 +204,7 @@ class basics_cross_tabs:
             os.kill(os.getpid(), signal.SIGTERM)
 
 
-def cross_tabs(
+def single_prop(
     data_dct: dict = None,
     descriptions_dct: dict = None,
     state: dict = None,
@@ -212,11 +215,11 @@ def cross_tabs(
     debug: bool = False,
 ):
     """
-    Launch a Radiant-for-Python app for cross-tabs hypothesis testing
+    Launch a Radiant-for-Python app for single_prop hypothesis testing
     """
     if data_dct is None:
-        data_dct, descriptions_dct = ru.get_dfs(pkg="basics", name="newspaper")
-    rc = basics_cross_tabs(data_dct, descriptions_dct, state=state, code=code)
+        data_dct, descriptions_dct = ru.get_dfs(pkg="basics", name="consider")
+    rc = basics_single_prop(data_dct, descriptions_dct, state=state, code=code)
     nest_asyncio.apply()
     webbrowser.open(f"http://{host}:{port}")
     print(f"Listening on http://{host}:{port}")
@@ -254,4 +257,7 @@ def cross_tabs(
 
 
 if __name__ == "__main__":
-    cross_tabs(debug=False)
+    # consider, consider_description = rsm.load_data(pkg="basics", name="consider")
+    # data_dct, descriptions_dct = ru.get_dfs(name="consider")
+    # single_prop(data_dct, descriptions_dct, code=True)
+    single_prop(debug=False)

@@ -1,6 +1,7 @@
 from starlette.applications import Starlette
 from starlette.routing import Mount
 from starlette.staticfiles import StaticFiles
+from starlette.requests import Request as StarletteRequest
 from pathlib import Path
 from shiny import App, render, ui, reactive, Inputs, Outputs, Session, req
 import webbrowser
@@ -21,43 +22,57 @@ pc_type = {"values": "Values", "probs": "Probabilities"}
 pc_dist = {v: k for k, v in pc.pc_dist.items()}
 
 
-def ui_type():
+def ui_type(self):
     return ui.panel_well(
         ui.input_radio_buttons(
             id="type",
             label="Input type:",
-            selected="values",
+            selected=self.state.get("type", "values"),
             choices=pc_type,
             inline=True,
         ),
         ui.panel_conditional(
             "input.type == 'values'",
             ru.make_side_by_side(
-                ui.input_numeric("lb", "Lower bound:", value=None),
-                ui.input_numeric("ub", "Upper bound:", value=None),
+                ui.input_numeric(
+                    "lb", "Lower bound:", value=self.state.get("lb", None)
+                ),
+                ui.input_numeric(
+                    "ub", "Upper bound:", value=self.state.get("ub", None)
+                ),
             ),
         ),
         ui.panel_conditional(
             "input.type == 'probs'",
             ru.make_side_by_side(
                 ui.input_numeric(
-                    "plb", "Lower bound:", value=None, min=0, max=1, step=0.05
+                    "plb",
+                    "Lower bound:",
+                    value=self.state.get("plb", None),
+                    min=0,
+                    max=1,
+                    step=0.05,
                 ),
                 ui.input_numeric(
-                    "pub", "Upper bound:", value=None, min=0, max=1, step=0.05
+                    "pub",
+                    "Upper bound:",
+                    value=self.state.get("pub", None),
+                    min=0,
+                    max=1,
+                    step=0.05,
                 ),
             ),
         ),
-        ui.input_numeric("dec", "Decimals:", value=3),
+        ui.input_numeric("dec", "Decimals:", value=self.state.get("dec", 3)),
     )
 
 
-def ui_summary():
+def ui_summary(self):
     return ui.panel_well(
         ui.input_select(
             id="dist",
             label="Distribution:",
-            selected="binom",
+            selected=self.state.get("dist", "binom"),
             choices=pc_dist,
         ),
         ui.panel_conditional("input.dist == 'binom'", ui.output_ui("ui_pc_binom")),
@@ -83,24 +98,32 @@ def ui_main_pc(height="500px", width="700px"):
 
 
 class basics_probability_calculator:
-    def __init__(self, code=True) -> None:
+    def __init__(self, state=None, code=True, navbar=None) -> None:
         self.code = code
+        if state is None:
+            self.state = {}
+        else:
+            self.state = state
+        if navbar is None:
+            self.navbar = ()
+        else:
+            self.navbar = navbar
 
-    def shiny_ui(self, *args):
+    def shiny_ui(self, request: StarletteRequest):
         return ui.page_navbar(
             ru.head_content(),
             ui.nav(
-                "<< Basics > Probability calculator >>",
+                "Basics > Probability calculator",
                 ui.row(
                     ui.column(
                         3,
-                        ui_summary(),
-                        ui_type(),
+                        ui_summary(self),
+                        ui_type(self),
                     ),
                     ui.column(8, ui_main_pc()),
                 ),
             ),
-            *args,
+            self.navbar,
             ru.ui_help(
                 "https://github.com/vnijs/pyrsm/blob/main/examples/basics-probability-calculator.ipynb",
                 "Probability calculator example notebook",
@@ -112,19 +135,37 @@ class basics_probability_calculator:
         )
 
     def shiny_server(self, input: Inputs, output: Outputs, session: Session):
+        def update_state():
+            with reactive.isolate():
+                ru.dct_update(self, input)
+
+        session.on_ended(update_state)
+
         @output(id="ui_pc_binom")
         @render.ui
         def ui_pc_binom():
             return ru.make_side_by_side(
-                ui.input_numeric("binom_n", label="n:", value=10, min=0),
-                ui.input_numeric("binom_p", label="p:", value=0.2, min=0, max=1),
+                ui.input_numeric(
+                    "binom_n", label="n:", value=self.state.get("binom_n", 10), min=0
+                ),
+                ui.input_numeric(
+                    "binom_p",
+                    label="p:",
+                    value=self.state.get("binom_p", 0.2),
+                    min=0,
+                    max=1,
+                    step=0.01,
+                ),
             )
 
         @output(id="ui_pc_chisq")
         @render.ui
         def ui_pc_chisq():
             return ui.input_numeric(
-                "chisq_df", label="Degrees of freedom:", value=1, min=1
+                "chisq_df",
+                label="Degrees of freedom:",
+                value=self.state.get("chisq_df", 1),
+                min=1,
             )
 
         @output(id="ui_pc_disc")
@@ -135,30 +176,38 @@ class basics_probability_calculator:
                     "disc_values",
                     label="Values:",
                     placeholder="Insert list [1, 3, 5]",
-                    value="[1, 3, 5]",
+                    value=self.state.get("disc_values", "[1, 3, 5]"),
                 ),
                 ru.input_return_text_area(
                     "disc_probs",
                     label="Probabilities:",
                     placeholder="Insert list [1/4, 1/8, 5/8]",
-                    value="[1 / 4, 1 / 8, 5 / 8]",
+                    value=self.state.get("disc_probs", "[1 / 4, 1 / 8, 5 / 8]"),
                 ),
             )
 
         @output(id="ui_pc_expo")
         @render.ui
         def ui_pc_expo():
-            return ui.input_numeric("expo_rate", label="Rate:", value=1, min=1)
+            return ui.input_numeric(
+                "expo_rate", label="Rate:", value=self.state.get("expo_rate", 1), min=1
+            )
 
         @output(id="ui_pc_fdist")
         @render.ui
         def ui_pc_fdist():
             return ru.make_side_by_side(
                 ui.input_numeric(
-                    "fdist_df1", label="Degrees of freedom 1:", value=10, min=0
+                    "fdist_df1",
+                    label="Degrees of freedom 1:",
+                    value=self.state.get("fdist_df1", 10),
+                    min=0,
                 ),
                 ui.input_numeric(
-                    "fdist_df2", label="Degrees of freedom 2:", value=10, min=0
+                    "fdist_df2",
+                    label="Degrees of freedom 2:",
+                    value=self.state.get("fdist_df2", 10),
+                    min=0,
                 ),
             )
 
@@ -166,38 +215,65 @@ class basics_probability_calculator:
         @render.ui
         def ui_pc_lnorm():
             return ru.make_side_by_side(
-                ui.input_numeric("lnorm_mean", label="Mean log:", value=0),
-                ui.input_numeric("lnorm_stdev", label="St. dev. log:", value=1, min=0),
+                ui.input_numeric(
+                    "lnorm_mean",
+                    label="Mean log:",
+                    value=self.state.get("lnorm_mean", 0),
+                ),
+                ui.input_numeric(
+                    "lnorm_stdev",
+                    label="St. dev. log:",
+                    value=self.state.get("lnorm_stdev", 1),
+                    min=0,
+                ),
             )
 
         @output(id="ui_pc_norm")
         @render.ui
         def ui_pc_norm():
             return ru.make_side_by_side(
-                ui.input_numeric("norm_mean", label="Mean:", value=0),
-                ui.input_numeric("norm_stdev", label="St. dev.:", value=1, min=0),
+                ui.input_numeric(
+                    "norm_mean", label="Mean:", value=self.state.get("norm_mean", 0)
+                ),
+                ui.input_numeric(
+                    "norm_stdev",
+                    label="St. dev.:",
+                    value=self.state.get("norm_stdev", 1),
+                    min=0,
+                ),
             )
 
         @output(id="ui_pc_pois")
         @render.ui
         def ui_pc_pois():
             return ui.input_numeric(
-                "pois_lambda", label="Lambda:", value=0.5, min=0, step=0.1
+                "pois_lambda",
+                label="Lambda:",
+                value=self.state.get("pois_lambda", 0.5),
+                min=0,
+                step=0.1,
             )
 
         @output(id="ui_pc_tdist")
         @render.ui
         def ui_pc_tdist():
             return ui.input_numeric(
-                "tdist_df", label="Degrees of freedom:", value=10, min=1
+                "tdist_df",
+                label="Degrees of freedom:",
+                value=self.state.get("tdist_df", 10),
+                min=1,
             )
 
         @output(id="ui_pc_unif")
         @render.ui
         def ui_pc_unif():
             return ru.make_side_by_side(
-                ui.input_numeric("unif_min", label="Minimum:", value=0),
-                ui.input_numeric("unif_max", label="Maximum:", value=1),
+                ui.input_numeric(
+                    "unif_min", label="Minimum:", value=self.state.get("unif_min", 0)
+                ),
+                ui.input_numeric(
+                    "unif_max", label="Maximum:", value=self.state.get("unif_max", 1)
+                ),
             )
 
         def estimation_code():
@@ -248,6 +324,11 @@ class basics_probability_calculator:
             if input.type() == "values":
                 args.update({"lb": input.lb(), "ub": input.ub()})
             else:
+                if input.plb() is not None and (input.plb() < 0 or input.plb() > 1):
+                    raise ValueError("All probabilities must be between 0 and 1")
+                elif input.pub() is not None and (input.pub() < 0 or input.pub() > 1):
+                    raise ValueError("All probabilities must be between 0 and 1")
+
                 args.update({"plb": input.plb(), "pub": input.pub()})
 
             fun = getattr(
@@ -318,6 +399,7 @@ class basics_probability_calculator:
 
 def prob_calc(
     code: bool = True,
+    state: dict = None,
     host: str = "0.0.0.0",
     port: int = 8000,
     log_level: str = "critical",
@@ -326,7 +408,7 @@ def prob_calc(
     """
     Launch a Radiant-for-Python app for compare means hypothesis testing
     """
-    rc = basics_probability_calculator(code=code)
+    rc = basics_probability_calculator(state=state, code=code)
     nest_asyncio.apply()
     webbrowser.open(f"http://{host}:{port}")
     print(f"Listening on http://{host}:{port}")
@@ -341,7 +423,7 @@ def prob_calc(
         sys.stdout = temp_file
         sys.stderr = temp_file
 
-    app = App(rc.shiny_ui(), rc.shiny_server)
+    app = App(rc.shiny_ui, rc.shiny_server)
     www_dir = Path(__file__).parent.parent / "radiant" / "www"
     app_static = StaticFiles(directory=www_dir, html=False)
 

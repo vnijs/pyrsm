@@ -1,13 +1,13 @@
-__version__ = "0.9.5"
+__version__ = "0.9.6"
 from .bins import *
-from .perf import *
+from .model.perf import *
 from .stats import *
 from .utils import *
 from .props import *
-from .model import *
-from .logistic import *
-from .regress import *
-from .visualize import *
+from .model.model import *
+from .model.logistic import *
+from .model.regress import *
+from .model.visualize import *
 from .notebook import *
 from .example_data import *
 import pyrsm.basics

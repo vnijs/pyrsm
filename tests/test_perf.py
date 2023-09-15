@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from pyrsm.perf import (
+from pyrsm.model.perf import (
     calc_qnt,
     gains_tab,
     lift_tab,

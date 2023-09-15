@@ -1,6 +1,7 @@
 from starlette.applications import Starlette
 from starlette.routing import Mount
 from starlette.staticfiles import StaticFiles
+from starlette.requests import Request as StarletteRequest
 from shiny import App, ui, reactive, Inputs, Outputs, Session
 from pathlib import Path
 import webbrowser
@@ -37,16 +38,23 @@ import pyrsm.radiant.utils as ru
 
 
 class data_view:
-    def __init__(self, datasets: dict, descriptions=None, code=True) -> None:
-        ru.init(self, datasets, descriptions=descriptions, code=code)
-        # self.state = {"data_filter": "price > 1000", "datasets": "diamonds"}
-        self.state = {}
+    def __init__(
+        self, datasets: dict, descriptions=None, state=None, code=True, navbar=None
+    ) -> None:
+        ru.init(
+            self,
+            datasets,
+            descriptions=descriptions,
+            state=state,
+            code=code,
+            navbar=navbar,
+        )
 
-    def shiny_ui(self, *args):
+    def shiny_ui(self, request: StarletteRequest):
         return ui.page_navbar(
             ru.head_content(),
             ui.nav(
-                "<< Data > View >>",
+                "Data > View",
                 ui.row(
                     ui.column(3, ru.ui_view(self)),
                     ui.column(
@@ -57,7 +65,7 @@ class data_view:
                     ),
                 ),
             ),
-            *args,
+            self.navbar,
             ru.ui_help(
                 "https://github.com/vnijs/pyrsm/blob/main/examples/data-view.ipynb",
                 "Data > View example notebook",
@@ -72,6 +80,12 @@ class data_view:
         # --- section standard for all apps ---
         ru.make_data_elements(self, input, output, session)
 
+        def update_state():
+            with reactive.isolate():
+                ru.dct_update(self, input)
+
+        session.on_ended(update_state)
+
         # --- section standard for all apps ---
         # stops returning code if moved to utils
         @reactive.Effect
@@ -85,6 +99,7 @@ class data_view:
 def view(
     data_dct: dict = None,
     descriptions_dct: dict = None,
+    state: dict = None,
     code: bool = True,
     host: str = "0.0.0.0",
     port: int = 8000,
@@ -96,7 +111,7 @@ def view(
     """
     if data_dct is None:
         data_dct, descriptions_dct = ru.get_dfs(pkg="data")
-    rc = data_view(data_dct, descriptions_dct, code=code)
+    rc = data_view(data_dct, descriptions_dct, state=state, code=code)
     nest_asyncio.apply()
     webbrowser.open(f"http://{host}:{port}")
     print(f"Listening on http://{host}:{port}")
@@ -111,7 +126,7 @@ def view(
         sys.stdout = temp_file
         sys.stderr = temp_file
 
-    app = App(rc.shiny_ui(), rc.shiny_server)
+    app = App(rc.shiny_ui, rc.shiny_server)
     www_dir = Path(__file__).parent.parent / "radiant" / "www"
     app_static = StaticFiles(directory=www_dir, html=False)
 

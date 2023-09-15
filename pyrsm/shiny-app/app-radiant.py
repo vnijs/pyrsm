@@ -12,6 +12,7 @@ from pyrsm.radiant.logistic import model_logistic
 from pyrsm.radiant.probability_calculator import basics_probability_calculator
 from pyrsm.radiant.regress import model_regress
 from pyrsm.radiant.single_mean import basics_single_mean
+from pyrsm.radiant.single_prop import basics_single_prop
 
 # import polars as pl
 # import pandas as pd
@@ -32,45 +33,66 @@ app_static = StaticFiles(directory=www_dir, html=False)
 
 # data > view
 data_dct, descriptions_dct = ru.get_dfs(pkg="data")
-rc = data_view(data_dct, descriptions_dct, code=True)
-app_data = App(rc.shiny_ui(ru.radiant_navbar()), rc.shiny_server, debug=False)
+rc = data_view(
+    data_dct, descriptions_dct, state=None, code=True, navbar=ru.radiant_navbar()
+)
+app_data = App(rc.shiny_ui, rc.shiny_server, debug=False)
 
 # probability calculator mean app
-rc = basics_probability_calculator(code=True)
-app_pc = App(rc.shiny_ui(ru.radiant_navbar()), rc.shiny_server, debug=False)
+rc = basics_probability_calculator(state=None, code=True, navbar=ru.radiant_navbar())
+app_pc = App(rc.shiny_ui, rc.shiny_server, debug=False)
 
 # single mean app
 data_dct, descriptions_dct = ru.get_dfs(pkg="basics", name="demand_uk")
-rc = basics_single_mean(data_dct, descriptions_dct, code=True)
-app_sm = App(rc.shiny_ui(ru.radiant_navbar()), rc.shiny_server, debug=False)
+rc = basics_single_mean(
+    data_dct, descriptions_dct, state=None, code=True, navbar=ru.radiant_navbar()
+)
+app_sm = App(rc.shiny_ui, rc.shiny_server, debug=False)
 
 # compare means app
 data_dct, descriptions_dct = ru.get_dfs(pkg="basics", name="salary")
-rc = basics_compare_means(data_dct, descriptions_dct, code=True)
-app_cm = App(rc.shiny_ui(ru.radiant_navbar()), rc.shiny_server, debug=False)
+rc = basics_compare_means(
+    data_dct, descriptions_dct, state=None, code=True, navbar=ru.radiant_navbar()
+)
+app_cm = App(rc.shiny_ui, rc.shiny_server, debug=False)
+
+# single prop
+data_dct, descriptions_dct = ru.get_dfs(pkg="basics", name="consider")
+rc = basics_single_prop(
+    data_dct, descriptions_dct, state=None, code=True, navbar=ru.radiant_navbar()
+)
+app_sp = App(rc.shiny_ui, rc.shiny_server, debug=False)
 
 # cross-tabs app
 data_dct, descriptions_dct = ru.get_dfs(pkg="basics", name="newspaper")
-rc = basics_cross_tabs(data_dct, descriptions_dct, code=True)
-app_ct = App(rc.shiny_ui(ru.radiant_navbar()), rc.shiny_server, debug=False)
+rc = basics_cross_tabs(
+    data_dct, descriptions_dct, state=None, code=True, navbar=ru.radiant_navbar()
+)
+app_ct = App(rc.shiny_ui, rc.shiny_server, debug=False)
 
 # goodness app
 data_dct, descriptions_dct = ru.get_dfs(pkg="basics", name="newspaper")
-rc = basics_goodness(data_dct, descriptions_dct, code=True)
-app_gf = App(rc.shiny_ui(ru.radiant_navbar()), rc.shiny_server, debug=False)
+rc = basics_goodness(
+    data_dct, descriptions_dct, state=None, code=True, navbar=ru.radiant_navbar()
+)
+app_gf = App(rc.shiny_ui, rc.shiny_server, debug=False)
 
 # linear regression app
 data_dct, descriptions_dct = ru.get_dfs(pkg="model", name="diamonds")
 data_dct.update({"diamonds100": data_dct["diamonds"].sample(100)})
 
 descriptions_dct.update({"diamonds100": descriptions_dct["diamonds"]})
-rc = model_regress(data_dct, descriptions_dct, code=True)
-app_regress = App(rc.shiny_ui(ru.radiant_navbar()), rc.shiny_server)
+rc = model_regress(
+    data_dct, descriptions_dct, state=None, code=True, navbar=ru.radiant_navbar()
+)
+app_regress = App(rc.shiny_ui, rc.shiny_server)
 
 # logistic regression app
 data_dct, descriptions_dct = ru.get_dfs(pkg="model", name="titanic")
-rc = model_logistic(data_dct, descriptions_dct, code=True)
-app_logistic = App(rc.shiny_ui(ru.radiant_navbar()), rc.shiny_server)
+rc = model_logistic(
+    data_dct, descriptions_dct, state=None, code=True, navbar=ru.radiant_navbar()
+)
+app_logistic = App(rc.shiny_ui, rc.shiny_server)
 
 ui_nav = ui.page_navbar(
     ru.head_content(),
@@ -87,11 +109,12 @@ routes = [
     Mount("/basics/prob-calc/", app=app_pc),
     Mount("/basics/single-mean/", app=app_sm),
     Mount("/basics/compare-means/", app=app_cm),
+    Mount("/basics/single-prop/", app=app_sp),
     Mount("/basics/goodness/", app=app_gf),
     Mount("/basics/cross-tabs/", app=app_ct),
-    Mount("/models/regress", app=app_regress),
-    Mount("/models/logistic", app=app_logistic),
-    Mount("/www", app=app_static),
+    Mount("/models/regress/", app=app_regress),
+    Mount("/models/logistic/", app=app_logistic),
+    Mount("/www/", app=app_static),
     Mount("/", app=app_data),  # MUST BE LAST!!!!
 ]
 
