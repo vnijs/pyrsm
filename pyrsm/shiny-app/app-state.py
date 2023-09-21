@@ -4,7 +4,6 @@ from shiny import App, ui, reactive, render
 # based on https://github.com/posit-dev/py-shinyswatch/issues/11#issuecomment-1647868499
 from starlette.requests import Request as StarletteRequest
 
-
 state = {}
 print("Do we get back to global after refresh?", state)  # we don't
 
@@ -43,7 +42,7 @@ def server(input, output, session):
         """
         The '... in input' approach causes issues (see app_state.py).
         see https://discord.com/channels/1109483223987277844/1127817202804985917/1129530385429176371
-        Also tuples need to be converted to lists to be picked up on refresh. Not
+        Also tuples need to be converted to lists to be picked up on refresh by select inputs. Not
         clear why that is needed but it is
         """
         try:
