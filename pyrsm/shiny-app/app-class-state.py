@@ -115,7 +115,7 @@ class radiant_sub_app(radiant_data):
     # radiant_data, ideally from a reactive calc in radiant_data
     # def __init__(self, data=None, state=None) -> None:
     # def __init__(self, data=None, state=None) -> None:
-    def __init__(self, rc=None, data=None, state=None) -> None:
+    def __init__(self, rc, data, state=None) -> None:
         if rc is None:
             if state is None:
                 self.state = {}
@@ -205,7 +205,7 @@ data2 = pd.DataFrame().assign(
 
 rc = radiant_data(data1, state=None)
 # rc_sub = radiant_sub_app(data2, state=None)
-rc_sub = radiant_sub_app(rc)  # , data=data2, state=None)
+rc_sub = radiant_sub_app(rc, None)  # , data=data2, state=None)
 
 routes = [
     Mount("/sub-app", app=App(rc_sub.shiny_ui, rc_sub.shiny_server)),
