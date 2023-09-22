@@ -1,11 +1,7 @@
-from datetime import datetime
 from shiny import App, ui, reactive, render
 from starlette.applications import Starlette
 from starlette.routing import Mount
 import pandas as pd
-
-
-# based on https://github.com/posit-dev/py-shinyswatch/issues/11#issuecomment-1647868499
 from starlette.requests import Request as StarletteRequest
 
 
@@ -40,7 +36,7 @@ def ui_view(self):
         "Data Filter:",
         rows=2,
         value=self.state.get("data_filter", ""),
-        placeholder="Provide a filter (e.g., price > 5000) and press return",
+        placeholder="Provide a filter (e.g., a > 1) and press return",
     )
 
 
@@ -71,12 +67,13 @@ def get_data_fun(self, input):
 
 
 class radiant_data:
-    def __init__(self, data, state=None) -> None:
+    def __init__(self, data=None, state=None) -> None:
         if state is None:
             self.state = {}
         else:
             self.state = state
         self.data = data
+        self.test = 0
 
     def shiny_ui(self, request: StarletteRequest):
         return ui.page_navbar(
@@ -106,6 +103,7 @@ class radiant_data:
         @output(id="show_data")
         @render.data_frame
         def show_data():
+            self.test = 3
             return render.DataTable(self.get_data())
 
 
@@ -115,12 +113,26 @@ class radiant_sub_app(radiant_data):
     # however, if not data is passed in and it is used together
     # with radiant_data the data shown below should be coming from
     # radiant_data, ideally from a reactive calc in radiant_data
-    def __init__(self, data=None, state=None) -> None:
-        if state is None:
-            self.state = {}
+    # def __init__(self, data=None, state=None) -> None:
+    # def __init__(self, data=None, state=None) -> None:
+    def __init__(self, rc=None, data=None, state=None) -> None:
+        if rc is None:
+            if state is None:
+                self.state = {}
+            else:
+                self.state = state
+            self.data = data
+
         else:
-            self.state = state
-        self.data = data
+            super().__init__(rc.data, rc.state)  # , rc.test, rc.get_data)
+            # dct = {attr: getattr(self, attr) for attr in vars(self)}
+            # print(dct)
+            # self.test = 1
+            # print(self.test)
+            # self.get_data
+
+            # dct = {attr: getattr(rc, attr) for attr in vars(rc)}
+            # super().__init__(**{attr: getattr(rc, attr) for attr in vars(rc)})
 
     def shiny_ui(self, request: StarletteRequest):
         return ui.page_navbar(
@@ -168,20 +180,32 @@ class radiant_sub_app(radiant_data):
                 multiple=True,
             )
 
-        self.get_data = get_data_fun(self, None)
+        # self.get_data = get_data_fun(self, None)
+        print("self.test is", self.test)
 
         @output(id="show_data")
         @render.data_frame
         def show_data():
-            return render.DataTable(self.get_data())
+            print("self.test is", self.test)
+            # return render.DataTable(super().get_data())
+            # return render.DataTable(super().data)
+            # print(super().__init__())
+            # return render.DataTable(self.get_data())
+            return render.DataTable(self.data)
 
 
-data = pd.DataFrame().assign(
+data1 = pd.DataFrame().assign(
+    a=[1, 2, 3, 4], b=[4, 5, 6, 7], c=["w", "x", "y", "z"], d=[100, -100, 0, -1]
+)
+
+data2 = pd.DataFrame().assign(
     a=[1, 2, 3], b=[4, 5, 6], c=["x", "y", "z"], d=[100, -100, 0]
 )
 
-rc = radiant_data(data, state=None)
-rc_sub = radiant_sub_app(data, state=None)
+
+rc = radiant_data(data1, state=None)
+# rc_sub = radiant_sub_app(data2, state=None)
+rc_sub = radiant_sub_app(rc)  # , data=data2, state=None)
 
 routes = [
     Mount("/sub-app", app=App(rc_sub.shiny_ui, rc_sub.shiny_server)),
