@@ -30,16 +30,6 @@ def dct_update(self, input):
     self.state.update({k: check_input_value(k, input) for k in input_keys})
 
 
-def ui_view(self):
-    return ui.input_text_area(
-        "data_filter",
-        "Data Filter:",
-        rows=2,
-        value=self.state.get("data_filter", ""),
-        placeholder="Provide a filter (e.g., a > 1) and press return",
-    )
-
-
 def radiant_navbar():
     return (
         ui.nav_control(
@@ -55,17 +45,6 @@ def radiant_navbar():
     )
 
 
-def get_data_fun(self, input):
-    @reactive.Calc
-    def reactive_get_data():
-        if input is not None and input.data_filter() != "":
-            return self.data.query(input.data_filter())
-        else:
-            return self.data
-
-    return reactive_get_data
-
-
 class radiant_data:
     def __init__(self, data, state=None) -> None:
         if state is None:
@@ -79,7 +58,16 @@ class radiant_data:
             ui.nav(
                 None,
                 ui.row(
-                    ui.column(3, ui_view(self)),
+                    ui.column(
+                        3,
+                        ui.input_text_area(
+                            "data_filter",
+                            "Data Filter:",
+                            rows=2,
+                            value=self.state.get("data_filter", ""),
+                            placeholder="Provide a filter (e.g., a > 1) and press return",
+                        ),
+                    ),
                     ui.column(8, ui.output_data_frame("show_data")),
                 ),
             ),
@@ -96,11 +84,18 @@ class radiant_data:
 
         session.on_ended(update_state)
 
+        @reactive.Calc
+        def get_data():
+            if input.data_filter() != "":
+                return self.data.query(input.data_filter())
+            else:
+                return self.data
+
         # self.get_data will be accessible to sub-apps as an
         # attribute of the radiant_data class instance
         # but *only* after the user has visited the Data tab
         # and self.get_data has been intialized
-        self.get_data = get_data_fun(self, input)
+        self.get_data = get_data
 
         @output(id="show_data")
         @render.data_frame
