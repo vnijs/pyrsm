@@ -1,7 +1,5 @@
 from datetime import datetime
 from shiny import App, ui, reactive, render
-
-# based on https://github.com/posit-dev/py-shinyswatch/issues/11#issuecomment-1647868499
 from starlette.requests import Request as StarletteRequest
 
 state = {}
@@ -27,11 +25,6 @@ def app_ui(request: StarletteRequest):
                 ui.div(
                     "This page was rendered at ", datetime.now().strftime("%H:%M:%S.%f")
                 ),
-            ),
-            ui.nav(
-                "Hidden",
-                ui.input_slider("count", "Count", 0, 100, state.get("count", 10)),
-                ui.output_ui("ui_var3"),
             ),
         ),
     )
@@ -76,7 +69,14 @@ def server(input, output, session):
             "On-ended function finished at: " + datetime.now().strftime("%H:%M:%S.%f")
         )
 
+    # would be perfect *if* if would complete before app_ui is re-rendered
     session.on_ended(update_state)
+
+    # sessoin.on_flushed does keep the state updated but might
+    # be inefficient if there are many large inputs (e.g., data) that are
+    # updated when any input changes
+
+    # session.on_flushed(update_state, once=False)
 
     @output(id="ui_var2")
     @render.ui
@@ -85,17 +85,6 @@ def server(input, output, session):
             "var2",
             label="Variables 2 (dynamic):",
             selected=state.get("var2", None),
-            choices=["a", "b", "c"],
-            multiple=True,
-        )
-
-    @output(id="ui_var3")
-    @render.ui
-    def ui_var3():
-        return ui.input_select(
-            "var3",
-            label="Variables 3 (dynamic):",
-            selected=state.get("var3", None),
             choices=["a", "b", "c"],
             multiple=True,
         )

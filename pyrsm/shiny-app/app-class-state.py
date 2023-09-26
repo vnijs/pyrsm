@@ -67,13 +67,12 @@ def get_data_fun(self, input):
 
 
 class radiant_data:
-    def __init__(self, data=None, state=None) -> None:
+    def __init__(self, data, state=None) -> None:
         if state is None:
             self.state = {}
         else:
             self.state = state
         self.data = data
-        self.test = 0
 
     def shiny_ui(self, request: StarletteRequest):
         return ui.page_navbar(
@@ -97,42 +96,26 @@ class radiant_data:
 
         session.on_ended(update_state)
 
-        ## can we make this accessible to the sub_app through super()?
+        # self.get_data will be accessible to sub-apps
+        # but *only* after the user has visited the Data tab
+        # and self.get_data has been intialized
         self.get_data = get_data_fun(self, input)
 
         @output(id="show_data")
         @render.data_frame
         def show_data():
-            self.test = 3
             return render.DataTable(self.get_data())
 
 
-class radiant_sub_app(radiant_data):
-    # class should be able to take in data directly in case
-    # it is run in isolation (i.e., without radiant data)
-    # however, if not data is passed in and it is used together
-    # with radiant_data the data shown below should be coming from
-    # radiant_data, ideally from a reactive calc in radiant_data
-    # def __init__(self, data=None, state=None) -> None:
-    # def __init__(self, data=None, state=None) -> None:
-    def __init__(self, rc, data, state=None) -> None:
-        if rc is None:
-            if state is None:
-                self.state = {}
-            else:
-                self.state = state
-            self.data = data
-
+class radiant_sub_app:
+    def __init__(self, data=None, state=None) -> None:
+        if state is None:
+            self.state = {}
         else:
-            super().__init__(rc.data, rc.state)  # , rc.test, rc.get_data)
-            # dct = {attr: getattr(self, attr) for attr in vars(self)}
-            # print(dct)
-            # self.test = 1
-            # print(self.test)
-            # self.get_data
+            self.state = state
 
-            # dct = {attr: getattr(rc, attr) for attr in vars(rc)}
-            # super().__init__(**{attr: getattr(rc, attr) for attr in vars(rc)})
+        if data is not None:
+            self.data = data
 
     def shiny_ui(self, request: StarletteRequest):
         return ui.page_navbar(
@@ -180,32 +163,21 @@ class radiant_sub_app(radiant_data):
                 multiple=True,
             )
 
-        # self.get_data = get_data_fun(self, None)
-        print("self.test is", self.test)
-
         @output(id="show_data")
         @render.data_frame
         def show_data():
-            print("self.test is", self.test)
-            # return render.DataTable(super().get_data())
-            # return render.DataTable(super().data)
-            # print(super().__init__())
-            # return render.DataTable(self.get_data())
-            return render.DataTable(self.data)
+            if hasattr(rc, "get_data"):
+                return render.DataTable(rc.get_data())
+            else:
+                return None
 
 
-data1 = pd.DataFrame().assign(
+data = pd.DataFrame().assign(
     a=[1, 2, 3, 4], b=[4, 5, 6, 7], c=["w", "x", "y", "z"], d=[100, -100, 0, -1]
 )
 
-data2 = pd.DataFrame().assign(
-    a=[1, 2, 3], b=[4, 5, 6], c=["x", "y", "z"], d=[100, -100, 0]
-)
-
-
-rc = radiant_data(data1, state=None)
-# rc_sub = radiant_sub_app(data2, state=None)
-rc_sub = radiant_sub_app(rc, None)  # , data=data2, state=None)
+rc = radiant_data(data, state=None)
+rc_sub = radiant_sub_app(data=None, state=None)
 
 routes = [
     Mount("/sub-app", app=App(rc_sub.shiny_ui, rc_sub.shiny_server)),
