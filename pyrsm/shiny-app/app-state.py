@@ -59,12 +59,6 @@ def server(input, output, session):
         with reactive.isolate():
             dct_update(input)
 
-        # this seems to work for all available inputs, but restores the state from 2 steps back
-        # issue posted: https://github.com/posit-dev/py-shiny/issues/323
-        # input_keys = input.__dict__["_map"].keys()
-        # state.update({k: input[k]() for k in input_keys if k[0] != "."})
-        # state.update({k: list(v) for k, v in state.items() if isinstance(v, tuple)})
-
         print(
             "On-ended function finished at: " + datetime.now().strftime("%H:%M:%S.%f")
         )
@@ -72,10 +66,9 @@ def server(input, output, session):
     # would be perfect *if* if would complete before app_ui is re-rendered
     session.on_ended(update_state)
 
-    # sessoin.on_flushed does keep the state updated but might
+    # session.on_flushed does keep the state updated but might
     # be inefficient if there are many large inputs (e.g., data) that are
     # updated when any input changes
-
     # session.on_flushed(update_state, once=False)
 
     @output(id="ui_var2")

@@ -96,7 +96,8 @@ class radiant_data:
 
         session.on_ended(update_state)
 
-        # self.get_data will be accessible to sub-apps
+        # self.get_data will be accessible to sub-apps as an
+        # attribute of the radiant_data class instance
         # but *only* after the user has visited the Data tab
         # and self.get_data has been intialized
         self.get_data = get_data_fun(self, input)
@@ -169,7 +170,7 @@ class radiant_sub_app:
             if hasattr(rc, "get_data"):
                 return render.DataTable(rc.get_data())
             else:
-                return None
+                return render.DataTable(rc.data)
 
 
 data = pd.DataFrame().assign(
