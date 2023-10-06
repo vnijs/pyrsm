@@ -1,0 +1,126 @@
+---
+title: Logistic Regression
+jupyter: python3
+---
+
+
+Estimate a Logistic regression model for binary classification
+
+
+YAML header for use with Quarto
+
+---
+author: Vincent Nijs
+format:
+    html:
+        code-tools: true
+        code-fold: true
+        toc: true
+        embed-resources: true
+        highlight: "zenburn"
+        theme: "cosmo"
+        includes:
+            in_header: figures/icon-header.html
+---
+
+```{python}
+import pyrsm as rsm
+import matplotlib as mpl
+
+# increase plot resolution
+mpl.rcParams["figure.dpi"] = 100
+```
+
+```{python}
+## setup pyrsm for autoreload
+%reload_ext autoreload
+%autoreload 2
+%aimport pyrsm
+```
+
+`{python} 1 + 1`
+
+### Example
+
+As an example we will use a dataset that describes the survival status of individual passengers on the Titanic. The principal source for data about Titanic passengers is the Encyclopedia Titanic. One of the original sources is Eaton & Haas (1994) Titanic: Triumph and Tragedy, Patrick Stephens Ltd, which includes a passenger list created by many researchers and edited by Michael A. Findlay. Suppose we want to investigate which factors are most strongly associated with the chance of surviving the sinking of the Titanic. Lets focus on four variables in the database:
+
+- survived = a factor with levels `Yes` and `No`
+- pclass = Passenger Class (1st, 2nd, 3rd). This is a proxy for socio-economic status (SES) 1st ~ Upper; 2nd ~ Middle; 3rd ~ Lower
+- sex = Sex (female, male)
+- age = Age in years
+
+Select `survived` as the response variable and `Yes` in **Choose level**. Select `pclass`, `sex` and `age` as the explanatory variables. In the screenshot below we see that each of the coefficients is statistically significant (p.value < .05) and that the model has some predictive power (Chi-squared statistic < .05). Unfortunately the coefficients from a logistic regression model are difficult to interpret. The `OR` column provides estimated odds-ratios. We see that the odds of survival were significantly lower for 2nd and 3rd class passengers compared to 1st class passenger. The odds of survival for males were also lower than for females. While the effect of age is statically significant, for each extra year in age the odds of survival are not as strongly affected (see also the standardized coefficient).
+
+For each of the explanatory variables the following null and alternate hypotheses can be formulated for the odds ratios:
+
+* H0: The odds-ratio associated with explanatory variable x is equal to 1
+* Ha: The odds-ratio associated with explanatory variable x is not equal to 1
+
+The odds-ratios from the logistic regression can be interpreted as follows:
+
+- Compared to 1st class passengers, the odds of survival for 2nd class passengers was 72% lower, keeping all other variables in the model constant.
+- Compared to 1st class passengers, the odds of survival for 3rd class passengers was 89.8% lower, keeping all other variables in the model constant.
+- Compared to female passengers, the odds of survival for male passengers was 91.7% lower, keeping all other variables in the model constant.
+- For an increase in passenger age of 1 year the odds of survival decreased by 3.4%, keeping all other variables in the model constant.
+
+```{python}
+titanic, titanic_description = rsm.load_data(pkg="data", name="titanic")
+titanic
+```
+
+```{python}
+rsm.md(titanic_description)
+```
+
+```{python}
+titanic.head()
+```
+
+```{python}
+lr = rsm.logistic(
+    {"titanic": titanic}, rvar="survived", lev="Yes", evar=["pclass", "sex", "age"]
+)
+lr.summary()
+```
+
+```{python}
+lr = rsm.logistic({"titanic":titanic}, lev="Yes", form="survived ~ pclass + sex + age")
+lr.summary()
+```
+
+```{python}
+lr.summary(test="pclass")
+```
+
+In addition to the numerical output provided in the _Summary_ tab we can also evaluate the link between `survival`, `class`, `sex`, and `age` visually (see _Plot_ tab). In the screenshot below we see a coefficient (or rather an odds-ratio) plot with confidence intervals. The relative importance of gender and class compared to age clearly stands out. Note: click the check box for standardized coefficients (i.e., `standardize`) in the _Summary_ tab and see if your conclusion changes.
+
+```{python}
+lr.plot()
+```
+
+```{python}
+lr.plot(plots="pred")
+```
+
+```{python}
+lr.plot(plots="vimp")
+```
+
+# Radiant for Python App: Logistic regression (GLM)
+
+All the output shown above can be reproduced using the Radiant-for-Python web interface. An example of what the code required to start the web interface is shown below. See if you can reproduce the result.
+
+> Note: The app will continue running until you press the `Stop` button in the app navigation bar or the stop button next to the notebook cell
+
+```{python}
+rsm.radiant.logistic({"titanic": titanic}, {"titanic": titanic_description}, code=True)
+```
+
+<p align="center">
+<img src="figures_model/logistic-regression-summary.png">
+</p>
+
+<p align="center">
+<img src="figures_model/logistic-regression-pred-plots.png">
+</p>
+

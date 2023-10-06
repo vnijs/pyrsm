@@ -3,17 +3,21 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 from typing import Union
+import seaborn as sns
+from statsmodels.stats.proportion import proportions_ztest
 from statsmodels.stats import multitest
 import pyrsm.basics.utils as bu
 import pyrsm.radiant.utils as ru
+from pyrsm.model import sig_stars
+from pyrsm.utils import ifelse
 
 
 class compare_props:
     def __init__(
         self,
         data: Union[pd.DataFrame, dict[str, pd.DataFrame]],
-        gvar: str,
-        var: str,
+        var1: str,
+        var2: str,
         lev: str,
         comb: list[tuple[str, str]] = [],
         alt_hyp: str = "two-sided",
@@ -26,29 +30,33 @@ class compare_props:
         else:
             self.data = data
             self.name = "Not provided"
-        self.gvar = gvar
-        self.var = var
+
+        self.var1 = var1
+        self.var2 = var2
         self.lev = lev
-        self.comb = comb
+        # self.comb = comb
         self.alt_hyp = alt_hyp
         self.conf = conf
         self.alpha = 1 - self.conf
         self.adjust = adjust
 
-        self.data[self.gvar] = self.data[self.gvar].astype("category")
-        self.levels = list(self.data[self.gvar].cat.categories)
+        self.data[self.var1] = self.data[self.var1].astype("category")
+        self.levels = list(self.data[self.var1].cat.categories)
 
-        if len(self.comb) == 0:
+        if len(comb) == 0:
             self.comb = ru.iterms(self.levels)
+        else:
+            self.comb = ifelse(isinstance(comb, str), [comb], comb)
 
         descriptive_stats = []
         for lev in self.levels:
-            subset = self.data[
-                (self.data[self.var] == self.lev) & (self.data[self.gvar] == lev)
-            ][self.var]
+            subset = self.data.loc[
+                (self.data[self.var2] == self.lev) & (self.data[self.var1] == lev),
+                self.var2,
+            ]
             ns = len(subset)
             n_missing = subset.isna().sum()
-            n = len(self.data[(self.data[self.gvar] == lev)][self.var]) - n_missing
+            n = len(self.data.loc[(self.data[self.var1] == lev), self.var2]) - n_missing
             p = ns / n
             sd = sqrt(p * (1 - p)).real
             se = (sd / sqrt(n)).real
@@ -56,10 +64,10 @@ class compare_props:
             me = (z_score * sd / sqrt(n)).real
             descriptive_stats.append([lev, ns, p, n, n_missing, sd, se, me])
 
-        self.descritive_stats = pd.DataFrame(
+        self.descriptive_stats = pd.DataFrame(
             descriptive_stats,
             columns=[
-                self.gvar,
+                self.var1,
                 self.lev,
                 "p",
                 "n",
@@ -77,74 +85,122 @@ class compare_props:
         else:
             alt_hyp_sign = "greater than"
 
-        # rows2 = []
-        # for v1, v2 in self.comb:
-        #     null_hyp = v1 + " = " + v2
-        #     alt_hyp = v1 + alt_hyp_sign + v2
+        def wald_ci(n1, p1, n2, p2, z):
+            # what R uses for a comparison of proportions
+            se = np.sqrt((p1 * (1 - p1) / n1) + (p2 * (1 - p2) / n2))
+            diff = p1 - p2
+            return [diff - z * se, diff + z * se]
 
-        #     subset1 = self.data[
-        #         (self.data[self.var] == self.lev) & (self.data[self.gvar] == v1)
-        #     ][self.var]
+        comp_stats = []
+        for c in self.comb:
+            v1, v2 = c.split(":")
+            null_hyp = f"{v1} = {v2}"
+            alt_hyp = f"{v1} {alt_hyp_sign} {v2}"
 
-        #     ns1 = len(subset1)
-        #     n_missing1 = subset1.isna().sum()
-        #     n1 = len(self.data[(self.data[self.gvar] == v1)][self.var]) - n_missing1
-        #     p1 = ns1 / n1
+            x = self.data.loc[self.data[self.var1] == v1, self.var2].dropna()
+            y = self.data.loc[self.data[self.var1] == v2, self.var2].dropna()
 
-        #     subset2 = self.data[
-        #         (self.data[self.var] == self.lev) & (self.data[self.gvar] == v2)
-        #     ][self.var]
+            c1 = np.sum(x == self.lev)
+            c2 = np.sum(y == self.lev)
+            n1 = len(x)
+            n2 = len(y)
+            p1 = c1 / n1
+            p2 = c2 / n2
+            diff = p1 - p2
 
-        #     ns2 = len(subset2)
-        #     n_missing2 = subset2.isna().sum()
-        #     n2 = len(self.data[self.data[self.gvar] == v2][self.var]) - n_missing2
-        #     p2 = ns2 / n2
+            pzt = ifelse(
+                self.alt_hyp == "less",
+                "smaller",
+                ifelse(self.alt_hyp == "greater", "larger", "two-sided"),
+            )
 
-        #     diff = p1 - p2
+            z_val, p_val = proportions_ztest([c1, c2], [n1, n2], alternative=pzt)
+            zc = stats.norm.ppf(self.conf)
+            if self.alt_hyp == "less":
+                ci = [-1, wald_ci(n1, p1, n2, p2, zc)[1]]
+            elif self.alt_hyp == "two-sided":
+                zc = stats.norm.ppf(1 - (1 - self.conf) / 2)
+                ci = wald_ci(n1, p1, n2, p2, zc)
+            else:
+                ci = [wald_ci(n1, p1, n2, p2, zc)[0], 1]
 
-        #     observed = pd.crosstab(
-        #         self.data[v1], columns=self.data[v2], margins=True, margins_name="Total"
-        #     )
-        #     chisq, self.p_val, df, _ = stats.chi2_contingency(
-        #         self.observed.drop(columns="Total").drop("Total", axis=0),
-        #         correction=False,
-        #     )
-        #     # chisq, self.p_val, df, _ = stats.chi2_contingency()  # unsure about this
+            comp_stats.append(
+                [
+                    null_hyp,
+                    alt_hyp,
+                    diff,
+                    p_val,
+                    z_val**2,
+                    1,
+                    ci[0],
+                    ci[1],
+                    sig_stars([p_val])[0],
+                ]
+            )
 
-        #     # print(f"chisq: {chisq}")
+        cl = bu.ci_label(self.alt_hyp, self.conf)
+        self.comp_stats = pd.DataFrame(
+            comp_stats,
+            columns=[
+                "Null hyp.",
+                "Alt. hyp.",
+                "diff",
+                "p.value",
+                "chisq.value",
+                "df",
+                cl[0],
+                cl[1],
+                "",
+            ],
+        )
 
-        #     row = [
-        #         null_hyp,
-        #         alt_hyp,
-        #         diff,
-        #         self.p_val,
-        #         chisq,
-        #         df,
-        #         # zero_percent,
-        #         # x_percent,
-        #     ]
-        #     rows2.append(row)
-
-        # self.table2 = pd.DataFrame(
-        #     rows2,
-        #     columns=[
-        #         "Null hyp.",
-        #         "Alt. hyp.",
-        #         "diff",
-        #         "p.value",
-        #         "chisq.value",
-        #         "df",
-        #         # "0%",
-        #         # str(self.conf * 100) + "%",
-        #     ],
-        # )
+        if self.adjust is not None:
+            if self.alt_hyp == "two-sided":
+                alpha = self.alpha
+            else:
+                alpha = self.alpha * 2
+            self.comp_stats["p.value"] = multitest.multipletests(
+                self.comp_stats["p.value"], method=self.adjust, alpha=alpha
+            )[1]
+            self.comp_stats[""] = sig_stars(self.comp_stats["p.value"])
 
     def summary(self, extra=False, dec: int = 3) -> None:
-        print(f"Pairwise proportion comparisons")
+        comp_stats = self.comp_stats.copy()
+        if not extra:
+            comp_stats = comp_stats.iloc[:, [0, 1, 2, 3, -1]]
+
+        comp_stats["p.value"] = ifelse(
+            comp_stats["p.value"] < 0.001, "< .001", round(comp_stats["p.value"], dec)
+        )
+        print("Pairwise proportion comparisons")
         print(f"Data      : {self.name}")
-        print(f"Variables : {self.gvar}, {self.var}")
-        print(f'Level     : "{self.lev}" in {self.var}')
+        print(f"Variables : {self.var1}, {self.var2}")
+        print(f'Level     : "{self.lev}" in {self.var2}')
         print(f"Confidence: {self.conf}")
         print(f"Adjustment: {self.adjust}\n")
-        print(self.descritive_stats.round(dec).to_string(index=False))
-        # print(self.table2.round(dec).to_string(index=False))
+        print(self.descriptive_stats.round(dec).to_string(index=False), "\n")
+        print(comp_stats.round(dec).to_string(index=False))
+        print("\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1")
+
+    def plot(self, plots: str = "bar") -> None:
+        if plots == "bar":
+            data = self.data[[self.var1, self.var2]].copy()
+            data[self.var2] = ifelse(data[self.var2] == self.lev, 1, 0)
+            sns.barplot(
+                data=data,
+                y=self.var2,
+                x=self.var1,
+                yerr=self.descriptive_stats["se"],
+            )
+        elif plots == "dodge":
+            data = self.data[[self.var1, self.var2]].copy()
+            pt = data.groupby(self.var1).value_counts(normalize=True).reset_index()
+            sns.barplot(
+                data=pt,
+                y="proportion",
+                x=self.var1,
+                hue=self.var2,
+                dodge=True,
+            )
+        else:
+            print("Invalid plot type")

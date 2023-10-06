@@ -9,7 +9,8 @@ import pyrsm.radiant.utils as ru
 www_dir = Path(__file__).parent.parent / "radiant" / "www"
 app_static = StaticFiles(directory=www_dir, html=False)
 
-data_dct, descriptions_dct = ru.get_dfs(pkg="basics", name="salary")
+# data_dct, descriptions_dct = ru.get_dfs(pkg="basics", name="salary")
+data_dct, descriptions_dct = ru.get_dfs(pkg="data", name="diamonds")
 rc = basics_compare_means(data_dct, descriptions_dct, state=None, code=True)
 
 routes = [

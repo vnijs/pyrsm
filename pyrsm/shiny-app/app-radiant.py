@@ -4,15 +4,17 @@ from starlette.applications import Starlette
 from starlette.routing import Mount
 from starlette.staticfiles import StaticFiles
 from pyrsm.radiant import utils as ru
-from pyrsm.radiant.compare_means import basics_compare_means
-from pyrsm.radiant.cross_tabs import basics_cross_tabs
 from pyrsm.radiant.data_view import data_view
-from pyrsm.radiant.goodness import basics_goodness
-from pyrsm.radiant.logistic import model_logistic
 from pyrsm.radiant.probability_calculator import basics_probability_calculator
-from pyrsm.radiant.regress import model_regress
 from pyrsm.radiant.single_mean import basics_single_mean
 from pyrsm.radiant.single_prop import basics_single_prop
+from pyrsm.radiant.compare_means import basics_compare_means
+from pyrsm.radiant.compare_props import basics_compare_props
+from pyrsm.radiant.cross_tabs import basics_cross_tabs
+from pyrsm.radiant.goodness import basics_goodness
+from pyrsm.radiant.correlation import basics_correlation
+from pyrsm.radiant.regress import model_regress
+from pyrsm.radiant.logistic import model_logistic
 
 # import polars as pl
 # import pandas as pd
@@ -63,6 +65,13 @@ rc = basics_single_prop(
 )
 app_sp = App(rc.shiny_ui, rc.shiny_server, debug=False)
 
+# compare props
+data_dct, descriptions_dct = ru.get_dfs(pkg="data", name="titanic")
+rc = basics_compare_props(
+    data_dct, descriptions_dct, state=None, code=True, navbar=ru.radiant_navbar()
+)
+app_cp = App(rc.shiny_ui, rc.shiny_server, debug=False)
+
 # cross-tabs app
 data_dct, descriptions_dct = ru.get_dfs(pkg="basics", name="newspaper")
 rc = basics_cross_tabs(
@@ -76,6 +85,13 @@ rc = basics_goodness(
     data_dct, descriptions_dct, state=None, code=True, navbar=ru.radiant_navbar()
 )
 app_gf = App(rc.shiny_ui, rc.shiny_server, debug=False)
+
+# correlation app
+data_dct, descriptions_dct = ru.get_dfs(pkg="basics", name="salary")
+rc = basics_correlation(
+    data_dct, descriptions_dct, state=None, code=True, navbar=ru.radiant_navbar()
+)
+app_cr = App(rc.shiny_ui, rc.shiny_server, debug=False)
 
 # linear regression app
 data_dct, descriptions_dct = ru.get_dfs(pkg="model", name="diamonds")
@@ -94,15 +110,15 @@ rc = model_logistic(
 )
 app_logistic = App(rc.shiny_ui, rc.shiny_server)
 
-ui_nav = ui.page_navbar(
-    ru.head_content(),
-    ru.radiant_navbar(),
-    ru.ui_stop(),
-    title="Radiant for Python",
-    inverse=True,
-    id="navbar_id",
-)
-app_home = App(ui_nav, None)
+# ui_nav = ui.page_navbar(
+#     ru.head_content(),
+#     ru.radiant_navbar(),
+#     ru.ui_stop(),
+#     title="Radiant for Python",
+#     inverse=True,
+#     id="navbar_id",
+# )
+# app_home = App(ui_nav, None)
 
 # ---- combine apps ----
 routes = [
@@ -110,8 +126,10 @@ routes = [
     Mount("/basics/single-mean/", app=app_sm),
     Mount("/basics/compare-means/", app=app_cm),
     Mount("/basics/single-prop/", app=app_sp),
-    Mount("/basics/goodness/", app=app_gf),
+    Mount("/basics/compare-props/", app=app_cp),
     Mount("/basics/cross-tabs/", app=app_ct),
+    Mount("/basics/goodness/", app=app_gf),
+    Mount("/basics/correlation/", app=app_cr),
     Mount("/models/regress/", app=app_regress),
     Mount("/models/logistic/", app=app_logistic),
     Mount("/www/", app=app_static),

@@ -480,16 +480,17 @@ def radiant_navbar():
         ),
         ui.nav_menu(
             "Basics",
+            "Probability",
             ui.nav_control(
-                # "Probability",
                 ui.input_action_link(
                     "pc",
                     "Probability Calculator",
-                    # onclick='window.location.href = "/basics/prob-calc/?SSUID=local-e47b75";',
                     onclick='window.location.href = "/basics/prob-calc/";',
                 ),
-                # "-----",
-                # "Means",
+            ),
+            "-----",
+            "Means",
+            ui.nav_control(
                 ui.input_action_link(
                     "sm",
                     "Single mean",
@@ -500,15 +501,24 @@ def radiant_navbar():
                     "Compare means",
                     onclick='window.location.href = "/basics/compare-means/";',
                 ),
-                # "----",
-                # "Proportions",
+            ),
+            "----",
+            "Proportions",
+            ui.nav_control(
                 ui.input_action_link(
-                    "sm",
+                    "sp",
                     "Single proportion",
                     onclick='window.location.href = "/basics/single-prop/";',
                 ),
-                # "----",
-                # "Tables",
+                ui.input_action_link(
+                    "cp",
+                    "Compare proportions",
+                    onclick='window.location.href = "/basics/compare-props/";',
+                ),
+            ),
+            "----",
+            "Tables",
+            ui.nav_control(
                 ui.input_action_link(
                     "gt",
                     "Goodness of fit",
@@ -519,10 +529,16 @@ def radiant_navbar():
                     "Cross-tabs",
                     onclick='window.location.href = "/basics/cross-tabs/";',
                 ),
+                ui.input_action_link(
+                    "cr",
+                    "Correlation",
+                    onclick='window.location.href = "/basics/correlation/";',
+                ),
             ),
         ),
         ui.nav_menu(
             "Models",
+            "Estimate",
             ui.nav_control(
                 ui.input_action_link(
                     "reg",

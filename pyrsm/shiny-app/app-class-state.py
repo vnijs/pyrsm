@@ -87,7 +87,11 @@ class radiant_data:
         @reactive.Calc
         def get_data():
             if input.data_filter() != "":
-                return self.data.query(input.data_filter())
+                try:
+                    filtered_data = self.data.query(input.data_filter())
+                    return filtered_data
+                except Exception:
+                    return self.data
             else:
                 return self.data
 

@@ -189,9 +189,14 @@ class compare_means:
         )
 
         if self.adjust is not None:
+            if self.alt_hyp == "two-sided":
+                alpha = self.alpha
+            else:
+                alpha = self.alpha * 2
             self.comp_stats["p.value"] = multitest.multipletests(
-                self.comp_stats["p.value"], method=self.adjust
+                self.comp_stats["p.value"], method=self.adjust, alpha=alpha
             )[1]
+            self.comp_stats[""] = sig_stars(self.comp_stats["p.value"])
 
     def summary(self, extra=False, dec=3) -> None:
         print(f"Pairwise mean comparisons ({self.test_type})")
@@ -211,10 +216,16 @@ class compare_means:
             comp_stats["p.value"] < 0.001, "< .001", round(comp_stats["p.value"], dec)
         )
         print(comp_stats.round(dec).to_string(index=False))
+        print("\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1")
 
-    def plot(self, plots: str = "scatter", nobs: int = -1) -> None:
+    def plot(self, plots: str = "scatter", nobs: int = None) -> None:
         if plots == "scatter":
-            if nobs < self.data.shape[0] and nobs != np.Inf and nobs != -1:
+            if (
+                nobs is not None
+                and nobs < self.data.shape[0]
+                and nobs != np.Inf
+                and nobs != -1
+            ):
                 data = self.data.copy().sample(nobs)
             else:
                 data = self.data.copy()
@@ -245,7 +256,10 @@ class compare_means:
             sns.kdeplot(data=self.data, x=self.var2, hue=self.var1)
         elif plots == "bar":
             sns.barplot(
-                data=self.data, y=self.var2, x=self.var1, errorbar=("ci", self.conf)
+                data=self.data,
+                y=self.var2,
+                x=self.var1,
+                yerr=self.descriptive_stats["se"],
             )
         else:
             print("Invalid plot type")

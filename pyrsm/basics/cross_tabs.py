@@ -42,7 +42,7 @@ class cross_tabs:
         Examples
         --------
         import pyrsm as rsm
-        rsm.load_data(pkg="basics", name="newspaper", dct=globals())
+        newspaper, newspapar_description = rsm.load_data(pkg="basics", name="newspaper")
         ct = rsm.cross_tabs(newspaper, "Income", "Newspaper")
         ct.expected
         """
@@ -106,7 +106,7 @@ class cross_tabs:
         Examples
         --------
         import pyrsm as rsm
-        rsm.load_data(pkg="basics", name="newspaper", dct=globals())
+        newspaper, newspapar_description = rsm.load_data(pkg="basics", name="newspaper")
         ct = rsm.cross_tabs(newspaper)
         ct.summary()
         """
@@ -193,7 +193,7 @@ Chi-squared: {round(self.chisq_test[0], dec)} df({int(self.chisq_test[2])}), p.v
         Examples
         --------
         import pyrsm as rsm
-        rsm.load_data(pkg="basics", name="newspaper", dct=globals())
+        newspaper, newspapar_description = rsm.load_data(pkg="basics", name="newspaper")
         ct = rsm.cross_tabs(newspaper, "Income", "Newspaper")
         ct.plot()
         """

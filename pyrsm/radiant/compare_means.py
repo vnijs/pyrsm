@@ -216,6 +216,7 @@ class basics_compare_means:
                 selected=self.state.get("nvar2", None),
                 choices=isNum,
                 multiple=True,
+                size=min(8, len(isNum)),
             )
 
         def combo_choices():
@@ -232,12 +233,14 @@ class basics_compare_means:
         @render.ui
         def ui_combos():
             req(input.var_type())
+            choices = combo_choices()
             return ui.input_select(
                 id="comb",
                 label="Choose combinations:",
                 selected=self.state.get("comb", None),
-                choices=combo_choices(),
+                choices=choices,
                 multiple=True,
+                size=min(3, len(choices)),
             )
 
         def estimation_code():
@@ -295,6 +298,8 @@ class basics_compare_means:
 
         def plot_code():
             args = {"plots": input.plots(), "nobs": input.nobs()}
+            if input.plots() != "scatter":
+                args["nobs"] = None
             args_string = ru.drop_default_args(
                 args, rsm.basics.compare_means.plot, ignore=["nobs"]
             )

@@ -133,7 +133,6 @@ class basics_single_prop:
         @render.ui
         def ui_lev():
             levs = list(get_data()["data"][input.var()].unique())
-            # levs = ["yes", "no"]
             return ui.input_select(
                 id="lev",
                 label="Choose level:",
