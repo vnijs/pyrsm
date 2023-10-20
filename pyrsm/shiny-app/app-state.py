@@ -2,12 +2,26 @@ from datetime import datetime
 from shiny import App, ui, reactive, render
 from starlette.requests import Request as StarletteRequest
 
-state = {}
+state = {"__pending_changes__": False}
 print("Do we get back to global after refresh?", state)  # we don't
 
 
 def app_ui(request: StarletteRequest):
+    if state["__pending_changes__"]:
+        # from https://gist.github.com/jcheng5/88cb05e39c44704ae89e6559130e7f80
+        # by Joe Cheng (Posit)
+        print("There were pending changes")
+        # redirect to the current URL, including query string and hash
+        print(
+            "Pending if-statement called at: " + datetime.now().strftime("%H:%M:%S.%f")
+        )
+        return ui.tags.html(
+            ui.tags.meta({"http-equiv": "refresh", "content": "0"}),
+            ui.tags.script("""window.Shiny.createSocket = function() {};"""),
+        )
+
     print("Do we get back to app_ui after browser refresh?", state)  # we do
+    print("Full ui re-render at: " + datetime.now().strftime("%H:%M:%S.%f"))
     return ui.page_fluid(
         ui.navset_tab(
             ui.nav(
@@ -54,22 +68,28 @@ def server(input, output, session):
         input_keys = [k for k in input.__dict__["_map"].keys() if k[0] != "."]
         state.update({k: check_input_value(k, input) for k in input_keys})
 
+    # still needs `on_flushed` so we can tell if anything changed
     def update_state():
         print("On-ended function called at: " + datetime.now().strftime("%H:%M:%S.%f"))
         with reactive.isolate():
             dct_update(input)
+            state["__pending_changes__"] = False
 
         print(
             "On-ended function finished at: " + datetime.now().strftime("%H:%M:%S.%f")
         )
 
-    # would be perfect *if* if would complete before app_ui is re-rendered
     session.on_ended(update_state)
 
-    # session.on_flushed does keep the state updated but might
-    # be inefficient if there are many large inputs (e.g., data) that are
-    # updated when any input changes
-    # session.on_flushed(update_state, once=False)
+    # session.on_flushed sets __pending_changes__ to True if any changes
+    # were made. note that this does NOT update the state dictionary
+    # the __pending_changes__ mechanism is needed because otherwise the
+    # state update would not be completed before app_ui is re-rendered
+    def on_flushed():
+        print("on_flushed called")
+        state["__pending_changes__"] = True
+
+    session.on_flushed(on_flushed, once=False)
 
     @output(id="ui_var2")
     @render.ui
