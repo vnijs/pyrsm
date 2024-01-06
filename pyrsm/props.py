@@ -1,5 +1,6 @@
 import numpy as np
 import seaborn as sns
+from pyrsm.utils import check_dataframe
 
 
 def prop_calc(df, group, rvar, lev):
@@ -8,7 +9,7 @@ def prop_calc(df, group, rvar, lev):
 
     Parameters
     ----------
-    df : Pandas dataframe
+    df : Pandas or Polars dataframe
     group : str
         Name of variable in the dataframe to group by
     rvar : str
@@ -18,10 +19,10 @@ def prop_calc(df, group, rvar, lev):
 
     Returns
     -------
-    A Pandas dataframe with the grouping variable and the proportion of level
-        "lev" in "rvar" for each value of the grouping variable
+    A Pandas or Polars dataframe with the grouping variable and the proportion
+    of level "lev" in "rvar" for each value of the grouping variable
     """
-
+    df = check_dataframe(df)
     df = df.loc[:, (group, rvar)]
     df["rvar_int"] = np.where(df[rvar] == lev, 1, 0)
     df = df.groupby(group)

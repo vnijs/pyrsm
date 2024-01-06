@@ -1,7 +1,8 @@
 from cmath import sqrt
 import matplotlib.pyplot as plt
 import pandas as pd
-from pyrsm.utils import ifelse
+import polars as pl
+from pyrsm.utils import ifelse, check_dataframe
 from pyrsm.radiant import utils as ru
 from typing import Optional, Union
 from scipy.stats import chisquare
@@ -10,7 +11,7 @@ from scipy.stats import chisquare
 class goodness:
     def __init__(
         self,
-        data: Union[pd.DataFrame, dict[str, pd.DataFrame]],
+        data: pd.DataFrame | pl.DataFrame | dict[str, pd.DataFrame | pl.DataFrame],
         var: str,
         probs: Optional[tuple[float, ...]] = None,
         figsize: tuple[float, float] = None,
@@ -22,6 +23,7 @@ class goodness:
             self.data = data
             self.name = "Not provided"
 
+        self.data = check_dataframe(self.data)
         self.var = var
         self.figsize = figsize
         self.probs = probs
@@ -81,7 +83,6 @@ class goodness:
     def summary(
         self, output: list[str] = ["observed", "expected"], dec: int = 3
     ) -> None:
-
         pd.set_option("display.max_columns", 20)
         pd.set_option("display.max_rows", 20)
 

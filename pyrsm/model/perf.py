@@ -36,7 +36,11 @@ def calc_qnt(df, rvar, lev, pred, qnt=10):
     df = df.loc[:, (rvar, pred)]
     df["bins"] = xtile(df[pred], qnt)
     df["rvar_int"] = ifelse(df[rvar] == lev, 1, ifelse(df[rvar].isna(), np.nan, 0))
-    perf_df = df.groupby("bins").rvar_int.agg(nr_obs="count", nr_resp=sum).reset_index()
+    perf_df = (
+        df.groupby("bins", observed=True)
+        .rvar_int.agg(nr_obs="count", nr_resp=sum)
+        .reset_index()
+    )
 
     # flip if needed
     if perf_df.nr_resp.iloc[1] < perf_df.nr_resp.iloc[-1]:
@@ -215,7 +219,7 @@ def uplift_tab(df, rvar, lev, pred, tvar, tlev, scale=1, qnt=10):
     tab = (
         (
             (
-                df.groupby("bins").agg(
+                df.groupby("bins", observed=True).agg(
                     nr_obs=("bins", "count"),
                     nr_resp=(rvar, "sum"),
                     T_resp=("T_resp", "sum"),
@@ -889,7 +893,7 @@ def expected_profit_plot(
             for k in dct.keys()
             for p in pred
         ]
-        eprof = df.groupby("predictor").cum_profit.max()
+        eprof = df.groupby("predictor", observed=True).cum_profit.max()
         [
             [
                 fig.axvline(
@@ -1149,7 +1153,9 @@ def evalbin(df, rvar, lev, pred, cost=1, margin=2, scale=1, dec=3):
             result = pd.concat([result, calculate_metrics(key, val, p)], axis=0)
 
     result.index = range(result.shape[0])
-    result["index"] = result.groupby("Type").profit.transform(lambda x: x / x.max())
+    result["index"] = result.groupby("Type", observed=True).profit.transform(
+        lambda x: x / x.max()
+    )
     return result.round(dec)
 
 

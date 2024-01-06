@@ -9,4 +9,6 @@ from .goodness import *
 from .correlation import *
 from .regress import *
 from .logistic import *
+from .rforest import *
+from .mlp import *
 from .radiant import *

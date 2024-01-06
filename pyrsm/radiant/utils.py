@@ -7,7 +7,7 @@ from shiny import render, ui, reactive
 from faicons import icon_svg
 import pandas as pd
 import polars as pl
-from pyrsm.utils import ifelse
+from pyrsm.utils import ifelse, check_dataframe
 from pyrsm.example_data import load_data
 
 
@@ -65,7 +65,8 @@ def init(self, datasets, descriptions=None, state=None, code=True, navbar=None):
     """
     Initialize key 'self' values to be used in an app class
     """
-    self.datasets = ifelse(isinstance(datasets, dict), datasets, {"dataset": datasets})
+    datasets = ifelse(isinstance(datasets, dict), datasets, {"dataset": datasets})
+    self.datasets = {k: check_dataframe(d) for k, d in datasets.items()}
     if descriptions is None:
         self.descriptions = {
             k: "## No data description provided" for k in self.datasets.keys()
@@ -80,9 +81,10 @@ def init(self, datasets, descriptions=None, state=None, code=True, navbar=None):
     self.code = code  # keep code windows open or closed by default
     self.stop_code = ""
     if state is None:
-        self.state = {}
+        self.state = {"__pending_changes__": False}
     else:
         self.state = state
+        self.state["__pending_changes__"] = False
     if navbar is None:
         self.navbar = ()
     else:
@@ -139,6 +141,7 @@ def code_formatter(code, self, input, session, id="copy"):
     Format python code using black
     """
     cmd = self.stop_code = black.format_str(code, mode=black.Mode())
+    print(cmd)
     copy_reset(input, session, id=id)
     return ui.TagList(
         ui.HTML(
@@ -277,6 +280,7 @@ def check_input_value(k, i):
 def dct_update(self, input):
     input_keys = [k for k in input.__dict__["_map"].keys() if k[0] != "."]
     self.state.update({k: check_input_value(k, input) for k in input_keys})
+    self.state["__pending_changes__"] = False
 
 
 # def update_state():
@@ -396,7 +400,10 @@ def ui_summary(*args):
                 width="100%",
             ),
             ui.output_ui("ui_rvar"),
-            ui.output_ui("ui_lev"),
+            ui.panel_conditional(
+                "input.mod_type === 'classification' | typeof input.mod_type === 'undefined'",
+                ui.output_ui("ui_lev"),
+            ),
             ui.output_ui("ui_evar"),
             *args,
         ),

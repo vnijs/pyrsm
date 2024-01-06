@@ -1,8 +1,9 @@
 import pandas as pd
+import polars as pl
 import re
 import statsmodels.formula.api as smf
 from typing import Optional, Union
-from pyrsm.utils import ifelse, format_nr, setdiff
+from pyrsm.utils import ifelse, format_nr, setdiff, check_dataframe
 from pyrsm.model.visualize import pred_plot_sm, vimp_plot_sm
 from pyrsm.model.model import (
     sig_stars,
@@ -23,30 +24,33 @@ from pyrsm.basics.correlation import correlation
 
 
 class regress:
+    """
+    Estimate linear regression model
+
+    Parameters
+    ----------
+    data: pandas DataFrame; dataset
+    evar: List of strings; contains the names of the columns of data to be used as explanatory variables
+    rvar: String; name of the column to be used as the response variable
+    ivar: List of strings; contains the names of columns to interact and add as explanatory variables (e.g., ["x1:x2", "x3:x4])
+    form: String; formula for the regression equation to use if evar and rvar are not provided
+    """
+
     def __init__(
         self,
-        data: Union[pd.DataFrame, dict[str, pd.DataFrame]],
+        data: pd.DataFrame | pl.DataFrame | dict[str, pd.DataFrame | pl.DataFrame],
         rvar: Optional[str] = None,
         evar: Optional[list[str]] = None,
         ivar: Optional[list[str]] = None,
         form: Optional[str] = None,
     ) -> None:
-        """
-        Estimate linear regression model
-
-        Parameters
-        ----------
-        data: pandas DataFrame; dataset
-        evar: List of strings; contains the names of the columns of data to be used as explanatory variables
-        rvar: String; name of the column to be used as the response variable
-        form: String; formula for the regression equation to use if evar and rvar are not provided
-        """
         if isinstance(data, dict):
             self.name = list(data.keys())[0]
             self.data = data[self.name].copy()  # needed with pandas
         else:
-            self.data = data.copy()  # needed with pandas
+            self.data = data  # needed with pandas
             self.name = "Not provided"
+        self.data = check_dataframe(self.data)
         self.rvar = rvar
         self.evar = ifelse(isinstance(evar, str), [evar], evar)
         self.ivar = ifelse(isinstance(ivar, str), [ivar], ivar)
@@ -74,8 +78,11 @@ class regress:
 
     def summary(
         self,
+        main=True,
+        fit=True,
         ci=False,
         ssq=False,
+        rmse=False,
         vif=False,
         test=None,
         dec=3,
@@ -88,26 +95,29 @@ class regress:
         ssq: Boolean; if True, include sum of squares
         vif: Boolean; if True, include variance inflation factors
         """
-        print("Linear regression (OLS)")
-        print("Data                 :", self.name)
-        print("Response variable    :", self.rvar)
-        print("Explanatory variables:", ", ".join(self.evar))
-        print(f"Null hyp.: the effect of x on {self.rvar} is zero")
-        print(f"Alt. hyp.: the effect of x on {self.rvar} is not zero")
+        if main:
+            print("Linear regression (OLS)")
+            print("Data                 :", self.name)
+            print("Response variable    :", self.rvar)
+            print("Explanatory variables:", ", ".join(self.evar))
+            print(f"Null hyp.: the effect of x on {self.rvar} is zero")
+            print(f"Alt. hyp.: the effect of x on {self.rvar} is not zero")
 
-        df = self.coef.copy()
-        df["coefficient"] = df["coefficient"].round(2)
-        df["std.error"] = df["std.error"].round(dec)
-        df["t.value"] = df["t.value"].round(dec)
-        df["p.value"] = ifelse(
-            df["p.value"] < 0.001, "< .001", df["p.value"].round(dec)
-        )
-        df["index"] = df["index"].str.replace("[T.", "[", regex=False)
-        df = df.set_index("index")
-        df.index.name = None
-        print(f"\n{df.to_string()}")
-        print("\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1")
-        print(f"\n{model_fit(self.fitted)}")
+            df = self.coef.copy()
+            df["coefficient"] = df["coefficient"].round(dec)
+            df["std.error"] = df["std.error"].round(dec)
+            df["t.value"] = df["t.value"].round(dec)
+            df["p.value"] = ifelse(
+                df["p.value"] < 0.001, "< .001", df["p.value"].round(dec)
+            )
+            df["index"] = df["index"].str.replace("[T.", "[", regex=False)
+            df = df.set_index("index")
+            df.index.name = None
+            print(f"\n{df.to_string()}")
+            print("\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1")
+
+        if fit:
+            print(f"\n{model_fit(self.fitted)}")
 
         if ci:
             print("\nConfidence intervals:")
@@ -135,6 +145,11 @@ class regress:
             )
             print(f"\n{sum_of_squares.to_string()}")
 
+        if rmse:
+            print("\nRoot Mean Square Error (RMSE):")
+            rmse = (self.fitted.ssr / self.fitted.nobs) ** 0.5
+            print(round(rmse, dec))
+
         if vif:
             if self.evar is None or len(self.evar) < 2:
                 print("\nVariance Inflation Factors cannot be calculated")
@@ -158,6 +173,7 @@ class regress:
             for k, v in data_cmd.items():
                 data[k] = v
         elif cmd is not None:
+            cmd = {k: ifelse(isinstance(v, str), [v], v) for k, v in cmd.items()}
             data = sim_prediction(data=data, vary=cmd)
 
         if ci:

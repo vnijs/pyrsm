@@ -1,16 +1,19 @@
 import math
 import matplotlib.pyplot as plt
 import pandas as pd
+import polars as pl
 import numpy as np
 import seaborn as sns
 import statsmodels as sm
 from sklearn.inspection import permutation_importance
-from pyrsm.utils import ifelse, intersect, setdiff
+from pyrsm.utils import ifelse, intersect, setdiff, check_dataframe, check_series
 from .model import sim_prediction, extract_evars, extract_rvar
 from .perf import auc
 
 
-def distr_plot(df: pd.DataFrame, cols: list = None, nint: int = 25, **kwargs):
+def distr_plot(
+    data: pd.DataFrame | pl.DataFrame, cols: list = None, nint: int = 25, **kwargs
+):
     """
     Plot histograms for numeric variables and frequency plots for categorical.
     variables. Columns of type integer with less than 25 unique values will be
@@ -19,7 +22,7 @@ def distr_plot(df: pd.DataFrame, cols: list = None, nint: int = 25, **kwargs):
 
     Parameters
     ----------
-    df : Pandas dataframe
+    data : Pandas dataframe
     cols: A list of column names to generate distribution plots for. If None, all
         variables will be plotted
     nint: int
@@ -27,27 +30,28 @@ def distr_plot(df: pd.DataFrame, cols: list = None, nint: int = 25, **kwargs):
         series will be treated as a categorical variable
     **kwargs : Named arguments to be passed to the pandas plotting methods
     """
+    data = check_dataframe(data)
     if cols is None:
-        all_cols = df.columns
+        all_cols = data.columns
         cols = []
         for i, c in enumerate(all_cols):
             if (
-                not pd.api.types.is_numeric_dtype(df[c].dtype)
-                and not pd.api.types.is_categorical_dtype(df[c].dtype)
-            ) or pd.api.types.is_object_dtype(df[c].dtype):
-                print(f"No plot will be created for {c} (type {df[c].dtype})")
+                not pd.api.types.is_numeric_dtype(data[c].dtype)
+                and not pd.api.types.is_categorical_dtype(data[c].dtype)
+            ) or pd.api.types.is_object_dtype(data[c].dtype):
+                print(f"No plot will be created for {c} (type {data[c].dtype})")
             else:
                 cols.append(c)
 
-    df = df.loc[:, cols].copy()
+    data = data.loc[:, cols].copy()
 
     fig, axes = plt.subplots(
-        max(math.ceil(df.shape[1] / 2), 2), 2, figsize=(10, 2 * max(df.shape[1], 4))
+        max(math.ceil(data.shape[1] / 2), 2), 2, figsize=(10, 2 * max(data.shape[1], 4))
     )
     plt.subplots_adjust(wspace=0.25, hspace=0.3)
     row = 0
-    for i, c in enumerate(df.columns):
-        s = df[c]
+    for i, c in enumerate(data.columns):
+        s = data[c]
         j = ifelse(i % 2 == 0, 0, 1)
         if pd.api.types.is_integer_dtype(s.dtype) and s.nunique() < nint:
             s.sort_values().value_counts(sort=False).plot.bar(
@@ -68,12 +72,12 @@ def distr_plot(df: pd.DataFrame, cols: list = None, nint: int = 25, **kwargs):
     # needed because the axes object must always be 2-dimensional
     # or else the indexing used in this function will fail for small
     # DataFrames
-    if df.shape[1] < 3:
+    if data.shape[1] < 3:
         axes[-1, -1].remove()
         axes[-1, 0].remove()
-        if df.shape[1] == 1:
+        if data.shape[1] == 1:
             axes[0, -1].remove()
-    elif df.shape[1] % 2 == 1:
+    elif data.shape[1] % 2 == 1:
         axes[-1, -1].remove()
 
     # plt.show()
@@ -81,7 +85,7 @@ def distr_plot(df: pd.DataFrame, cols: list = None, nint: int = 25, **kwargs):
 
 def pred_plot_sm(
     fitted,
-    df,
+    data: pd.DataFrame | pl.DataFrame,
     incl=None,
     excl=[],
     incl_int=[],
@@ -98,7 +102,7 @@ def pred_plot_sm(
     Parameters
     ----------
     fitted : A fitted (logistic) regression model
-    dataset: pandas DataFrame; dataset
+    data: Pandas or Polars DataFrame; dataset
     incl: List of strings; contains the names of the columns of data to use for prediction
           By default it will extract the names of all explanatory variables used in estimation
           Use [] to ensure no single-variable plots are created
@@ -122,14 +126,16 @@ def pred_plot_sm(
 
     Examples
     -------
-    pred_plot(lr, df, excl="monetary")
-    pred_plot(lr, df, incl = [], incl_int = ["frequency:monetary"])
+    pred_plot(lr, data, excl="monetary")
+    pred_plot(lr, data, incl = [], incl_int = ["frequency:monetary"])
     """
     if hasattr(fitted, "model"):
         model = fitted.model
     else:
         # legacy for when only an un-fitted model was accepted
         model = fitted
+
+    data = check_dataframe(data)
 
     # margin to add above and below in plots
     plot_margin = 0.025
@@ -150,7 +156,7 @@ def pred_plot_sm(
     rvar = model.endog_names
     if isinstance(hline, bool):
         if hline:
-            hline = df[rvar].mean()
+            hline = data[rvar].mean()
             min_max = (hline - plot_margin * hline, hline + plot_margin * hline)
         else:
             hline = False
@@ -159,7 +165,7 @@ def pred_plot_sm(
         min_max = (hline - plot_margin * hline, hline + plot_margin * hline)
 
     if incl is None:
-        incl = extract_evars(model, df.columns)
+        incl = extract_evars(model, data.columns)
     else:
         incl = ifelse(isinstance(incl, str), [incl], incl)
 
@@ -179,7 +185,7 @@ def pred_plot_sm(
 
     pred_dict = {}
     for v in incl:
-        iplot = sim_prediction(df, vary=v, nnv=nnv, minq=minq, maxq=maxq)
+        iplot = sim_prediction(data, vary=v, nnv=nnv, minq=minq, maxq=maxq)
         iplot["prediction"] = fitted.predict(iplot)
         min_max = calc_ylim("prediction", iplot, min_max)
         pred_dict[v] = iplot
@@ -187,10 +193,10 @@ def pred_plot_sm(
     for v in incl_int:
         vl = v.split(":")
         is_num = [
-            pd.api.types.is_numeric_dtype(df[c].dtype) and df[c].nunique() > 5
+            pd.api.types.is_numeric_dtype(data[c].dtype) and data[c].nunique() > 5
             for c in vl
         ]
-        iplot = sim_prediction(df, vary=vl, nnv=nnv, minq=minq, maxq=maxq)
+        iplot = sim_prediction(data, vary=vl, nnv=nnv, minq=minq, maxq=maxq)
         iplot["prediction"] = fitted.predict(iplot)
         if sum(is_num) < 2:
             min_max = calc_ylim("prediction", iplot, min_max)
@@ -199,7 +205,7 @@ def pred_plot_sm(
     row = col = 0
     for i, v in enumerate(incl):
         col = ifelse(i % 2 == 0, 0, 1)
-        if pd.api.types.is_numeric_dtype(df[v].dtype) and df[v].nunique() > 5:
+        if pd.api.types.is_numeric_dtype(data[v].dtype) and data[v].nunique() > 5:
             fig = sns.lineplot(x=v, y="prediction", data=pred_dict[v], ax=ax[row, col])
         else:
             fig = sns.lineplot(
@@ -218,7 +224,7 @@ def pred_plot_sm(
         col = ifelse(j % 2 == start_col, 0, 1)
         vl = v.split(":")
         is_num = [
-            pd.api.types.is_numeric_dtype(df[c].dtype) and df[c].nunique() > 5
+            pd.api.types.is_numeric_dtype(data[c].dtype) and data[c].nunique() > 5
             for c in vl
         ]
         if sum(is_num) == 2:
@@ -270,7 +276,7 @@ def pred_plot_sm(
 
 def pred_plot_sk(
     fitted,
-    df,
+    data: pd.DataFrame | pl.DataFrame,
     rvar=None,
     incl=None,
     excl=[],
@@ -289,7 +295,7 @@ def pred_plot_sk(
     Parameters
     ----------
     fitted : A fitted sklearn model
-    df : Pandas DataFrame with data used for estimation. Should include categorical variables
+    data : Polars or Pandas DataFrame with data used for estimation. Should include categorical variables
         in their original form (i.e., before using get_dummies)
     rvar : The column name for the response/target variable
     incl : A list of column names to generate prediction plots for. If None, all
@@ -322,15 +328,17 @@ def pred_plot_sk(
             "This function requires a fitted sklearn model with a named features. If you are using one-hot encoding, please use get_dummies on your dataset before fitting the model."
         )
 
-    not_transformed = [c for c in df.columns for f in fn if c == f]
+    data = check_dataframe(data)
+
+    not_transformed = [c for c in data.columns for f in fn if c == f]
     if transformed is None:
         transformed = list(
             set(
                 [
                     c
-                    for c in df.columns
+                    for c in data.columns
                     for f in fn
-                    if f"{c}_" in f and c != f and f"{c}_" not in df.columns
+                    if f"{c}_" in f and c != f and f"{c}_" not in data.columns
                 ]
             )
         )
@@ -351,31 +359,31 @@ def pred_plot_sk(
     else:
         sk_type = "regression"
 
-    def pred_fun(fitted, df):
+    def pred_fun(fitted, data):
         if sk_type == "classification":
-            return fitted.predict_proba(df)[:, 1]
+            return fitted.predict_proba(data)[:, 1]
         else:
-            return fitted.predict(df)
+            return fitted.predict(data)
 
     if incl is None:
         incl = not_transformed + transformed
     else:
         incl = ifelse(isinstance(incl, str), [incl], incl)
 
-    def dummify(df, trs):
+    def dummify(data, trs):
         if len(trs) > 0:
             return pd.concat(
-                [pd.get_dummies(df[trs], columns=trs), df.drop(trs, axis=1)], axis=1
+                [pd.get_dummies(data[trs], columns=trs), data.drop(trs, axis=1)], axis=1
             )
         else:
-            return df
+            return data
 
     # margin to add above and below in plots
     plot_margin = 0.025
 
     if isinstance(hline, bool):
         if hline and rvar is not None:
-            hline = df[rvar].mean()
+            hline = data[rvar].mean()
             min_max = (hline - plot_margin * hline, hline + plot_margin * hline)
         else:
             hline = False
@@ -411,7 +419,7 @@ def pred_plot_sk(
     pred_dict = {}
     for v in incl:
         iplot = sim_prediction(
-            df[transformed + not_transformed].dropna(),
+            data[transformed + not_transformed].dropna(),
             vary=v,
             nnv=nnv,
             minq=minq,
@@ -425,11 +433,11 @@ def pred_plot_sk(
     for v in incl_int:
         vl = v.split(":")
         is_num = [
-            pd.api.types.is_numeric_dtype(df[c].dtype) and df[c].nunique() > 5
+            pd.api.types.is_numeric_dtype(data[c].dtype) and data[c].nunique() > 5
             for c in vl
         ]
         iplot = sim_prediction(
-            df[transformed + not_transformed].dropna(),
+            data[transformed + not_transformed].dropna(),
             vary=vl,
             nnv=nnv,
             minq=minq,
@@ -444,7 +452,7 @@ def pred_plot_sk(
     row = col = 0
     for i, v in enumerate(incl):
         col = ifelse(i % 2 == 0, 0, 1)
-        if pd.api.types.is_numeric_dtype(df[v].dtype) and df[v].nunique() > 5:
+        if pd.api.types.is_numeric_dtype(data[v].dtype) and data[v].nunique() > 5:
             fig = sns.lineplot(x=v, y="prediction", data=pred_dict[v], ax=ax[row, col])
         else:
             fig = sns.lineplot(
@@ -463,7 +471,7 @@ def pred_plot_sk(
         col = ifelse(j % 2 == start_col, 0, 1)
         vl = v.split(":")
         is_num = [
-            pd.api.types.is_numeric_dtype(df[c].dtype) and df[c].nunique() > 5
+            pd.api.types.is_numeric_dtype(data[c].dtype) and data[c].nunique() > 5
             for c in vl
         ]
         if sum(is_num) == 2:
@@ -513,7 +521,7 @@ def pred_plot_sk(
         ax[-1, -1].remove()
 
 
-def vimp_plot_sm(fitted, df, rep=10, ax=None, ret=False):
+def vimp_plot_sm(fitted, data, rep=10, ax=None, ret=False):
     """
     Creates permutation importance plots for models estimated using the
     statsmodels library
@@ -521,7 +529,7 @@ def vimp_plot_sm(fitted, df, rep=10, ax=None, ret=False):
     Parameters
     ----------
     fitted : A fitted statsmodels objects
-    df : Pandas DataFrame with data used for estimation
+    data : Polars or Pandas DataFrame with data used for estimation
     rep: int
         The number of times to resample and calculate the permutation importance
     ax : axis object
@@ -537,11 +545,11 @@ def vimp_plot_sm(fitted, df, rep=10, ax=None, ret=False):
     else:
         return "This function requires a fitted linear or logistic regression"
 
-    rvar = extract_rvar(model, df.columns)
-    evars = extract_evars(model, df.columns)
-    df = df[[rvar] + evars].copy().reset_index(drop=True).dropna()
+    rvar = extract_rvar(model, data.columns)
+    evars = extract_evars(model, data.columns)
+    data = data[[rvar] + evars].copy().reset_index(drop=True).dropna()
 
-    if len(model.endog) != df.shape[0]:
+    if len(model.endog) != data.shape[0]:
         raise Exception(
             "The number of rows in the DataFrame should be the same as the number of rows in the data used to estimate the model"
         )
@@ -556,12 +564,12 @@ def vimp_plot_sm(fitted, df, rep=10, ax=None, ret=False):
 
     # Calculate the baseline performance
     if isinstance(fitted, sm.genmod.generalized_linear_model.GLMResultsWrapper):
-        baseline_fit = auc(model.endog, fitted.predict(df[evars]), weights=fw)
+        baseline_fit = auc(model.endog, fitted.predict(data[evars]), weights=fw)
         imp_calc = imp_calc_logit  # specifying the function to use
         xlab = "Importance (AUC decrease)"
     elif isinstance(fitted, sm.regression.linear_model.RegressionResultsWrapper):
         baseline_fit = (
-            pd.DataFrame({"y": model.endog, "yhat": fitted.predict(df[evars])})
+            pd.DataFrame({"y": model.endog, "yhat": fitted.predict(data[evars])})
             .corr()
             .iloc[0, 1]
             ** 2
@@ -572,7 +580,7 @@ def vimp_plot_sm(fitted, df, rep=10, ax=None, ret=False):
         return "This model type is not supported. For sklearn models use vimp_plot_sk"
 
     # Create a copy of the dataframe
-    permuted = df.copy()
+    permuted = data.copy()
 
     # Initialize a dictionary to store the permutation importance values
     importance_values = {v: 0 for v in evars}
@@ -581,12 +589,12 @@ def vimp_plot_sm(fitted, df, rep=10, ax=None, ret=False):
     for i in range(rep):
         for feature in evars:
             permuted[feature] = (
-                df[feature].sample(frac=1, random_state=i).reset_index(drop=True)
+                data[feature].sample(frac=1, random_state=i).reset_index(drop=True)
             )
             importance_values[feature] = importance_values[feature] + imp_calc(
                 baseline_fit, fitted.predict(permuted[evars])
             )
-            permuted[feature] = df[feature]
+            permuted[feature] = data[feature]
 
     importance_values = {k: [v / rep] for k, v in importance_values.items()}
     sorted_idx = pd.DataFrame(importance_values).transpose()
@@ -613,7 +621,7 @@ def vimp_plot_sk(fitted, X, y, rep=5, ax=None, ret=False):
     Parameters
     ----------
     fitted : A fitted sklearn objects
-    X : Pandas DataFrame with data containing the explanatory variables (features) used for estimation
+    X : Polars or Pandas DataFrame with data containing the explanatory variables (features) used for estimation
     y : Series with data for the response variable (target) used for estimation
     rep: int
         The number of times to resample and calculate permutation importance
@@ -629,6 +637,10 @@ def vimp_plot_sk(fitted, X, y, rep=5, ax=None, ret=False):
     else:
         scoring = "r2"
         xlab = "Importance (R-square decrease)"
+
+    # convert to (copied) pandas objects as needed
+    X = check_dataframe(X)
+    y = check_series(y)
 
     imp = permutation_importance(
         fitted, X, y, scoring=scoring, n_repeats=rep, random_state=1234

@@ -29,6 +29,7 @@ choices = {
 
 controls = {
     "ci": "Confidence intervals",
+    "rmse": "RMSE",
     "ssq": "Sum of Squares",
     "vif": "VIF",
 }

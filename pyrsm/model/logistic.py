@@ -1,11 +1,12 @@
 from typing import Union, Optional
 import pandas as pd
+import polars as pl
 import numpy as np
 from statsmodels.genmod.families import Binomial
 from statsmodels.genmod.families.links import Logit
 import statsmodels.formula.api as smf
 from scipy import stats
-from pyrsm.utils import ifelse, setdiff
+from pyrsm.utils import ifelse, setdiff, check_dataframe
 from pyrsm.model.model import (
     sig_stars,
     model_fit,
@@ -21,44 +22,57 @@ from .visualize import pred_plot_sm, vimp_plot_sm, extract_evars, extract_rvar
 
 
 class logistic:
+    """
+    Initialize logistic regression model
+
+    Parameters
+    ----------
+    data: pandas DataFrame; dataset
+    rvar: String; name of the column to be used as the response variable
+    lev: String; name of the level in the response variable
+    evar: List of strings; contains the names of the columns of data to be used as explanatory variables
+    ivar: List of strings; contains the names of columns to interact and add as explanatory variables (e.g., ["x1:x2", "x3:x4])
+    form: String; formula for the regression equation to use if evar and rvar are not provided
+    weights: String; name of the column that contains frequency weights
+    """
+
     def __init__(
         self,
-        data: Union[pd.DataFrame, dict[str, pd.DataFrame]],
+        data: pd.DataFrame | pl.DataFrame | dict[str, pd.DataFrame | pl.DataFrame],
         rvar: Optional[str] = None,
         lev: Optional[str] = None,
         evar: Optional[list[str]] = None,
         ivar: Optional[list[str]] = None,
         form: Optional[str] = None,
+        weights: Optional[str] = None,
     ) -> None:
-        """
-        Initialize logistic regression model
-
-        Parameters
-        ----------
-        data: pandas DataFrame; dataset
-        evar: List of strings; contains the names of the columns of data to be used as explanatory variables
-        lev: String; name of the level in the response variable
-        rvar: String; name of the column to be used as the response variable
-        form: String; formula for the regression equation to use if evar and rvar are not provided
-        """
         if isinstance(data, dict):
             self.name = list(data.keys())[0]
-            self.data = data[self.name].copy()  # needed with pandas
+            self.data = data[self.name]
         else:
-            self.data = data.copy()  # needed with pandas
+            self.data = data
             self.name = "Not provided"
+        self.data = check_dataframe(self.data)
         self.rvar = rvar
         self.lev = lev
         self.evar = ifelse(isinstance(evar, str), [evar], evar)
         self.ivar = ifelse(isinstance(ivar, str), [ivar], ivar)
         self.form = form
+        if weights is not None and weights != "None":
+            self.weights_name = weights
+            self.weights = self.data[weights]
+        else:
+            self.weights_name = self.weights = None
 
         if self.lev is not None and self.rvar is not None:
             self.data[self.rvar] = (self.data[self.rvar] == lev).astype(int)
 
         if self.form:
             self.fitted = smf.glm(
-                formula=self.form, data=self.data, family=Binomial(link=Logit())
+                formula=self.form,
+                data=self.data,
+                freq_weights=self.weights,
+                family=Binomial(link=Logit()),
             ).fit()
             self.evar = extract_evars(self.fitted.model, self.data.columns)
             self.rvar = extract_rvar(self.fitted.model, self.data.columns)
@@ -72,7 +86,10 @@ class logistic:
             if self.ivar:
                 self.form += f" + {' + '.join(self.ivar)}"
             self.fitted = smf.glm(
-                formula=self.form, data=self.data, family=Binomial(link=Logit())
+                formula=self.form,
+                data=self.data,
+                freq_weights=self.weights,
+                family=Binomial(link=Logit()),
             ).fit()
         df = pd.DataFrame(np.exp(self.fitted.params), columns=["OR"]).dropna()
         df["OR%"] = 100 * ifelse(df["OR"] < 1, -(1 - df["OR"]), df["OR"] - 1)
@@ -84,33 +101,41 @@ class logistic:
         df["  "] = sig_stars(self.fitted.pvalues)
         self.coef = df.reset_index()
 
-    def summary(self, ci=False, vif=False, test=None, dec=3) -> None:
+    def summary(
+        self, main=True, fit=True, ci=False, vif=False, test=None, dec=3
+    ) -> None:
         """
         Summarize output from a logistic regression model
-        """
-        print("Logistic regression (GLM)")
-        print(f"Data                 : {self.name}")
-        print(f"Response variable    : {self.rvar}")
-        print(f"Level                : {self.lev}")
-        print(f"Explanatory variables: {', '.join(self.evar)}")
-        print(f"Null hyp.: There is no effect of x on {self.rvar}")
-        print(f"Alt. hyp.: There is an effect of x on {self.rvar}")
 
-        df = self.coef.copy()
-        df["OR"] = df["OR"].round(dec)
-        df["coefficient"] = df["coefficient"].round(2)
-        df["std.error"] = df["std.error"].round(dec)
-        df["z.value"] = df["z.value"].round(dec)
-        df["p.value"] = ifelse(
-            df["p.value"] < 0.001, "< .001", df["p.value"].round(dec)
-        )
-        df["OR%"] = [f"{round(o, max(dec-2, 0))}%" for o in df["OR%"]]
-        df["index"] = df["index"].str.replace("[T.", "[", regex=False)
-        df = df.set_index("index")
-        df.index.name = None
-        print(f"\n{df.to_string()}")
-        print("\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1")
-        print(f"\n{model_fit(self.fitted)}")
+        """
+        if main:
+            print("Logistic regression (GLM)")
+            print(f"Data                 : {self.name}")
+            print(f"Response variable    : {self.rvar}")
+            print(f"Level                : {self.lev}")
+            print(f"Explanatory variables: {', '.join(self.evar)}")
+            if self.weights is not None:
+                print(f"Weights used         : {self.weights_name}")
+            print(f"Null hyp.: There is no effect of x on {self.rvar}")
+            print(f"Alt. hyp.: There is an effect of x on {self.rvar}")
+
+            df = self.coef.copy()
+            df["OR"] = df["OR"].round(dec)
+            df["coefficient"] = df["coefficient"].round(2)
+            df["std.error"] = df["std.error"].round(dec)
+            df["z.value"] = df["z.value"].round(dec)
+            df["p.value"] = ifelse(
+                df["p.value"] < 0.001, "< .001", df["p.value"].round(dec)
+            )
+            df["OR%"] = [f"{round(o, max(dec-2, 0))}%" for o in df["OR%"]]
+            df["index"] = df["index"].str.replace("[T.", "[", regex=False)
+            df = df.set_index("index")
+            df.index.name = None
+            print(f"\n{df.to_string()}")
+            print("\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1")
+
+        if fit:
+            print(f"\n{model_fit(self.fitted)}")
 
         if ci:
             print("\nConfidence intervals:")
@@ -132,7 +157,7 @@ class logistic:
         self, data=None, cmd=None, data_cmd=None, ci=False, conf=0.95
     ) -> pd.DataFrame:
         """
-        Predict values for a linear regression model
+        Predict probabilities for a logistic regression model
         """
         if data is None:
             data = self.data
@@ -141,6 +166,7 @@ class logistic:
             for k, v in data_cmd.items():
                 data[k] = v
         elif cmd is not None:
+            cmd = {k: ifelse(isinstance(v, str), [v], v) for k, v in cmd.items()}
             data = sim_prediction(data=data, vary=cmd)
 
         if ci:
@@ -159,6 +185,7 @@ class logistic:
     def plot(
         self,
         plots="or",
+        data=None,
         alpha=0.05,
         intercept=False,
         incl=None,
@@ -166,6 +193,9 @@ class logistic:
         incl_int=[],
         fix=True,
         hline=False,
+        nnv=20,
+        minq=0.025,
+        maxq=0.975,
         figsize=None,
     ) -> None:
         """
@@ -183,18 +213,24 @@ class logistic:
         if "pred" in plots:
             pred_plot_sm(
                 self.fitted,
-                self.data,
+                data=ifelse(data is None, self.data, data),
                 incl=incl,
-                excl=[],
+                excl=ifelse(excl is None, [], excl),
                 incl_int=incl_int,
                 fix=fix,
                 hline=hline,
-                nnv=20,
-                minq=0.025,
-                maxq=0.975,
+                nnv=nnv,
+                minq=minq,
+                maxq=maxq,
             )
         if "vimp" in plots:
-            vimp_plot_sm(self.fitted, self.data, rep=10, ax=None, ret=False)
+            vimp_plot_sm(
+                self.fitted,
+                data=ifelse(data is None, self.data, data),
+                rep=10,
+                ax=None,
+                ret=False,
+            )
 
     def chisq_test(self, test=None, dec=3) -> None:
         """
@@ -248,7 +284,10 @@ class logistic:
 
         # LR test of competing models (slower but more accurate)
         sub_fitted = smf.glm(
-            formula=form, data=self.data, family=Binomial(link=Logit())
+            formula=form,
+            data=self.data,
+            freq_weights=self.weights,
+            family=Binomial(link=Logit()),
         ).fit()
 
         lrtest = -2 * (sub_fitted.llf - self.fitted.llf)

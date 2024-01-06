@@ -21,6 +21,9 @@ def load_data(pkg=None, name=None, dct=None, polars=False):
         Dictionary to add datasets to. For example, using globals() will add
         DataFrames to the global environment in python. If None, a dictionary
         with datasets will be returned
+    polars : bool
+        Should the returned DataFrame be in Polars format? If False, a Pandas
+        DataFrame will be returned
 
     Examples
     --------

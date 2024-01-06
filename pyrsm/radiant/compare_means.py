@@ -135,6 +135,13 @@ class basics_compare_means:
         )
 
     def shiny_ui(self, request: StarletteRequest):
+        if self.state.get("__pending_changes__", False):
+            # from https://gist.github.com/jcheng5/88cb05e39c44704ae89e6559130e7f80
+            return ui.tags.html(
+                ui.tags.meta({"http-equiv": "refresh", "content": "0"}),
+                ui.tags.script("""window.Shiny.createSocket = function() {};"""),
+            )
+
         return ui.page_navbar(
             ru.head_content(),
             ui.nav(
@@ -169,6 +176,11 @@ class basics_compare_means:
                 ru.dct_update(self, input)
 
         session.on_ended(update_state)
+
+        def on_flushed():
+            self.state["__pending_changes__"] = True
+
+        session.on_flushed(on_flushed, once=False)
 
         # --- section unique to each app ---
         @output(id="ui_cvar1")

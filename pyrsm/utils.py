@@ -419,3 +419,17 @@ def odir(obj, private: bool = False) -> dict:
                 attr.append(i[0])
 
     return {"methods": mth, "attributes": attr}
+
+
+def check_dataframe(df):
+    if not isinstance(df, pd.core.frame.DataFrame):
+        return pd.DataFrame(df)
+    else:
+        return df.copy()
+
+
+def check_series(s):
+    if not isinstance(s, pd.Series):
+        return pd.Series(s)
+    else:
+        return s.copy()

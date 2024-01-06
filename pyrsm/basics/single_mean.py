@@ -1,9 +1,10 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import polars as pl
 from scipy import stats
 from pyrsm.model import sig_stars
-from pyrsm.utils import ifelse
+from pyrsm.utils import ifelse, check_dataframe
 import pyrsm.basics.utils as bu
 from typing import Union
 
@@ -11,7 +12,7 @@ from typing import Union
 class single_mean:
     def __init__(
         self,
-        data: Union[pd.DataFrame, dict[str, pd.DataFrame]],
+        data: pd.DataFrame | pl.DataFrame | dict[str, pd.DataFrame | pl.DataFrame],
         var: str,
         alt_hyp: str = "two-sided",
         conf: float = 0.95,
@@ -21,8 +22,10 @@ class single_mean:
             self.name = list(data.keys())[0]
             self.data = data[self.name].copy()
         else:
-            self.data = data.copy()
+            self.data = data
             self.name = "Not provided"
+
+        self.data = check_dataframe(self.data)
         self.var = var
         self.alt_hyp = alt_hyp
         self.conf = conf

@@ -2,9 +2,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 import pandas as pd
+import polars as pl
 from scipy import stats
 from pyrsm.model import sig_stars
-from pyrsm.utils import ifelse
+from pyrsm.utils import ifelse, check_dataframe
 from typing import Union
 from statsmodels.stats import multitest
 import pyrsm.basics.utils as bu
@@ -12,9 +13,42 @@ import pyrsm.radiant.utils as ru
 
 
 class compare_means:
+    """
+    Compare mean between numeric variables in a Pandas or Polars dataframe. See
+    the notebook linked below for a worked example, including the web UI:
+
+    https://github.com/vnijs/pyrsm/blob/main/examples/basics-compare-means.ipynb
+
+    Parameters
+    ----------
+    data : Pandas or Polars dataframe with categorical variables or a
+        dictionary with a single dataframe as the value and the
+        name of the dataframe as the key
+    var1: String; Name of the first numeric or categorical variable
+    var2: String or list of Strings; Names of the numberic variables
+    comb: List of string tuples; Comparisons to make. Will default to
+        all possible combinations
+    alt_hyp: String; Alternative hypothesis to use "two-sided", "less",
+        or "greater"
+    conf: float; Confidence level (e.g., .95 or .9)
+    sample_type: String; Are samples independent ("independent") or not ("paired")
+    adjust: String; Adjustment for multiple testing (None or "bonferoni" or
+        other options provided but statsmodels.stats.multitest.multipletests)
+    test_type: String; "t-test" or "wilcox"
+
+    Examples
+    --------
+
+    import pandas as pd
+    import pyrsm as rsm
+    salary, salary_description = rsm.load_data(pkg="basics", name="salary")
+    cm = rsm.basics.compare_means({"salary": salary}, var1="rank", var2="salary", alt_hyp="less")
+    cm.summary()
+    """
+
     def __init__(
         self,
-        data: Union[pd.DataFrame, dict[str, pd.DataFrame]],
+        data: pd.DataFrame | pl.DataFrame | dict[str, pd.DataFrame | pl.DataFrame],
         var1: str,
         var2: str,
         comb: list[tuple[str, str]] = [],
@@ -26,10 +60,12 @@ class compare_means:
     ):
         if isinstance(data, dict):
             self.name = list(data.keys())[0]
-            self.data = data[self.name].copy()
+            self.data = data[self.name]
         else:
-            self.data = data.copy()
+            self.data = data
             self.name = "Not provided"
+
+        self.data = check_dataframe(self.data)
         self.var1 = var1
         self.var2 = var2
         self.comb = comb
@@ -115,7 +151,8 @@ class compare_means:
             y = self.data.loc[self.data[self.var1] == v2, self.var2]
             if x.size != y.size and self.sample_type == "paired":
                 raise ValueError(
-                    "The two samples must have the same size for a paired sample test. Choose independent samples instead."
+                    """The two samples must have the same size for a paired
+                    sample test. Choose independent samples instead."""
                 )
 
             if self.test_type == "t-test":
@@ -236,7 +273,7 @@ class compare_means:
             categories = data[self.var1].cat.categories
             category_indices = {category: i for i, category in enumerate(categories)}
 
-            category_means = data.groupby(self.var1)[self.var2].mean()
+            category_means = data.groupby(self.var1, observed=True)[self.var2].mean()
 
             # Add a horizontal line for each category at the mean of the value for that category
             for category, mean in category_means.items():
@@ -259,7 +296,7 @@ class compare_means:
                 data=self.data,
                 y=self.var2,
                 x=self.var1,
-                yerr=self.descriptive_stats["se"],
+                # yerr=self.descriptive_stats["se"], # shapes don't align for some reason
             )
         else:
             print("Invalid plot type")

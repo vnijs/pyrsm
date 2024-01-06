@@ -1,47 +1,52 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import polars as pl
 from scipy import stats
 import seaborn as sns
 from pyrsm.model.model import sig_stars
+from pyrsm.utils import check_dataframe
 from typing import Optional, Union
 
 
 class correlation:
+    """
+    Calculate correlations between numeric variables in a Pandas dataframe
+
+    Parameters
+    ----------
+    data : Pandas dataframe with numeric variables
+
+    Returns
+    -------
+    Correlation object with two key attributes
+    cr: Correlation matrix
+    cp: p.value matrix
+    cv: Covariance matrix
+
+    Examples
+    --------
+    import pandas as pd
+    import pyrsm as rsm
+    salary, salary_description = rsm.load_data(pkg="basics", name="salary")
+    cr = rsm.correlation(salary[["salary", "yrs.since.phd", "yrs.service"]])
+    cr.cr
+    """
+
     def __init__(
         self,
-        data: Union[pd.DataFrame, dict[str, pd.DataFrame]],
+        data: pd.DataFrame | pl.DataFrame | dict[str, pd.DataFrame | pl.DataFrame],
         vars: Optional[list[str]] = [],
         method: str = "pearson",
     ) -> None:
-        """
-        Calculate correlations between numeric variables in a Pandas dataframe
-
-        Parameters
-        ----------
-        data : Pandas dataframe with numeric variables
-
-        Returns
-        -------
-        Correlation object with two key attributes
-        cr: Correlation matrix
-        cp: p.value matrix
-        cv: Covariance matrix
-
-        Examples
-        --------
-        import pandas as pd
-        import pyrsm as rsm
-        salary, salary_description = rsm.load_data(pkg="basics", name="salary")
-        cr = rsm.correlation(salary[["salary", "yrs.since.phd", "yrs.service"]])
-        cr.cr
-        """
         if isinstance(data, dict):
             self.name = list(data.keys())[0]
             self.data = data[self.name].copy()
         else:
-            self.data = data.copy()
+            self.data = data
             self.name = "Not provided"
+
+        self.data = check_dataframe(self.data)
         self.vars = vars
         if len(self.vars) == 0:
             self.vars = [
@@ -137,7 +142,7 @@ class correlation:
             print(cps.iloc[1:, :-1])
 
             if cov:
-                cvs = pd.DataFrame(self.cv.round(dec), columns=cn, index=cn).applymap(
+                cvs = pd.DataFrame(self.cv.round(dec), columns=cn, index=cn).map(
                     lambda x: "{:,}".format(x)
                 )
                 if cutoff > 0:

@@ -1,6 +1,7 @@
 from cmath import sqrt
 import numpy as np
 import pandas as pd
+import polars as pl
 from scipy import stats
 from typing import Union
 import seaborn as sns
@@ -9,13 +10,21 @@ from statsmodels.stats import multitest
 import pyrsm.basics.utils as bu
 import pyrsm.radiant.utils as ru
 from pyrsm.model import sig_stars
-from pyrsm.utils import ifelse
+from pyrsm.utils import ifelse, check_dataframe
 
 
 class compare_props:
+    """
+    Compare proportions across levels of a categorical variable in a Pandas
+    or Polars dataframe. See the notebook linked below for a worked example,
+    including the web UI:
+
+    https://github.com/vnijs/pyrsm/blob/main/examples/basics-compare-means.ipynb
+    """
+
     def __init__(
         self,
-        data: Union[pd.DataFrame, dict[str, pd.DataFrame]],
+        data: pd.DataFrame | pl.DataFrame | dict[str, pd.DataFrame | pl.DataFrame],
         var1: str,
         var2: str,
         lev: str,
@@ -31,6 +40,7 @@ class compare_props:
             self.data = data
             self.name = "Not provided"
 
+        self.data = check_dataframe(self.data)
         self.var1 = var1
         self.var2 = var2
         self.lev = lev
@@ -185,12 +195,12 @@ class compare_props:
     def plot(self, plots: str = "bar") -> None:
         if plots == "bar":
             data = self.data[[self.var1, self.var2]].copy()
-            data[self.var2] = ifelse(data[self.var2] == self.lev, 1, 0)
+            data[self.var2] = ifelse(data[self.var2] == self.lev, 1.0, 0.0)
             sns.barplot(
                 data=data,
                 y=self.var2,
                 x=self.var1,
-                yerr=self.descriptive_stats["se"],
+                # yerr=self.descriptive_stats["se"], weird issue with se's ...
             )
         elif plots == "dodge":
             data = self.data[[self.var1, self.var2]].copy()

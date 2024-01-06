@@ -1,57 +1,63 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import polars as pl
 from scipy import stats
-from pyrsm.utils import ifelse
+from pyrsm.utils import ifelse, check_dataframe
 from typing import Union
 
 
 class cross_tabs:
+    """
+    Calculate a Chi-square test between two categorical variables contained
+    in a Pandas dataframe
+
+    Parameters
+    ----------
+    data : Pandas or Polars dataframe with categorical variables or a
+        dictionary with a single dataframe as the value and the
+        name of the dataframe as the key
+    var1: String; Name of the first categorical variable
+    var2: String; Name of the second categorical variable
+
+    Returns
+    -------
+    Cross object with several attributes
+    data: Original dataframe
+    var1: Name of the first categorical variable
+    var2: Name of the second categorical variable
+    observed: Dataframe of observed frequencies
+    expected: Dataframe of expected frequencies
+    expected_low: List with number of cells with expected values < 5
+        and the total number of cells
+    chisq: Dataframe of chi-square values for each cell
+    dev_std: Dataframe of standardized deviations from the expected table
+    perc_row: Dataframe of observation percentages conditioned by row
+    perc_col: Dataframe of observation percentages conditioned by column
+    perc: Dataframe of observation percentages by the total number of observations
+
+    Examples
+    --------
+    import pyrsm as rsm
+    newspaper, newspapar_description = rsm.load_data(pkg="basics", name="newspaper")
+    ct = rsm.cross_tabs(newspaper, "Income", "Newspaper")
+    ct.expected
+    """
+
     def __init__(
         self,
-        data: Union[pd.DataFrame, dict[str, pd.DataFrame]],
+        data: pd.DataFrame | pl.DataFrame | dict[str, pd.DataFrame | pl.DataFrame],
         var1: str,
         var2: str,
     ) -> None:
-        """
-        Calculate a Chi-square test between two categorical variables contained
-        in a Pandas dataframe
-
-        Parameters
-        ----------
-        data : Pandas dataframe with categorical variables or a
-            dictionary with a single dataframe as the value and the
-            name of the dataframe as the key
-
-        Returns
-        -------
-        Cross object with several attributes
-        data: Original dataframe
-        var1: Name of the first categorical variable
-        var2: Name of the second categorical variable
-        observed: Dataframe of observed frequencies
-        expected: Dataframe of expected frequencies
-        expected_low: List with number of cells with expected values < 5
-            and the total number of cells
-        chisq: Dataframe of chi-square values for each cell
-        dev_std: Dataframe of standardized deviations from the expected table
-        perc_row: Dataframe of observation percentages conditioned by row
-        perc_col: Dataframe of observation percentages conditioned by column
-        perc: Dataframe of observation percentages by the total number of observations
-
-        Examples
-        --------
-        import pyrsm as rsm
-        newspaper, newspapar_description = rsm.load_data(pkg="basics", name="newspaper")
-        ct = rsm.cross_tabs(newspaper, "Income", "Newspaper")
-        ct.expected
-        """
         if isinstance(data, dict):
             self.name = list(data.keys())[0]
             self.data = data[self.name]
         else:
             self.data = data
             self.name = "Not provided"
+
+        self.data = check_dataframe(self.data)
         self.var1 = var1
         self.var2 = var2
 
@@ -126,26 +132,26 @@ Alt. hyp : There is an association between {self.var1} and {self.var2}
             prn += f"""
 Observed:
 
-{self.observed.applymap(lambda x: "{:,}".format(x))}
+{self.observed.map(lambda x: "{:,}".format(x))}
 """
         if "expected" in output:
             prn += f"""
 Expected: (row total x column total) / total
 
-{self.expected.round(dec).applymap(lambda x: "{:,}".format(x))}
+{self.expected.round(dec).map(lambda x: "{:,}".format(x))}
 """
         if "chisq" in output:
             prn += f"""
 Contribution to chi-squared: (o - e)^2 / e
 
-{self.chisq.round(dec).applymap(lambda x: "{:,}".format(x))}
+{self.chisq.round(dec).map(lambda x: "{:,}".format(x))}
 """
 
         if "dev_std" in output:
             prn += f"""
 Deviation standardized: (o - e) / sqrt(e)
 
-{self.dev_std.round(dec).applymap(lambda x: "{:,}".format(x))}
+{self.dev_std.round(dec).map(lambda x: "{:,}".format(x))}
 """
 
         if "perc_row" in output:

@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import pandas as pd
+import polars as pl
 import numpy as np
 from scipy import stats
 from math import floor, ceil

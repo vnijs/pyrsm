@@ -3,13 +3,34 @@ import matplotlib.pyplot as plt
 from shiny import render, ui, reactive, req
 from contextlib import redirect_stdout, redirect_stderr
 import pyrsm.radiant.utils as ru
-from pyrsm.utils import intersect
+from pyrsm.utils import intersect, ifelse
 import numpy as np
 import pandas as pd
 import pyrsm as rsm
 
 
-def ui_predict(self):
+def ui_predict(self, show_ci=True):
+    if show_ci:
+        ci = (
+            ui.input_checkbox(
+                "pred_ci",
+                "Show conf. intervals",
+                value=self.state.get("pred_ci", False),
+            ),
+            ui.panel_conditional(
+                "input.pred_ci == true",
+                ui.input_slider(
+                    id="conf",
+                    label="Confidence level:",
+                    min=0,
+                    max=1,
+                    value=self.state.get("conf", 0.95),
+                ),
+            ),
+        )
+    else:
+        ci = None
+
     return ui.panel_conditional(
         "input.tabs == 'Predict'",
         ui.panel_well(
@@ -38,36 +59,37 @@ def ui_predict(self):
                     placeholder="Specify a dictionary of values to to use for prediction, e.g., {'carat': 1, 'cut': 'Ideal'}",
                 ),
             ),
-            ui.input_checkbox(
-                "pred_ci",
-                "Show conf. intervals",
-                value=self.state.get("pred_ci", False),
-            ),
-            ui.panel_conditional(
-                "input.pred_ci == true",
-                ui.input_slider(
-                    id="conf",
-                    label="Confidence level:",
-                    min=0,
-                    max=1,
-                    value=self.state.get("conf", 0.95),
-                ),
-            ),
+            ci,
         ),
     )
 
 
-def make_model_inputs(self, input, output, get_data, type):
-    @output(id="ui_rvar")
-    @render.ui
-    def ui_rvar():
-        isType = get_data()["var_types"][type]
-        return ui.input_select(
-            id="rvar",
-            label="Response Variable:",
-            selected=self.state.get("rvar", None),
-            choices=isType,
-        )
+def make_model_inputs(self, input, output, get_data, mod_type="isBin"):
+    if isinstance(mod_type, str):
+
+        @output(id="ui_rvar")
+        @render.ui
+        def ui_rvar():
+            isType = get_data()["var_types"][mod_type]
+            return ui.input_select(
+                id="rvar",
+                label="Response Variable:",
+                selected=self.state.get("rvar", None),
+                choices=isType,
+            )
+
+    elif isinstance(mod_type, dict):
+
+        @output(id="ui_rvar")
+        @render.ui
+        def ui_rvar():
+            isType = get_data()["var_types"][mod_type[input.mod_type()]]
+            return ui.input_select(
+                id="rvar",
+                label="Response Variable:",
+                selected=self.state.get("rvar", None),
+                choices=isType,
+            )
 
     @output(id="ui_evar")
     @render.ui
@@ -116,7 +138,8 @@ def make_int_inputs(self, input, output, get_data):
     def ui_evar_test():
         choices = {e: e for e in input.evar()}
         if (
-            input.show_interactions() is not None
+            "show_interactions" in input
+            and input.show_interactions() is not None
             and int(input.show_interactions()[0]) > 1
         ):
             choices.update({e: e for e in input.interactions()})
@@ -146,7 +169,7 @@ def make_int_inputs(self, input, output, get_data):
     @render.ui
     def ui_incl_interactions():
         if len(input.evar()) > 1:
-            if input.show_interactions() is not None:
+            if "show_interactions" in input and input.show_interactions() is not None:
                 nway = int(input.show_interactions())
             else:
                 nway = 2
@@ -176,24 +199,66 @@ def make_estimate(
                 inp = input.lev()
             else:
                 inp = None
+            if "weights" in input:
+                weights = input.weights()
+                if weights == "None":
+                    weights = None
+            else:
+                weights = None
 
             args = {
                 "data": f"""{{"{data_name}": {data_name}}}""",
                 "rvar": input.rvar(),
                 "lev": inp,
                 "evar": list(input.evar()),
+                "weights": weights,
             }
 
             if (
-                input.show_interactions() is not None
+                "show_interactions" in input
+                and input.show_interactions() is not None
                 and int(input.show_interactions()) > 0
                 and len(input.interactions()) > 0
             ):
                 args["ivar"] = list(input.interactions())
 
-            args_str = ", ".join(
-                f"{k}={ru.quote(v, k)}" for k, v in args.items() if v is not None
-            )
+            if ret == "rf":
+                if input.max_features() in ["sqrt", "log2"]:
+                    max_features = input.max_features()
+                else:
+                    max_features = int(input.max_features())
+
+                args.update(
+                    {
+                        "mod_type": input.mod_type(),
+                        "n_estimators": input.n_estimators(),
+                        "max_features": max_features,
+                        "min_samples_leaf": input.min_samples_leaf(),
+                        "max_samples": input.max_samples(),
+                        "random_state": input.random_state(),
+                    }
+                )
+            elif ret == "nn":
+                args.update(
+                    {
+                        "mod_type": input.mod_type(),
+                        "hidden_layer_sizes": eval(input.hidden_layer_sizes()),
+                        "activation": input.activation(),
+                        "solver": input.solver(),
+                        # "alpha": input.alpha(),
+                        # "batch_size": input.batch_size(),
+                        # "learning_rate_init": input.learning_rate_init(),
+                        "max_iter": input.max_iter(),
+                    }
+                )
+
+            args_str = ru.drop_default_args(args, getattr(rsm, fun))
+
+            if "extra_args" in input and input.extra_args() != "":
+                args_str += ", " + input.extra_args()
+            # args_str = ", ".join(
+            #     f"{k}={ru.quote(v, k)}" for k, v in args_drop.items() if v is not None
+            # )
             return f"""rsm.{fun}({args_str})""", code
 
     else:
@@ -206,7 +271,6 @@ def make_estimate(
         def show_estimation_code():
             out = io.StringIO()
             with redirect_stdout(out), redirect_stderr(out):
-                print(estimation_code())
                 eval(estimation_code()[0])
 
             return out.getvalue()
@@ -245,8 +309,15 @@ def make_summary(
     if sc is None:
 
         def summary_code():
-            args = {c: True for c in input.controls()}
-            if input.evar_test() is not None and len(input.evar_test()) > 0:
+            if "controls" in input:
+                args = {c: True for c in input.controls()}
+            else:
+                args = {}
+            if (
+                "evar_test" in input
+                and input.evar_test() is not None
+                and len(input.evar_test()) > 0
+            ):
                 args["test"] = list(input.evar_test())
 
             args_string = ru.drop_default_args(args, sum_fun)
@@ -259,7 +330,6 @@ def make_summary(
     @render.text
     def show_summary_code():
         cmd = f"""{show_code()}\n{summary_code()}"""
-        # return ru.code_formatter(cmd, self)
         return ru.code_formatter(cmd, self, input, session, id="copy_summary")
 
     @output(id="summary")
@@ -272,7 +342,9 @@ def make_summary(
         return out.getvalue()
 
 
-def make_predict(self, input, output, session, show_code, estimate, ret, pred_fun):
+def make_predict(
+    self, input, output, session, show_code, estimate, ret, pred_fun, show_ci=False
+):
     def predict_code():
         args = {}
         cmd = input.pred_cmd().strip()
@@ -286,9 +358,10 @@ def make_predict(self, input, output, session, show_code, estimate, ret, pred_fu
             args["data"] = input.pred_datasets()
             args["data_cmd"] = cmd
 
-        ci = input.pred_ci()
-        if ci:
-            args.update({"ci": ci, "conf": input.conf()})
+        if "pred_ci" in input:
+            ci = input.pred_ci()
+            if ci:
+                args.update({"ci": ci, "conf": input.conf()})
 
         args_string = ru.drop_default_args(
             args, pred_fun, ignore=["data", "cmd", "data_cmd"]

@@ -1,9 +1,10 @@
 from cmath import sqrt
 import pandas as pd
+import polars as pl
 import numpy as np
 from scipy import stats
 from pyrsm.model import sig_stars
-from pyrsm.utils import ifelse
+from pyrsm.utils import ifelse, check_dataframe
 import pyrsm.basics.utils as bu
 from typing import Union
 
@@ -11,7 +12,7 @@ from typing import Union
 class single_prop:
     def __init__(
         self,
-        data: Union[pd.DataFrame, dict[str, pd.DataFrame]],
+        data: pd.DataFrame | pl.DataFrame | dict[str, pd.DataFrame | pl.DataFrame],
         var: str,
         lev: str = None,
         alt_hyp: str = "two-sided",
@@ -26,8 +27,9 @@ class single_prop:
             self.name = list(data.keys())[0]
             self.data = data[self.name].copy()
         else:
-            self.data = data.copy()
+            self.data = data
             self.name = "Not provided"
+        self.data = check_dataframe(self.data)
         self.var = var
         self.lev = lev
         self.alt_hyp = alt_hyp

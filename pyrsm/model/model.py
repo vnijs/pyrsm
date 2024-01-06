@@ -1,6 +1,7 @@
 from typing import Union, Optional
 import re
 import pandas as pd
+import polars as pl
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker

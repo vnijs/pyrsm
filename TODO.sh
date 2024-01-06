@@ -53,7 +53,6 @@ python -c "import pyrsm as rsm; rsm.radiant.logistic()"
 python -c "import pyrsm as rsm; rsm.radiant.compare_means()"
 python -c "import pyrsm asrsm; rsm.radiant.goodness()"
 python -c "import pyrsm as rsm; rsm.radiant.cross_tabs()"
-python -c "import pyrsm as rsm; rsm.radiant.cross_tabs()"
 deactivate
 
 ## assuming you are using conda
