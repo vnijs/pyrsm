@@ -1,4 +1,4 @@
-__version__ = "0.9.9"
+__version__ = "0.9.11"
 from .bins import *
 from .model.perf import *
 from .stats import *
@@ -12,7 +12,7 @@ from .model.regress import *
 from .model.visualize import *
 from .notebook import *
 from .example_data import *
-import pyrsm.basics
 
+# import pyrsm.radiant
+# import pyrsm.basics
 # import pyrsm.model
-import pyrsm.radiant

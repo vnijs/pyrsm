@@ -10,19 +10,27 @@
 
 ## select commands to run and use the Command Palette to send to open terminal
 # use python build to install locally testing 
+conda activate pyrsm
+conda activate msba
 sudo pip uninstall -y pyrsm
 # pip uninstall -y pyrsm
 sudo rm -rf ~/gh/pyrsm/dist
 rm -rf ~/gh/pyrsm/dist
 # sudo rm -rf ~/gh/pyrsm/build/*
+# pip install -q build
 sudo python -m build ~/gh/pyrsm
 
 # try sending to pypi testing ground first
+# pip install -q twine
 python -m twine check dist/*
 python -m twine upload --repository testpypi dist/*
 
 # if all goes well push to main pypi
-python -m twine upload dist/*
+python -m twine upload --repository pypi dist/*
+
+# see API keys in ~/.pypirc
+# create here: https://testpypi.org/manage/account/token/
+# create here: https://pypi.org/manage/account/token/
 
 ## now install in "editable" mode
 sudo pip uninstall -y pyrsm
@@ -40,17 +48,16 @@ poetry env list
 
 # create a new
 sudo rm -rf ~/testenv
-conda activate base
+conda activate pyrsm
 python -m venv ~/testenv
 conda deactivate
 source ~/testenv/bin/activate
-pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "pyrsm==0.9.7.1"
-# pip install "polars==0.18.7" # 0.18.8 requires rust and cargo to be installed
-pip install "pyrsm>=0.9.7"
+pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "pyrsm==0.9.10"
+pip install "pyrsm>=0.9.10"
 python -c "import pyrsm as rsm; rsm.radiant.radiant()"
-python -c "import pyrsm as rsm; rsm.radiant.regress()"
-python -c "import pyrsm as rsm; rsm.radiant.logistic()"
-python -c "import pyrsm as rsm; rsm.radiant.compare_means()"
+python -c "import pyrsm as rsm; rsm.radiant.model.regress()"
+python -c "import pyrsm as rsm; rsm.radiant.model.logistic()"
+python -c "import pyrsm as rsm; rsm.radiant.basics.compare_means()"
 python -c "import pyrsm asrsm; rsm.radiant.goodness()"
 python -c "import pyrsm as rsm; rsm.radiant.cross_tabs()"
 deactivate

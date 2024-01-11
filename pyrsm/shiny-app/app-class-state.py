@@ -73,7 +73,7 @@ class radiant_data:
             ),
             radiant_navbar(),
             title="Radiant for Python",
-            inverse=True,
+            inverse=False,
             id="navbar_id",
         )
 
@@ -140,7 +140,7 @@ class radiant_sub_app:
             ),
             radiant_navbar(),
             title="Radiant for Python",
-            inverse=True,
+            inverse=False,
             id="navbar_id",
         )
 

@@ -434,7 +434,7 @@ def ui_data_main():
 
 
 def ui_main_basics(height="500px", width="700px"):
-    return ui.navset_tab_card(
+    return ui.navset_card_tab(
         ui.nav(
             "Data",
             ui_data_main(),
@@ -454,7 +454,7 @@ def ui_main_basics(height="500px", width="700px"):
 
 
 def ui_main_model():
-    return ui.navset_tab_card(
+    return ui.navset_card_tab(
         ui.nav(
             "Data",
             ui_data_main(),

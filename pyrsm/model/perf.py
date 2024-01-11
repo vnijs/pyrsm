@@ -38,7 +38,7 @@ def calc_qnt(df, rvar, lev, pred, qnt=10):
     df["rvar_int"] = ifelse(df[rvar] == lev, 1, ifelse(df[rvar].isna(), np.nan, 0))
     perf_df = (
         df.groupby("bins", observed=True)
-        .rvar_int.agg(nr_obs="count", nr_resp=sum)
+        .rvar_int.agg(nr_obs="count", nr_resp="sum")
         .reset_index()
     )
 
