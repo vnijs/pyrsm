@@ -8,6 +8,10 @@
 %autoreload 2
 %aimport pyrsm
 
+## check version and location of pyrsm
+python -c "import pyrsm as rsm; print(rsm.__version__); print(rsm.__file__)"
+pip install --user "pyrsm>=0.9.12"
+
 ## select commands to run and use the Command Palette to send to open terminal
 # use python build to install locally testing 
 conda activate pyrsm
@@ -52,8 +56,9 @@ conda activate pyrsm
 python -m venv ~/testenv
 conda deactivate
 source ~/testenv/bin/activate
-pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "pyrsm==0.9.10"
-pip install "pyrsm>=0.9.10"
+pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "pyrsm==0.9.12"
+pip install "pyrsm>=0.9.12"
+python -c "import pyrsm as rsm"
 python -c "import pyrsm as rsm; rsm.radiant.radiant()"
 python -c "import pyrsm as rsm; rsm.radiant.model.regress()"
 python -c "import pyrsm as rsm; rsm.radiant.model.logistic()"
@@ -84,7 +89,7 @@ usethis::usecourse("https://www.dropbox.com/sh/qn6jf7qiek7aicm/AAD9FA5vQxq6Hkkk5
 
 ## select commands to run and use the Command Palette to send to open terminal
 
-# use python build to install locally testing 
+# use python build to install locally testing
 conda deactivate
 sudo pip3 uninstall -y pyrsm
 sudo rm -rf ~/gh/pyrsm/dist
