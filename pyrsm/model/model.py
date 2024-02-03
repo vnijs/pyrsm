@@ -40,6 +40,10 @@ def extract_rvar(model, cn):
     return re.findall(pattern, model.formula)[0]
 
 
+def convert_binary(rvar, lev):
+    return ifelse(rvar == lev, 1, ifelse(rvar.isna(), np.nan, 0))
+
+
 def sig_stars(pval):
     pval = np.nan_to_num(pval, nan=1.0)
     cutpoints = np.array([0.001, 0.01, 0.05, 0.1, np.Inf])

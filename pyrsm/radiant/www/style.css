@@ -7,10 +7,6 @@ details pre {
     padding: 0;
 }
 
-#pc_well {
-    background-color: #ffffff;
-}
-
 pre {
     overflow: auto;
     white-space: pre;
@@ -46,14 +42,6 @@ pre code {
     color: white;
     opacity: 0.9;
 }
-
-/* #copy:active,
-#copy_data:active,
-#copy_summary:active,
-#copy_predict:active,
-#copy_plot:active {
-    opacity: 0.5;
-} */
 
 #run:active {
     opacity: 0.5;

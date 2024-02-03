@@ -141,7 +141,9 @@ def weighted_mean(df, wt):
     return np.average(df.values, weights=np.array(wt), axis=0)
 
 
-def scale_df(df, wt=None, sf=2, excl=None, train=None, ddof=0):
+def scale_df(
+    df, wt=None, sf=2, excl=None, train=None, ddof=0, stats=False, means=None, stds=None
+):
     """
     Scale the numeric variables in a Pandas dataframe
 
@@ -158,14 +160,19 @@ def scale_df(df, wt=None, sf=2, excl=None, train=None, ddof=0):
     train : bool
         A series of True and False values. Values that are True are
         used to calculate the mean and standard deviation
+    stats : bool
+        Return the mean and standard deviation for each column
     ddof : int, default 0
         Delta Degrees of Freedom. The divisor used in calculations is N - ddof,
         where N represents the number of elements. The default value 0, is
         the same as used by Numpy and sklearn for StandardScaler
+    means : None or dict, Means to apply for (re)scaling variables
+    stds : None or dict, Standard deviations to apply for (re)scaling variables
 
     Returns
     -------
-    Pandas dataframe with all numeric variables standardized
+    Pandas DataFrame with all numeric variables standardized. If stats is True,
+    a tuple of DataFrame, means, and standard deviations is returned
 
     Examples
     --------
@@ -186,12 +193,33 @@ def scale_df(df, wt=None, sf=2, excl=None, train=None, ddof=0):
     if train is None:
         train = np.array([True] * df.shape[0])
     if wt is None:
-        df.loc[:, isNum] = (dfs - dfs[train].mean().values) / (
-            sf * dfs[train].std(ddof=ddof).values
-        )
+        if means is None:
+            means = dfs[train].mean().values
+        else:
+            means = np.array([means[c] for c in isNum])
+        if stds is None:
+            stds = sf * dfs[train].std(ddof=ddof).values
+        else:
+            stds = np.array([stds[c] for c in isNum])
+        # df.loc[:, isNum] = (dfs - dfs[train].mean().values) / (
+        #     sf * dfs[train].std(ddof=ddof).values
+        # )
+        df.loc[:, isNum] = (dfs - means) / stds
+
     else:
+        means = weighted_mean(dfs[train], wt[train])
+        stds = sf * weighted_sd(dfs[train], wt[train], ddof=ddof)
         wt = np.array(wt)
-        df.loc[:, isNum] = (dfs - weighted_mean(dfs[train], wt[train])) / (
-            sf * weighted_sd(dfs[train], wt[train], ddof=ddof)
-        )
-    return df
+        # df.loc[:, isNum] = (dfs - weighted_mean(dfs[train], wt[train])) / (
+        #     sf * weighted_sd(dfs[train], wt[train], ddof=ddof)
+        # )
+        df.loc[:, isNum] = (dfs - means) / stds
+
+    if stats:
+        means = {c: means[i] for i, c in enumerate(isNum)}
+        stds = {c: stds[i] for i, c in enumerate(isNum)}
+        # means = {c: means[i] for c, i in enumerate(isNum)}
+        # stds = {c: stds[i] for c, i in enumerate(isNum)}
+        return df, means, stds
+    else:
+        return df

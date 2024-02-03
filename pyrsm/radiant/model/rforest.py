@@ -153,6 +153,7 @@ class model_rforest:
         @output(id="ui_lev")
         @render.ui
         def ui_lev():
+            req(input.rvar())
             levs = list(get_data()["data"][input.rvar()].unique())
             return ui.input_select(
                 id="lev",

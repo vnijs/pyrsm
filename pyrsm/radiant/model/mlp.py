@@ -65,16 +65,16 @@ def summary_extra(self):
             ),
             ru.make_side_by_side(
                 ui.input_numeric(
-                    "batch_size",
-                    "Batch size",
-                    value=self.state.get("batch_size", 200),
-                    min=1,
-                    step=1,
+                    "learning_rate_init",
+                    "Learning rate:",
+                    value=self.state.get("learning_rate_init", 0.001),
+                    min=0,
+                    step=0.001,
                 ),
                 ui.input_numeric(
                     "max_iter",
                     "Max iterations:",
-                    value=self.state.get("max_iter", 1_000),
+                    value=self.state.get("max_iter", 10_000),
                     min=1,
                     step=1,
                 ),
@@ -121,7 +121,7 @@ class model_mlp:
         return ui.page_navbar(
             ru.head_content(),
             ui.nav(
-                "Model > Random Forest",
+                "Model > Neural Network",
                 ui.row(
                     ui.column(
                         3,
@@ -169,6 +169,7 @@ class model_mlp:
         @output(id="ui_lev")
         @render.ui
         def ui_lev():
+            req(input.rvar())
             levs = list(get_data()["data"][input.rvar()].unique())
             return ui.input_select(
                 id="lev",

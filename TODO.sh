@@ -14,8 +14,8 @@ pip install --user "pyrsm>=0.9.12"
 
 ## select commands to run and use the Command Palette to send to open terminal
 # use python build to install locally testing 
-conda activate pyrsm
 conda activate msba
+conda activate pyrsm
 sudo pip uninstall -y pyrsm
 # pip uninstall -y pyrsm
 sudo rm -rf ~/gh/pyrsm/dist

@@ -14,6 +14,7 @@ from pyrsm.model.model import (
     or_plot,
     sim_prediction,
     predict_ci,
+    convert_binary,
 )
 from pyrsm.model.model import vif as calc_vif
 
@@ -65,7 +66,7 @@ class logistic:
             self.weights_name = self.weights = None
 
         if self.lev is not None and self.rvar is not None:
-            self.data[self.rvar] = (self.data[self.rvar] == lev).astype(int)
+            self.data[self.rvar] = convert_binary(self.data[self.rvar], self.lev)
 
         if self.form:
             self.fitted = smf.glm(
@@ -135,11 +136,11 @@ class logistic:
             print("\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1")
 
         if fit:
-            print(f"\n{model_fit(self.fitted)}")
+            print(f"\n{model_fit(self.fitted, dec=dec)}")
 
         if ci:
             print("\nConfidence intervals:")
-            df = or_ci(self.fitted).set_index("index")
+            df = or_ci(self.fitted, dec=dec).set_index("index")
             df.index.name = None
             print(f"\n{df.to_string()}")
 
@@ -148,7 +149,7 @@ class logistic:
                 print("\nVariance Inflation Factors cannot be calculated")
             else:
                 print("\nVariance inflation factors:")
-                print(f"\n{calc_vif(self.fitted).to_string()}")
+                print(f"\n{calc_vif(self.fitted, dec=dec).to_string()}")
 
         if test is not None and len(test) > 0:
             self.chisq_test(test=test, dec=dec)
@@ -241,7 +242,12 @@ class logistic:
         test : list
             List of strings; contains the names of the columns of data to be tested
         """
-        evar = setdiff(self.evar, test)
+        if test is None:
+            test = self.evar
+        else:
+            test = ifelse(isinstance(test, str), [test], test)
+
+        evar = [c for c in self.evar if c not in test]
         if self.ivar is not None and len(self.ivar) > 0:
             sint = setdiff(self.ivar, test)
             test += [s for t in test for s in sint if f"I({t}" not in s and t in s]

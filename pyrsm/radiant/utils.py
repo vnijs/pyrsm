@@ -636,8 +636,17 @@ def reestimate(input):
         if not is_empty(input.evar()) and not is_empty(input.rvar()):
             update()
 
+        if not is_empty(input.data_filter()) or not is_empty(input.data_slice()):
+            update()
+
         # not clear why this needs to be separate from the above
         if not is_empty(input.interactions()):
+            update()
+
+        if not is_empty(input.hidden_layer_sizes()):
+            update()
+
+        if not is_empty(input.alpha()):
             update()
 
     @reactive.Effect

@@ -177,7 +177,7 @@ class basics_compare_means:
 
         session.on_ended(update_state)
 
-        # issue where when launching external browser from browser inside VS Code
+        # issue when launching external browser from browser inside VS Code
         # def on_flushed():
         #     self.state["__pending_changes__"] = True
 

@@ -117,11 +117,11 @@ class regress:
             print("\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1")
 
         if fit:
-            print(f"\n{model_fit(self.fitted)}")
+            print(f"\n{model_fit(self.fitted, dec=dec)}")
 
         if ci:
             print("\nConfidence intervals:")
-            df = coef_ci(self.fitted)
+            df = coef_ci(self.fitted, dec=dec)
             print(f"\n{df.to_string()}")
 
         if ssq:
@@ -192,11 +192,12 @@ class regress:
     def plot(
         self,
         plots="dist",
+        data=None,
+        alpha=0.05,
         nobs: int = 1000,
         intercept=False,
-        alpha=0.05,
         incl=None,
-        excl=[],
+        excl=None,
         incl_int=[],
         fix=True,
         hline=False,
@@ -220,9 +221,9 @@ class regress:
         if "pred" in plots:
             pred_plot_sm(
                 self.fitted,
-                self.data,
+                data=ifelse(data is None, self.data, data),
                 incl=incl,
-                excl=excl,
+                excl=ifelse(excl is None, [], excl),
                 incl_int=incl_int,
                 fix=fix,
                 hline=hline,
@@ -231,7 +232,13 @@ class regress:
                 maxq=0.975,
             )
         if "vimp" in plots:
-            vimp_plot_sm(self.fitted, self.data, rep=10, ax=None, ret=False)
+            vimp_plot_sm(
+                self.fitted,
+                data=ifelse(data is None, self.data, data),
+                rep=10,
+                ax=None,
+                ret=False,
+            )
         if "coef" in plots:
             coef_plot(
                 self.fitted,

@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from shiny import render, ui, reactive, req
 from contextlib import redirect_stdout, redirect_stderr
 import pyrsm.radiant.utils as ru
-from pyrsm.utils import intersect, ifelse
+from pyrsm.utils import intersect
 import numpy as np
 import pandas as pd
 import pyrsm as rsm
@@ -154,7 +154,7 @@ def make_int_inputs(self, input, output, get_data):
     @output(id="ui_incl_evar")
     @render.ui
     def ui_incl_evar():
-        if len(input.evar()) > 1:
+        if len(input.evar()) > 0:
             return ui.input_select(
                 id="incl_evar",
                 label="Explanatory variables to include:",
@@ -254,9 +254,9 @@ def make_estimate(
                         "hidden_layer_sizes": eval(input.hidden_layer_sizes()),
                         "activation": input.activation(),
                         "solver": input.solver(),
-                        # "alpha": input.alpha(),
+                        "alpha": input.alpha(),
                         # "batch_size": input.batch_size(),
-                        # "learning_rate_init": input.learning_rate_init(),
+                        "learning_rate_init": input.learning_rate_init(),
                         "max_iter": input.max_iter(),
                     }
                 )
@@ -294,7 +294,11 @@ def make_estimate(
                 input.datasets()
             ]  # get data into local scope
 
-            return eval(estimation_code()[0])
+            ec = estimation_code()
+            # exec for multi-line
+            # https://stackoverflow.com/a/12698067/1974918
+            exec(ec[1])
+            return eval(ec[0])
 
     else:
 
@@ -304,7 +308,9 @@ def make_estimate(
                 input.datasets()
             ]  # get data into local scope
 
-            return eval(estimation_code()[0])
+            ec = estimation_code()
+            exec(ec[1])
+            return eval(ec[0])
 
     return show_code, estimate
 
@@ -413,7 +419,10 @@ def make_plot(self, input, output, session, show_code, estimate, ret, pc=None):
             plots = input.plots()
             if plots == "pred":
                 incl = list(input.incl_evar())
-                incl_int = list(input.incl_interactions())
+                if "incl_interactions" in input:
+                    incl_int = list(input.incl_interactions())
+                else:
+                    incl_int = []
                 cmd = f""", incl={incl}"""
                 if len(incl_int) > 0:
                     cmd += f""", incl_int={incl_int}"""

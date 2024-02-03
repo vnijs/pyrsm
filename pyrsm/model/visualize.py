@@ -477,7 +477,7 @@ def pred_plot_sk(
         if sum(is_num) == 2:
             plot_data = (
                 pred_dict[v]
-                .pivot(vl[0], vl[1], "prediction")
+                .pivot(index=vl[0], columns=vl[1], values="prediction")
                 .transpose()
                 .sort_values(vl[1], ascending=False)
             )

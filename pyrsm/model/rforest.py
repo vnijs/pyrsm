@@ -12,7 +12,7 @@ from sklearn.inspection import PartialDependenceDisplay as pdp
 
 
 from pyrsm.utils import ifelse, check_dataframe, setdiff
-from pyrsm.model.model import sim_prediction
+from pyrsm.model.model import sim_prediction, convert_binary
 
 from .visualize import pred_plot_sk, vimp_plot_sk
 
@@ -69,7 +69,7 @@ class rforest:
 
         if self.mod_type == "classification":
             if self.lev is not None and self.rvar is not None:
-                self.data[self.rvar] = (self.data[self.rvar] == lev).astype(int)
+                self.data[self.rvar] = convert_binary(self.data[self.rvar], self.lev)
 
             self.rf = RandomForestClassifier(
                 n_estimators=self.n_estimators,

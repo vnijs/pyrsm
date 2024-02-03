@@ -806,6 +806,7 @@ def profit_plot(
             for k in dct.keys()
             for p in pred
         ]
+        print(prof)
         [
             [
                 fig.axvline(
@@ -893,14 +894,19 @@ def expected_profit_plot(
             for k in dct.keys()
             for p in pred
         ]
-        eprof = df.groupby("predictor", observed=True).cum_profit.max()
+        eprof = df.groupby("predictor", observed=True).cum_profit.max().values
+        print(eprof)
         [
             [
                 fig.axvline(
-                    l, linestyle="--", linewidth=1, color=sns.color_palette()[i]
+                    l,
+                    linestyle="--",
+                    linewidth=1,  # color=sns.color_palette()[i]
                 ),
                 fig.axhline(
-                    eprof[i], linestyle="--", linewidth=1, color=sns.color_palette()[i]
+                    eprof[i],
+                    linestyle="--",
+                    linewidth=1,  # color=sns.color_palette()[i]
                 ),
             ]
             for i, l in enumerate(filter(lambda x: x < 1, cnf))
@@ -1184,6 +1190,7 @@ def auc(rvar, pred, lev=1, weights=None):
     auc(dvd.buy, np.random.uniform(size=20000), "yes")
     auc(dvd.buy, rsm.ifelse(dvd.buy == "yes", 1, 0), "yes")
     """
+
     rvar = np.array(rvar)
     if not isinstance(rvar[0], bool) or lev is not None:
         rvar = rvar == lev

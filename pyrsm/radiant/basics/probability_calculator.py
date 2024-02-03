@@ -88,7 +88,8 @@ def ui_summary(self):
     )
 
 
-def ui_main_pc(height="500px", width="700px"):
+# def ui_main_pc(height="500px", width="700px"):
+def ui_main_pc():
     return ui.panel_well(
         ui.output_ui("show_summary_code"),
         ui.output_text_verbatim("summary"),
