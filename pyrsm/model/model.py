@@ -752,7 +752,7 @@ def scatter_plot(
             fig = sns.scatterplot(x=exog_name, y=endog_name, data=df, ax=ax[row, col])
         else:
             fig = sns.stripplot(x=exog_name, y=endog_name, data=df, ax=ax[row, col])
-            means = df.groupby(exog_name)[endog_name].mean()
+            means = df.groupby(exog_name, observed=False)[endog_name].mean()
             levels = list(means.index)
             # Loop over categories
             for pos, cat in enumerate(levels):

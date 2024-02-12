@@ -13,16 +13,16 @@ python -c "import pyrsm as rsm; print(rsm.__version__); print(rsm.__file__)"
 pip install --user "pyrsm>=0.9.12"
 
 ## select commands to run and use the Command Palette to send to open terminal
-# use python build to install locally testing 
+# use python build to install locally testing
 conda activate msba
 conda activate pyrsm
-sudo pip uninstall -y pyrsm
+pip uninstall -y pyrsm
 # pip uninstall -y pyrsm
-sudo rm -rf ~/gh/pyrsm/dist
+# sudo rm -rf ~/gh/pyrsm/dist
 rm -rf ~/gh/pyrsm/dist
 # sudo rm -rf ~/gh/pyrsm/build/*
 # pip install -q build
-sudo python -m build ~/gh/pyrsm
+python -m build ~/gh/pyrsm
 
 # try sending to pypi testing ground first
 # pip install -q twine
@@ -57,7 +57,7 @@ python -m venv ~/testenv
 conda deactivate
 source ~/testenv/bin/activate
 pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "pyrsm==0.9.12"
-pip install "pyrsm>=0.9.12"
+pip install "pyrsm>=0.9.14"
 python -c "import pyrsm as rsm"
 python -c "import pyrsm as rsm; rsm.radiant.radiant()"
 python -c "import pyrsm as rsm; rsm.radiant.model.regress()"

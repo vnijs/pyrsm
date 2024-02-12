@@ -37,7 +37,7 @@ def calc_qnt(df, rvar, lev, pred, qnt=10):
     df["bins"] = xtile(df[pred], qnt)
     df["rvar_int"] = ifelse(df[rvar] == lev, 1, ifelse(df[rvar].isna(), np.nan, 0))
     perf_df = (
-        df.groupby("bins", observed=True)
+        df.groupby("bins", observed=False)
         .rvar_int.agg(nr_obs="count", nr_resp="sum")
         .reset_index()
     )
@@ -219,7 +219,7 @@ def uplift_tab(df, rvar, lev, pred, tvar, tlev, scale=1, qnt=10):
     tab = (
         (
             (
-                df.groupby("bins", observed=True).agg(
+                df.groupby("bins", observed=False).agg(
                     nr_obs=("bins", "count"),
                     nr_resp=(rvar, "sum"),
                     T_resp=("T_resp", "sum"),
@@ -894,7 +894,7 @@ def expected_profit_plot(
             for k in dct.keys()
             for p in pred
         ]
-        eprof = df.groupby("predictor", observed=True).cum_profit.max().values
+        eprof = df.groupby("predictor", observed=False).cum_profit.max().values
         print(eprof)
         [
             [
@@ -1131,6 +1131,10 @@ def evalbin(df, rvar, lev, pred, cost=1, margin=2, scale=1, dec=3):
         break_even = cost / margin
         gtbe = dfm[pm] > break_even
         pos = dfm[rvar] == lev
+        if (cost * (TP + FP)) > 0:
+            ROME = profit / (cost * (TP + FP))
+        else:
+            ROME = np.nan
 
         return pd.DataFrame().assign(
             Type=[key],
@@ -1148,7 +1152,7 @@ def evalbin(df, rvar, lev, pred, cost=1, margin=2, scale=1, dec=3):
             kappa=[metrics.cohen_kappa_score(pos, gtbe)],
             profit=[profit * scale],
             index=[0],
-            ROME=[profit / (cost * (TP + FP))],
+            ROME=[ROME],
             contact=[contact],
             AUC=[metrics.auc(fpr, tpr)],
         )
@@ -1159,7 +1163,7 @@ def evalbin(df, rvar, lev, pred, cost=1, margin=2, scale=1, dec=3):
             result = pd.concat([result, calculate_metrics(key, val, p)], axis=0)
 
     result.index = range(result.shape[0])
-    result["index"] = result.groupby("Type", observed=True).profit.transform(
+    result["index"] = result.groupby("Type", observed=False).profit.transform(
         lambda x: x / x.max()
     )
     return result.round(dec)

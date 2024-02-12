@@ -9,11 +9,9 @@ from math import sqrt, log2
 # from sklearn import metrics, tree
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.inspection import PartialDependenceDisplay as pdp
-
-
 from pyrsm.utils import ifelse, check_dataframe, setdiff
-from pyrsm.model.model import sim_prediction, convert_binary
-
+from pyrsm.model.model import sim_prediction, convert_binary, evalreg
+from pyrsm.model.perf import auc
 from .visualize import pred_plot_sk, vimp_plot_sk
 
 
@@ -27,9 +25,12 @@ class rforest:
     lev: String; name of the level in the response variable
     rvar: String; name of the column to be used as the response variable
     evar: List of strings; contains the names of the column of data to be used as the explanatory (target) variable
-    n_estimators: The number of trees in the forest.
-
-
+    n_estimators: The number of trees in the forest
+    max_features: The number of features to consider when looking for the best split
+    max_samples: The number of samples to draw from the data to train each tree
+    oob_score: Whether to use out-of-bag samples to estimate the generalization accuracy
+    random_state: Random seed used when bootstrapping data samples
+    mod_type: String; type of model to be used (classification or regression)
     **kwargs : Named arguments to be passed to the sklearn's Random Forest functions
     """
 
@@ -91,8 +92,9 @@ class rforest:
         # only use drop_first=True for a decision tree where the categorical
         # variables are only binary
         self.data_onehot = pd.get_dummies(self.data[evar], drop_first=False)
-        self.n_features = self.data_onehot.shape[1]
+        self.n_features = [len(evar), self.data_onehot.shape[1]]
         self.fitted = self.rf.fit(self.data_onehot, self.data[self.rvar])
+        self.nobs = self.data.dropna().shape[0]
 
     def summary(self, dec=3) -> None:
         """
@@ -109,18 +111,43 @@ class rforest:
             f"Model type           : {ifelse(self.mod_type == 'classification', 'classification', 'regression')}"
         )
         if self.max_features == "sqrt":
-            nr = sqrt(self.n_features)
+            # round down
+            nr = int(sqrt(self.n_features[1]))
         elif self.max_features == "log2":
-            nr = log2(self.n_features)
+            # round down
+            nr = int(log2(self.n_features[1]))
         elif self.max_features is None or self.max_features == "":
-            nr = self.n_features
+            nr = int(self.n_features[1])
         else:
-            nr = int(self.n_features)
-        print(f"Number of features   : {self.n_features}"),
+            nr = int(self.max_features)
+        print(f"Nr. of features      : ({self.n_features[0]}, {self.n_features[1]})")
+        print(f"Nr. of observations  : {format(self.nobs, ',.0f')}")
         print(f"max_features         : {self.max_features} ({int(nr)})"),
-        print(f"n_estimators         : {self.n_estimators}"),
-        print(f"min_samples_leaf     : {self.min_samples_leaf}"),
+        print(f"n_estimators         : {self.n_estimators}")
+        print(f"min_samples_leaf     : {self.min_samples_leaf}")
         print(f"random_state         : {self.random_state}")
+        if self.mod_type == "classification":
+            cpred = self.fitted.oob_decision_function_[:, 1]
+            print(
+                f"AUC                  : {round(auc(self.data[self.rvar], cpred), dec)}"
+            )
+        else:
+            print("Model fit            :")
+            print(
+                evalreg(
+                    pd.DataFrame().assign(
+                        rvar=self.data[[self.rvar]],
+                        prediction=self.fitted.oob_prediction_,
+                    ),
+                    "rvar",
+                    "prediction",
+                    dec=dec,
+                )
+                .T[2:]
+                .rename(columns={0: " "})
+                .T.to_string()
+            )
+
         if len(self.kwargs) > 0:
             kwargs_list = [f"{k}={v}" for k, v in self.kwargs.items()]
             print(f"Extra arguments      : {', '.join(kwargs_list)}")
@@ -131,9 +158,24 @@ class rforest:
         """
         Predict probabilities or values for a random forest model
         """
-        if data is None:
-            data = self.data.copy()
-        data = data.loc[:, self.evar].copy()
+        if (
+            data is None
+            and self.oob_score
+            and (data_cmd is None or data_cmd == "")
+            and (cmd is None or cmd == "")
+        ):
+            data = self.data.loc[:, self.evar].copy()
+            if self.mod_type == "classification":
+                pred = self.fitted.oob_decision_function_[:, 1]
+            else:
+                pred = self.fitted.oob_prediction_
+
+            return data.assign(prediction=pred)
+        elif data is None:
+            data = self.data.loc[:, self.evar].copy()
+        else:
+            data = data.loc[:, self.evar].copy()
+
         if data_cmd is not None and data_cmd != "":
             for k, v in data_cmd.items():
                 data[k] = v
@@ -141,6 +183,7 @@ class rforest:
             cmd = {k: ifelse(isinstance(v, str), [v], v) for k, v in cmd.items()}
             data = sim_prediction(data=data, vary=cmd)
 
+        # not dropping the first level of the categorical variables
         data_onehot = pd.get_dummies(data, drop_first=False)
         if data_onehot.shape[1] != self.data_onehot.shape[1]:
             data_onehot_missing = pd.DataFrame(
@@ -153,12 +196,10 @@ class rforest:
             data_onehot = data_onehot[self.data_onehot.columns]
 
         if self.mod_type == "classification":
-            pred = pd.DataFrame().assign(
-                prediction=self.fitted.predict_proba(data_onehot)[:, -1]
-            )
+            return data.assign(prediction=self.fitted.predict_proba(data_onehot)[:, -1])
+
         else:
-            pred = pd.DataFrame().assign(prediction=self.fitted.predict(data_onehot))
-        return pd.concat([data, pred], axis=1)
+            return data.assign(prediction=self.fitted.predict(data_onehot))
 
     def plot(
         self,

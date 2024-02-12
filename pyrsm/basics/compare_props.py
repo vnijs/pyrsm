@@ -205,7 +205,7 @@ class compare_props:
         elif plots == "dodge":
             data = self.data[[self.var1, self.var2]].copy()
             pt = (
-                data.groupby(self.var1, observed=True)
+                data.groupby(self.var1, observed=False)
                 .value_counts(normalize=True)
                 .reset_index()
             )

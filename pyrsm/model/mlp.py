@@ -11,7 +11,6 @@ from pyrsm.utils import ifelse, check_dataframe, setdiff
 from pyrsm.model.model import sim_prediction, convert_binary, evalreg
 from pyrsm.model.perf import auc
 from pyrsm.stats import scale_df
-from pyrsm.stats import scale_df
 from .visualize import pred_plot_sk, vimp_plot_sk
 
 
@@ -25,6 +24,11 @@ class mlp:
     lev: String; name of the level in the response variable
     rvar: String; name of the column to be used as the response variable
     evar: List of strings; contains the names of the column of data to be used as the explanatory (target) variable
+    hidden_layer_sizes: The number of neurons in the hidden layer and the number of hidden layers (e..g, (5,) for 5 neurons in 1 hidden layer, (5, 5) for 5 neurons in 2 hidden layers, etc.)
+    activation: Activation function apply to transform for the nodes in the hidden layer
+    solver: The solver used for weight optimization
+    alpha: L2 penalty (regularization term) parameter
+
     **kwargs : Named arguments to be passed to the sklearn's Multi-layer Perceptron functions
     """
 
@@ -98,8 +102,9 @@ class mlp:
         )
         # use drop_first=True
         self.data_onehot = pd.get_dummies(self.data_std[self.evar], drop_first=True)
-        self.n_features = self.data_onehot.shape[1]
+        self.n_features = [len(evar), self.data_onehot.shape[1]]
         self.fitted = self.mlp.fit(self.data_onehot, self.data_std[self.rvar])
+        self.nobs = self.data.dropna().shape[0]
 
     def summary(self, dec=3) -> None:
         """
@@ -114,13 +119,15 @@ class mlp:
         print(
             f"Model type           : {ifelse(self.mod_type == 'classification', 'classification', 'regression')}"
         )
-        print(f"Hidden_layer_sizes   : {self.hidden_layer_sizes}"),
-        print(f"Activation function  : {self.activation}"),
-        print(f"Solver               : {self.solver}"),
-        print(f"Alpha                : {self.alpha}"),
-        print(f"Batch size           : {self.batch_size}"),
-        print(f"Learning rate        : {self.learning_rate_init}"),
-        print(f"Maximum itterations  : {self.max_iter}"),
+        print(f"Nr. of features      : ({self.n_features[0]}, {self.n_features[1]})")
+        print(f"Nr. of observations  : {format(self.nobs, ',.0f')}")
+        print(f"Hidden_layer_sizes   : {self.hidden_layer_sizes}")
+        print(f"Activation function  : {self.activation}")
+        print(f"Solver               : {self.solver}")
+        print(f"Alpha                : {self.alpha}")
+        print(f"Batch size           : {self.batch_size}")
+        print(f"Learning rate        : {self.learning_rate_init}")
+        print(f"Maximum iterations   : {self.max_iter}")
         print(f"random_state         : {self.random_state}")
         if self.mod_type == "classification":
             print(
@@ -132,10 +139,10 @@ class mlp:
                 evalreg(
                     pd.DataFrame().assign(
                         rvar=self.data_std[[self.rvar]],
-                        pred=self.fitted.predict(self.data_onehot),
+                        prediction=self.fitted.predict(self.data_onehot),
                     ),
                     "rvar",
-                    "pred",
+                    "prediction",
                     dec=dec,
                 )
                 .T[2:]
@@ -191,16 +198,15 @@ class mlp:
             data_onehot = pd.concat([data_onehot, data_onehot_missing], axis=1)
             data_onehot = data_onehot[self.data_onehot.columns]
 
-        pred = pd.DataFrame()
         if self.mod_type == "classification":
-            pred["prediction"] = self.fitted.predict_proba(data_onehot)[:, -1]
+            data["prediction"] = self.fitted.predict_proba(data_onehot)[:, -1]
         else:
-            pred["prediction"] = (
+            data["prediction"] = (
                 self.fitted.predict(data_onehot) * self.stds[self.rvar]
                 + self.means[self.rvar]
             )
 
-        return pd.concat([data[self.evar], pred], axis=1)
+        return data
 
     def plot(
         self,

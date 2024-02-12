@@ -186,8 +186,7 @@ class regress:
                     [data, predict_ci(self.fitted, data, conf=conf)], axis=1
                 )
         else:
-            pred = pd.DataFrame().assign(prediction=self.fitted.predict(data))
-            return pd.concat([data, pred], axis=1)
+            return data.assign(prediction=self.fitted.predict(data))
 
     def plot(
         self,

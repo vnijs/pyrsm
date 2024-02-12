@@ -273,7 +273,7 @@ class compare_means:
             categories = data[self.var1].cat.categories
             category_indices = {category: i for i, category in enumerate(categories)}
 
-            category_means = data.groupby(self.var1, observed=True)[self.var2].mean()
+            category_means = data.groupby(self.var1, observed=False)[self.var2].mean()
 
             # Add a horizontal line for each category at the mean of the value for that category
             for category, mean in category_means.items():

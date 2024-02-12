@@ -25,7 +25,7 @@ def prop_calc(df, group, rvar, lev):
     df = check_dataframe(df)
     df = df.loc[:, (group, rvar)]
     df["rvar_int"] = np.where(df[rvar] == lev, 1, 0)
-    df = df.groupby(group)
+    df = df.groupby(group, observed=False)
     return (
         df.agg(prop=("rvar_int", "mean")).reset_index().rename(columns={"prop": rvar})
     )

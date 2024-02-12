@@ -105,13 +105,14 @@ def quote(v, k, ignore=["data"]):
 
 def copy_icon(cmd, id):
     cmd = escape_quotes(cmd).replace("\n", "\\n")
+    print(cmd)
     return (
         ui.input_action_link(
             id,
             None,
             icon=icon_svg("copy", width="1.5em", height="1.5em"),
             title="Copy to clipboard",
-            onclick=f'copyToClipboard("{cmd}");',
+            onclick=f"""copyToClipboard("{cmd}");""",
         ),
     )
 
@@ -145,11 +146,13 @@ def code_formatter(code, self, input, session, id="copy"):
     copy_reset(input, session, id=id)
     return ui.TagList(
         ui.HTML(
-            f"<details {ifelse(self.code, 'open', '')}><summary>View generated python code</summary>"
+            f"<details {ifelse(self.code, 'open', '')}><summary>View generated Python code</summary>"
         ),
         copy_icon(cmd, id=id),
         ui.markdown(f"""\n```python\n{cmd.rstrip()}\n```"""),
-        ui.tags.script("hljs.highlightAll();"),
+        ui.tags.script(
+            "hljs.highlightAll(); hljs.configure({ignoreUnescapedHTML: true});"
+        ),
         ui.HTML("</details>"),
         ui.br(),
     )

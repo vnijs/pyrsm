@@ -123,8 +123,8 @@ class cross_tabs:
         output = ifelse(isinstance(output, str), [output], output)
         prn = f"""
 Cross-tabs
-Variables: {self.var1}, {self.var2}
 Data     : {self.name}
+Variables: {self.var1}, {self.var2}
 Null hyp : There is no association between {self.var1} and {self.var2}
 Alt. hyp : There is an association between {self.var1} and {self.var2}
 """

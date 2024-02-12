@@ -401,7 +401,8 @@ class basics_probability_calculator:
 def prob_calc(
     code: bool = True,
     state: dict = None,
-    host: str = "0.0.0.0",
+    # host: str = "0.0.0.0",
+    host: str = "localhost",
     port: int = 8000,
     log_level: str = "critical",
     debug: bool = False,
