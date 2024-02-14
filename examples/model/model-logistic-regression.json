@@ -516,7 +516,7 @@
                 }
             ],
             "source": [
-                "lr = rsm.logistic(\n",
+                "lr = rsm.model.logistic(\n",
                 "    {\"titanic\": titanic}, rvar=\"survived\", lev=\"Yes\", evar=[\"pclass\", \"sex\", \"age\"]\n",
                 ")\n",
                 "lr.summary()\n"
@@ -558,7 +558,7 @@
                 }
             ],
             "source": [
-                "lr = rsm.logistic({\"titanic\":titanic}, lev=\"Yes\", form=\"survived ~ pclass + sex + age\")\n",
+                "lr = rsm.model.logistic({\"titanic\":titanic}, lev=\"Yes\", form=\"survived ~ pclass + sex + age\")\n",
                 "lr.summary()\n"
             ]
         },
@@ -710,7 +710,7 @@
                             "import pyrsm as rsm\n",
                             "\n",
                             "# titanic = pd.read_parquet('titanic.parquet')\n",
-                            "lr = rsm.logistic(\n",
+                            "lr = rsm.model.logistic(\n",
                             "    data={\"titanic\": titanic}, rvar=\"survived\", lev=\"Yes\", evar=[\"pclass\", \"sex\", \"age\"]\n",
                             ")\n",
                             "lr.plot(plots=\"pred\", incl=[\"pclass\", \"sex\", \"age\"])\n",

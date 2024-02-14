@@ -248,8 +248,7 @@ def compare_props(
     descriptions_dct: dict = None,
     state: dict = None,
     code: bool = True,
-    # host: str = "0.0.0.0",
-    host: str = "localhost",
+    host: str = "",
     port: int = 8000,
     log_level: str = "warning",
     debug: bool = False,
@@ -257,6 +256,7 @@ def compare_props(
     """
     Launch a Radiant-for-Python app for compare props hypothesis testing
     """
+    host = ru.set_host(host)
     if data_dct is None:
         data_dct, descriptions_dct = ru.get_dfs(pkg="data", name="titanic")
     rc = basics_compare_props(data_dct, descriptions_dct, state=state, code=code)

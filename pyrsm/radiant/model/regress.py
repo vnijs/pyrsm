@@ -144,7 +144,7 @@ class model_regress:
             show_code,
             estimate,
             ret="reg",
-            sum_fun=rsm.regress.summary,
+            sum_fun=rsm.model.regress.summary,
         )
         mu.make_predict(
             self,
@@ -154,7 +154,7 @@ class model_regress:
             show_code,
             estimate,
             ret="reg",
-            pred_fun=rsm.regress.predict,
+            pred_fun=rsm.model.regress.predict,
         )
         mu.make_plot(
             self,
@@ -181,8 +181,7 @@ def regress(
     descriptions_dct: dict = None,
     state: dict = None,
     code: bool = True,
-    # host: str = "0.0.0.0",
-    host: str = "localhost",
+    host: str = "",
     port: int = 8000,
     log_level: str = "warning",
     debug: bool = False,
@@ -190,6 +189,7 @@ def regress(
     """
     Launch a Radiant-for-Python app for linear regression analysis
     """
+    host = ru.set_host(host)
     if data_dct is None:
         data_dct, descriptions_dct = ru.get_dfs(pkg="model")
     rc = model_regress(data_dct, descriptions_dct, state=state, code=code)

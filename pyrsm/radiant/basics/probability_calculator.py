@@ -401,8 +401,7 @@ class basics_probability_calculator:
 def prob_calc(
     code: bool = True,
     state: dict = None,
-    # host: str = "0.0.0.0",
-    host: str = "localhost",
+    host: str = "",
     port: int = 8000,
     log_level: str = "critical",
     debug: bool = False,
@@ -410,6 +409,7 @@ def prob_calc(
     """
     Launch a Radiant-for-Python app for compare means hypothesis testing
     """
+    host = ru.set_host(host)
     rc = basics_probability_calculator(state=state, code=code)
     nest_asyncio.apply()
     webbrowser.open(f"http://{host}:{port}")

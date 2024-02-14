@@ -190,7 +190,7 @@ class model_mlp:
             show_code,
             estimate,
             ret="nn",
-            sum_fun=rsm.mlp.summary,
+            sum_fun=rsm.model.logistic.summary,
         )
         mu.make_predict(
             self,
@@ -200,7 +200,7 @@ class model_mlp:
             show_code,
             estimate,
             ret="nn",
-            pred_fun=rsm.mlp.predict,
+            pred_fun=rsm.model.logistic.predict,
             show_ci=False,
         )
         mu.make_plot(
@@ -228,8 +228,7 @@ def mlp(
     descriptions_dct: dict = None,
     state: dict = None,
     code: bool = True,
-    # host: str = "0.0.0.0",
-    host: str = "localhost",
+    host: str = "",
     port: int = 8000,
     log_level: str = "warning",
     debug: bool = False,
@@ -237,6 +236,7 @@ def mlp(
     """
     Launch a Radiant-for-Python app for Multi-layer Perceptron (NN)
     """
+    host = ru.set_host(host)
     if data_dct is None:
         data_dct, descriptions_dct = ru.get_dfs(pkg="model", name="titanic")
     rc = model_mlp(data_dct, descriptions_dct, state=state, code=code)

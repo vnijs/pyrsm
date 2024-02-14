@@ -208,8 +208,7 @@ def single_prop(
     descriptions_dct: dict = None,
     state: dict = None,
     code: bool = True,
-    # host: str = "0.0.0.0",
-    host: str = "localhost",
+    host: str = "",
     port: int = 8000,
     log_level: str = "warning",
     debug: bool = False,
@@ -217,6 +216,7 @@ def single_prop(
     """
     Launch a Radiant-for-Python app for single_prop hypothesis testing
     """
+    host = ru.set_host(host)
     if data_dct is None:
         data_dct, descriptions_dct = ru.get_dfs(pkg="basics", name="consider")
     rc = basics_single_prop(data_dct, descriptions_dct, state=state, code=code)

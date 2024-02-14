@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from sklearn.neural_network import MLPClassifier, MLPRegressor
 from sklearn.inspection import PartialDependenceDisplay as pdp
 from pyrsm.utils import ifelse, check_dataframe, setdiff
-from pyrsm.model.model import sim_prediction, convert_binary, evalreg
+from pyrsm.model.model import sim_prediction, convert_binary, evalreg, convert_to_list
 from pyrsm.model.perf import auc
 from pyrsm.stats import scale_df
 from .visualize import pred_plot_sk, vimp_plot_sk
@@ -58,7 +58,7 @@ class mlp:
         self.data = check_dataframe(self.data)
         self.rvar = rvar
         self.lev = lev
-        self.evar = ifelse(isinstance(evar, str), [evar], evar)
+        self.evar = convert_to_list(evar)
         self.mod_type = mod_type
         self.hidden_layer_sizes = hidden_layer_sizes
         self.activation = activation

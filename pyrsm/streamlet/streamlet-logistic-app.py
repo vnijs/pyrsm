@@ -22,7 +22,7 @@ def describe_df(df):
 
 @st.cache_resource
 def logistic_regression(df, X, y):
-    return rsm.logistic(dataset=df, rvar=y, evar=X)
+    return rsm.model.logistic(dataset=df, rvar=y, evar=X)
 
 
 # @st.cache_data
@@ -86,7 +86,7 @@ def main():
             # st.text(logistic_summary(lr))
             st.code(logistic_summary(lr))
             st.code(
-                f"""{code}\nlr = rsm.logistic(dataset={fname}, rvar="{rvar}", evar={evar})\nlr.summary()"""
+                f"""{code}\nlr = rsm.model.logistic(dataset={fname}, rvar="{rvar}", evar={evar})\nlr.summary()"""
             )
 
     with tab3:

@@ -206,8 +206,7 @@ def cross_tabs(
     descriptions_dct: dict = None,
     state: dict = None,
     code: bool = True,
-    # host: str = "0.0.0.0",
-    host: str = "localhost",
+    host: str = "",
     port: int = 8000,
     log_level: str = "warning",
     debug: bool = False,
@@ -215,6 +214,7 @@ def cross_tabs(
     """
     Launch a Radiant-for-Python app for cross-tabs hypothesis testing
     """
+    host = ru.set_host(host)
     if data_dct is None:
         data_dct, descriptions_dct = ru.get_dfs(pkg="basics", name="newspaper")
     rc = basics_cross_tabs(data_dct, descriptions_dct, state=state, code=code)

@@ -21,7 +21,7 @@ app = Starlette(debug=True, routes=routes)
 # Prediction test for Data & Command option
 # import pyrsm as rsm
 # data_dct, descriptions_dct = rsm.radiant.utils.get_dfs(pkg="model", name="titanic")
-# lr = rsm.logistic(
+# lr = rsm.model.logistic(
 #   data=data_dct, rvar="price", evar=["carat", "clarity", "cut"]
 # )
 # reg.predict(data=diamonds, data_cmd={"carat": 1}, ci=True)

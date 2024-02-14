@@ -15,10 +15,9 @@ from pyrsm.model.model import (
     sim_prediction,
     predict_ci,
     convert_binary,
+    convert_to_list,
 )
 from pyrsm.model.model import vif as calc_vif
-
-# from statsmodels.regression.linear_model import RegressionResults as rrs
 from .visualize import pred_plot_sm, vimp_plot_sm, extract_evars, extract_rvar
 
 
@@ -56,8 +55,8 @@ class logistic:
         self.data = check_dataframe(self.data)
         self.rvar = rvar
         self.lev = lev
-        self.evar = ifelse(isinstance(evar, str), [evar], evar)
-        self.ivar = ifelse(isinstance(ivar, str), [ivar], ivar)
+        self.evar = convert_to_list(evar)
+        self.ivar = convert_to_list(ivar)
         self.form = form
         if weights is not None and weights != "None":
             self.weights_name = weights

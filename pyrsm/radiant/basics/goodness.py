@@ -185,8 +185,7 @@ def goodness(
     descriptions_dct: dict = None,
     state: dict = None,
     code: bool = True,
-    # host: str = "0.0.0.0",
-    host: str = "localhost",
+    host: str = "",
     port: int = 8000,
     log_level: str = "warning",
     debug: bool = False,
@@ -194,6 +193,7 @@ def goodness(
     """
     Launch a Radiant-for-Python app for goodness of fit analysis
     """
+    host = ru.set_host(host)
     if data_dct is None:
         data_dct, descriptions_dct = ru.get_dfs(pkg="basics", name="newspaper")
     rc = basics_goodness(data_dct, descriptions_dct, state=state, code=code)

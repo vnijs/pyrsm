@@ -1,3 +1,4 @@
+import platform
 import black
 import inspect
 from shiny import req
@@ -9,6 +10,16 @@ import pandas as pd
 import polars as pl
 from pyrsm.utils import ifelse, check_dataframe
 from pyrsm.example_data import load_data
+
+
+def set_host(host):
+    if host == "":
+        if platform.system() == "Linux":
+            return "0.0.0.0"
+        else:
+            return "localhost"
+    else:
+        return host
 
 
 def get_dfs(pkg=None, name=None, polars=False):

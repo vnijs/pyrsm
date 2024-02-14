@@ -77,14 +77,14 @@ titanic.head()
 ```
 
 ```{python}
-lr = rsm.logistic(
+lr = rsm.model.logistic(
     {"titanic": titanic}, rvar="survived", lev="Yes", evar=["pclass", "sex", "age"]
 )
 lr.summary()
 ```
 
 ```{python}
-lr = rsm.logistic({"titanic":titanic}, lev="Yes", form="survived ~ pclass + sex + age")
+lr = rsm.model.logistic({"titanic":titanic}, lev="Yes", form="survived ~ pclass + sex + age")
 lr.summary()
 ```
 

@@ -66,7 +66,7 @@ rsm.md(catalog_description)
 ```
 
 ```{python}
-reg = rsm.regress({"catalog": catalog}, rvar="Sales", evar=["Income", "HH_size", "Age"])
+reg = rsm.model.regress({"catalog": catalog}, rvar="Sales", evar=["Income", "HH_size", "Age"])
 ```
 
 ```{python}
@@ -145,7 +145,7 @@ rsm.md(ideal_description)
 `y`, `x2`, and `x3` appear (roughly) normally distributed whereas `x1` appears (roughly) uniformly distributed. There are no indication of outliers or severely skewed distributions.
 
 ```{python}
-reg = rsm.regress({"ideal": ideal}, rvar="y", evar=["x1", "x2", "x3"])
+reg = rsm.model.regress({"ideal": ideal}, rvar="y", evar=["x1", "x2", "x3"])
 ```
 
 ```{python}
@@ -206,7 +206,7 @@ rsm.md(diamonds_description)
  Select the variable price as the response variable and carat and clarity as the explanatory variables. Before looking at the parameter estimates from the regression go to the Plots tab to take a look at the data and residuals. Below are the histograms for the variables in the model. Price and carat seem skewed to the right. Note that the direction of skew is determined by where the tail is.
 
 ```{python}
-reg = rsm.regress({"diamonds": diamonds}, rvar="price", evar=["carat", "clarity"])
+reg = rsm.model.regress({"diamonds": diamonds}, rvar="price", evar=["carat", "clarity"])
 ```
 
 ```{python}
@@ -245,7 +245,7 @@ diamonds = diamonds.assign(
 ```
 
 ```{python}
-reg = rsm.regress({"diamonds": diamonds}, rvar="price_ln", evar=["carat_ln", "clarity"])
+reg = rsm.model.regress({"diamonds": diamonds}, rvar="price_ln", evar=["carat_ln", "clarity"])
 ```
 
 The relationship between log-price and log-carat looks close to linear. Exactly what we are looking for!
@@ -306,7 +306,7 @@ For each of the explanatory variables the following null and alternate hypothese
 All coefficients in this regression are highly significant.
 
 ```{python}
-reg = rsm.regress({"diamonds": diamonds}, rvar="price_ln", evar=["carat_ln", "clarity"])
+reg = rsm.model.regress({"diamonds": diamonds}, rvar="price_ln", evar=["carat_ln", "clarity"])
 reg.summary()
 ```
 

@@ -40,6 +40,15 @@ def extract_rvar(model, cn):
     return re.findall(pattern, model.formula)[0]
 
 
+def convert_to_list(v):
+    if isinstance(v, list) or v is None:
+        return v
+    elif isinstance(v, str):
+        return [v]
+    else:
+        return list(v)
+
+
 def convert_binary(rvar, lev):
     return ifelse(rvar == lev, 1, ifelse(rvar.isna(), np.nan, 0))
 

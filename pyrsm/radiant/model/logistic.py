@@ -169,7 +169,7 @@ class model_logistic:
             show_code,
             estimate,
             ret="lr",
-            sum_fun=rsm.logistic.summary,
+            sum_fun=rsm.model.logistic.summary,
         )
         mu.make_predict(
             self,
@@ -179,7 +179,7 @@ class model_logistic:
             show_code,
             estimate,
             ret="lr",
-            pred_fun=rsm.logistic.predict,
+            pred_fun=rsm.model.logistic.predict,
         )
         mu.make_plot(
             self,
@@ -206,8 +206,7 @@ def logistic(
     descriptions_dct: dict = None,
     state: dict = None,
     code: bool = True,
-    # host: str = "0.0.0.0",
-    host: str = "localhost",
+    host: str = "",
     port: int = 8000,
     log_level: str = "warning",
     debug: bool = False,
@@ -215,6 +214,7 @@ def logistic(
     """
     Launch a Radiant-for-Python app for logistic regression analysis
     """
+    host = ru.set_host(host)
     if data_dct is None:
         data_dct, descriptions_dct = ru.get_dfs(pkg="model")
     rc = model_logistic(data_dct, descriptions_dct, state=state, code=code)

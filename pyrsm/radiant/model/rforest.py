@@ -174,7 +174,7 @@ class model_rforest:
             show_code,
             estimate,
             ret="rf",
-            sum_fun=rsm.rforest.summary,
+            sum_fun=rsm.model.rforest.summary,
         )
         mu.make_predict(
             self,
@@ -184,7 +184,7 @@ class model_rforest:
             show_code,
             estimate,
             ret="rf",
-            pred_fun=rsm.rforest.predict,
+            pred_fun=rsm.model.rforest.predict,
             show_ci=False,
         )
         mu.make_plot(
@@ -212,8 +212,7 @@ def rforest(
     descriptions_dct: dict = None,
     state: dict = None,
     code: bool = True,
-    # host: str = "0.0.0.0",
-    host: str = "localhost",
+    host: str = "",
     port: int = 8000,
     log_level: str = "warning",
     debug: bool = False,
@@ -221,6 +220,7 @@ def rforest(
     """
     Launch a Radiant-for-Python app for Random Forest
     """
+    host = ru.set_host(host)
     if data_dct is None:
         data_dct, descriptions_dct = ru.get_dfs(pkg="model", name="titanic")
     rc = model_rforest(data_dct, descriptions_dct, state=state, code=code)

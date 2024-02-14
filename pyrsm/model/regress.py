@@ -17,6 +17,7 @@ from pyrsm.model.model import (
     coef_ci,
     predict_ci,
     sim_prediction,
+    convert_to_list,
 )
 from pyrsm.model.model import vif as calc_vif
 from pyrsm.model.visualize import distr_plot
@@ -52,8 +53,8 @@ class regress:
             self.name = "Not provided"
         self.data = check_dataframe(self.data)
         self.rvar = rvar
-        self.evar = ifelse(isinstance(evar, str), [evar], evar)
-        self.ivar = ifelse(isinstance(ivar, str), [ivar], ivar)
+        self.evar = convert_to_list(evar)
+        self.ivar = convert_to_list(ivar)
         self.form = form
 
         if self.form:

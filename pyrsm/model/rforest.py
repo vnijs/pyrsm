@@ -10,7 +10,7 @@ from math import sqrt, log2
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.inspection import PartialDependenceDisplay as pdp
 from pyrsm.utils import ifelse, check_dataframe, setdiff
-from pyrsm.model.model import sim_prediction, convert_binary, evalreg
+from pyrsm.model.model import sim_prediction, convert_binary, evalreg, convert_to_list
 from pyrsm.model.perf import auc
 from .visualize import pred_plot_sk, vimp_plot_sk
 
@@ -58,7 +58,7 @@ class rforest:
         self.data = check_dataframe(self.data)
         self.rvar = rvar
         self.lev = lev
-        self.evar = ifelse(isinstance(evar, str), [evar], evar)
+        self.evar = convert_to_list(evar)
         self.mod_type = mod_type
         self.oob_score = oob_score
         self.n_estimators = n_estimators
