@@ -37,9 +37,9 @@ python -m twine upload --repository pypi dist/*
 # create here: https://pypi.org/manage/account/token/
 
 ## now install in "editable" mode
-sudo pip uninstall -y pyrsm
-sudo rm -rf ~/gh/pyrsm/dist
-sudo pip install --user -e ~/gh/pyrsm
+conda activate pyrsm
+pip uninstall -y pyrsm
+rm -rf ~/gh/pyrsm/dist
 pip install --user -e ~/gh/pyrsm
 
 
