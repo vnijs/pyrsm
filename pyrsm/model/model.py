@@ -13,13 +13,31 @@ from statsmodels.stats.outliers_influence import variance_inflation_factor
 from math import ceil
 from scipy import stats
 from sklearn import metrics
+from sklearn.model_selection import StratifiedShuffleSplit
 from scipy.special import expit
-from pyrsm.utils import ifelse, expand_grid
+from pyrsm.utils import ifelse, expand_grid, check_dataframe
 from pyrsm.stats import weighted_mean, weighted_sd
 from .perf import auc
 
-# from statsmodels.regression.linear_model import RegressionResults as rrs
-# from .visualize import pred_plot_sm, vimp_plot_sm, extract_evars, extract_rvar
+
+def make_train(
+    data: pd.DataFrame | pl.DataFrame | dict[str, pd.DataFrame | pl.DataFrame],
+    strat_var: str | list[str] = None,
+    test_size: float = 0.2,
+    random_state: int = 1234,
+):
+    """
+    Use stratified sampling on one or more variables to create a training
+    variable for your dataset
+    """
+    splits = StratifiedShuffleSplit(
+        n_splits=1, test_size=test_size, random_state=random_state
+    )
+    data = check_dataframe(data)
+    training_var = np.zeros(data.shape[0])
+    for train_index, test_index in splits.split(data, data[strat_var]):
+        training_var[train_index] = 1
+    return training_var
 
 
 def extract_evars(model, cn):
