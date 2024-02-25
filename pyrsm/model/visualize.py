@@ -12,7 +12,11 @@ from .perf import auc
 
 
 def distr_plot(
-    data: pd.DataFrame | pl.DataFrame, cols: list = None, nint: int = 25, **kwargs
+    data: pd.DataFrame | pl.DataFrame,
+    cols: list = None,
+    nint: int = 25,
+    bins=25,
+    **kwargs,
 ):
     """
     Plot histograms for numeric variables and frequency plots for categorical.
@@ -28,6 +32,8 @@ def distr_plot(
     nint: int
         The number of unique values in a series of type integer below which the
         series will be treated as a categorical variable
+    bins: int
+        The number of bins to use for histograms of numeric variables
     **kwargs : Named arguments to be passed to the pandas plotting methods
     """
     data = check_dataframe(data)
@@ -58,7 +64,9 @@ def distr_plot(
                 ax=axes[row, j], title=c, rot=0, color="slateblue", **kwargs
             )
         elif pd.api.types.is_numeric_dtype(s.dtype):
-            s.plot.hist(ax=axes[row, j], title=c, rot=0, color="slateblue", **kwargs)
+            s.plot.hist(
+                ax=axes[row, j], title=c, rot=0, color="slateblue", bins=bins, **kwargs
+            )
         elif pd.api.types.is_categorical_dtype(s.dtype):
             s.value_counts(sort=False).plot.bar(
                 ax=axes[row, j], title=c, rot=0, color="slateblue", **kwargs

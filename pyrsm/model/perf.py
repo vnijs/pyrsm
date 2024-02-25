@@ -406,6 +406,7 @@ def inc_profit_plot(
     qnt=10,
     contact=True,
     marker="o",
+    prn=False,
     **kwargs,
 ):
     """
@@ -436,6 +437,8 @@ def inc_profit_plot(
         Plot a vertical line that shows the optimal contact level.
     marker : str
         Marker to use for line plot
+    prn : bool
+        Print the maximum incremental profit value(s) (default is True, requires contact=True)
     **kwargs : Named arguments to be passed to the seaborn lineplot function
 
     Returns
@@ -446,12 +449,25 @@ def inc_profit_plot(
 
     dct = ifelse(isinstance(df, dict), df, {"": df})
     pred = ifelse(isinstance(pred, str), [pred], pred)
-    group = ifelse(len(pred) > 1 or len(dct.keys()) > 1, "pred", None)
+    group = ifelse(len(pred) > 1 or len(dct.keys()) > 1, "predictor", None)
 
-    rd = inc_profit_tab(df, rvar, lev, pred, tvar, tlev, cost, margin, scale, qnt)
+    # rd = inc_profit_tab(dct, rvar, lev, pred, tvar, tlev, cost, margin, scale, qnt)
+    # fig = sns.lineplot(
+    #     x="cum_prop", y="inc_profit", data=rd, hue=group, marker=marker, **kwargs
+    # )
+
+    df = [
+        inc_profit_tab(
+            dct[k], rvar, lev, p, tvar, tlev, cost, margin, scale, qnt
+        ).assign(predictor=p + ifelse(k == "", k, f" ({k})"))
+        for k in dct.keys()
+        for p in pred
+    ]
+    df = pd.concat(df).drop(columns="pred").reset_index(drop=True)
     fig = sns.lineplot(
-        x="cum_prop", y="inc_profit", data=rd, hue=group, marker=marker, **kwargs
+        x="cum_prop", y="inc_profit", data=df, hue=group, marker=marker, **kwargs
     )
+
     fig.set(ylabel="Incremental Profit", xlabel="Percentage of population targeted")
     fig.yaxis.set_major_formatter(mtick.FuncFormatter(lambda y, _: format(int(y), ",")))
     fig.xaxis.set_major_formatter(mtick.FuncFormatter(lambda x, _: "{:.0%}".format(x)))
@@ -469,6 +485,8 @@ def inc_profit_plot(
             for k in dct.keys()
             for p in pred
         ]
+        if prn:
+            print(df)
         [
             [fig.axvline(l, linestyle="--", linewidth=1, color=sns.color_palette()[i])]
             for i, l in enumerate(filter(lambda x: x < 1, cnf))
@@ -735,6 +753,7 @@ def profit_plot(
     scale=1,
     contact=True,
     marker="o",
+    prn=True,
     **kwargs,
 ):
     """
@@ -761,6 +780,8 @@ def profit_plot(
         Plot a vertical line that shows the optimal contact level. Requires
         that `pred` is a series of probabilities. Values equal to 1 (100% contact)
         will not be plotted
+    prn : bool
+        Print the maximum profit value (default is True, requires contact=True)
     marker : str
         Marker to use for line plot
     **kwargs : Named arguments to be passed to the seaborn lineplot function
@@ -806,7 +827,8 @@ def profit_plot(
             for k in dct.keys()
             for p in pred
         ]
-        print(prof)
+        if prn:
+            print(prof)
         [
             [
                 fig.axvline(
@@ -825,7 +847,7 @@ def profit_plot(
 
 
 def expected_profit_plot(
-    df, rvar, lev, pred, cost=1, margin=2, scale=1, contact=True, **kwargs
+    df, rvar, lev, pred, cost=1, margin=2, scale=1, contact=True, prn=True, **kwargs
 ):
     """
     Plot an expected profit curve
@@ -847,6 +869,8 @@ def expected_profit_plot(
         Plot a vertical line that shows the optimal contact level. Requires
         that `pred` is a series of probabilities. Values equal to 1 (100% contact)
         will not be plotted
+    prn : bool
+        Print the maximum expect profit value (default is True, requires contact=True)
     **kwargs : Named arguments to be passed to the seaborn lineplot function
 
     Returns
@@ -895,7 +919,8 @@ def expected_profit_plot(
             for p in pred
         ]
         eprof = df.groupby("predictor", observed=False).cum_profit.max().values
-        print(eprof)
+        if prn:
+            print(eprof)
         [
             [
                 fig.axvline(

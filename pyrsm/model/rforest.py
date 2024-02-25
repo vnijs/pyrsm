@@ -10,7 +10,13 @@ from math import sqrt, log2
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.inspection import PartialDependenceDisplay as pdp
 from pyrsm.utils import ifelse, check_dataframe, setdiff
-from pyrsm.model.model import sim_prediction, convert_binary, evalreg, convert_to_list
+from pyrsm.model.model import (
+    sim_prediction,
+    convert_binary,
+    evalreg,
+    convert_to_list,
+    conditional_get_dummies,
+)
 from pyrsm.model.perf import auc
 from .visualize import pred_plot_sk, vimp_plot_sk
 
@@ -91,7 +97,8 @@ class rforest:
             )
         # only use drop_first=True for a decision tree where the categorical
         # variables are only binary
-        self.data_onehot = pd.get_dummies(self.data[evar], drop_first=False)
+        # self.data_onehot = pd.get_dummies(self.data[evar], drop_first=drop_first)
+        self.data_onehot = conditional_get_dummies(self.data[evar])
         self.n_features = [len(evar), self.data_onehot.shape[1]]
         self.fitted = self.rf.fit(self.data_onehot, self.data[self.rvar])
         self.nobs = self.data.dropna().shape[0]

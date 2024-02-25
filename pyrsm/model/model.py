@@ -71,6 +71,18 @@ def convert_binary(rvar, lev):
     return ifelse(rvar == lev, 1, ifelse(rvar.isna(), np.nan, 0))
 
 
+def conditional_get_dummies(df):
+    for column in df.select_dtypes(include=["object", "category"]).columns:
+        unique_values = df[column].nunique()
+        if unique_values == 2:  # Binary variable
+            dummies = pd.get_dummies(df[column], prefix=column, drop_first=True)
+        else:  # Multi-level variable
+            dummies = pd.get_dummies(df[column], prefix=column)
+        # Drop the original column and concatenate the new dummy columns
+        df = pd.concat([df.drop(column, axis=1), dummies], axis=1)
+    return df
+
+
 def sig_stars(pval):
     pval = np.nan_to_num(pval, nan=1.0)
     cutpoints = np.array([0.001, 0.01, 0.05, 0.1, np.Inf])

@@ -180,18 +180,26 @@ def scale_df(
     df = scale_df(df)
     """
     df = df.copy()
-    isNum = [
-        col
-        for col in df.columns
-        if pd.api.types.is_numeric_dtype(df[col].dtype)
-        and not (df[col].nunique() == 2 and df[col].min() == 0 and df[col].max() == 1)
-    ]
+
+    if means is not None and stds is not None:
+        isNum = list(means.keys())
+    else:
+        isNum = [
+            col
+            for col in df.columns
+            if pd.api.types.is_numeric_dtype(df[col].dtype)
+            and not (
+                df[col].nunique() == 2 and df[col].min() == 0 and df[col].max() == 1
+            )
+        ]
 
     if excl is not None:
         isNum = setdiff(isNum, excl)
     dfs = df[isNum]
+
     if train is None:
         train = np.array([True] * df.shape[0])
+
     if wt is None:
         if means is None:
             means = dfs[train].mean().values
@@ -201,25 +209,25 @@ def scale_df(
             stds = sf * dfs[train].std(ddof=ddof).values
         else:
             stds = np.array([stds[c] for c in isNum])
-        # df.loc[:, isNum] = (dfs - dfs[train].mean().values) / (
-        #     sf * dfs[train].std(ddof=ddof).values
-        # )
-        df.loc[:, isNum] = (dfs - means) / stds
-
     else:
-        means = weighted_mean(dfs[train], wt[train])
-        stds = sf * weighted_sd(dfs[train], wt[train], ddof=ddof)
         wt = np.array(wt)
+        if means is None:
+            means = weighted_mean(dfs[train], wt[train])
+        else:
+            means = np.array([means[c] for c in isNum])
+        if stds is None:
+            stds = sf * weighted_sd(dfs[train], wt[train], ddof=ddof)
+        else:
+            stds = np.array([stds[c] for c in isNum])
         # df.loc[:, isNum] = (dfs - weighted_mean(dfs[train], wt[train])) / (
         #     sf * weighted_sd(dfs[train], wt[train], ddof=ddof)
         # )
-        df.loc[:, isNum] = (dfs - means) / stds
+
+    df.loc[:, isNum] = (dfs - means) / stds
 
     if stats:
         means = {c: means[i] for i, c in enumerate(isNum)}
         stds = {c: stds[i] for i, c in enumerate(isNum)}
-        # means = {c: means[i] for c, i in enumerate(isNum)}
-        # stds = {c: stds[i] for c, i in enumerate(isNum)}
         return df, means, stds
     else:
         return df

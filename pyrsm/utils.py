@@ -386,10 +386,17 @@ def md_notebook(nb: str, type="python") -> None:
     with open(nb) as f:
         data = json.load(f)
 
-    source_cells = [
-        "".join(cell["source"]) for cell in data["cells"] if cell["cell_type"] == "code"
-    ]
-    md(f"```{type}\n{source_cells[0]}\n```")
+    md_return = "\n"
+
+    for cell in data["cells"]:
+        if cell["cell_type"] == "code":
+            md_return += f"```{type}\n" + "".join(cell["source"]) + "\n```\n"
+        elif cell["cell_type"] == "markdown":
+            md_return += "\n".join(cell["source"]) + "\n"
+        else:
+            md_return += "\n"
+
+    md(md_return)
 
 
 def odir(obj, private: bool = False) -> dict:

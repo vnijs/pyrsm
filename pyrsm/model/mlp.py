@@ -16,7 +16,7 @@ from .visualize import pred_plot_sk, vimp_plot_sk
 
 class mlp:
     """
-    Initialize Multi-layer Preceptron (NN) model
+    Initialize Multi-layer Perceptron (NN) model
 
     Parameters
     ----------
