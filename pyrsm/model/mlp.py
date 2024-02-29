@@ -8,7 +8,13 @@ import matplotlib.pyplot as plt
 from sklearn.neural_network import MLPClassifier, MLPRegressor
 from sklearn.inspection import PartialDependenceDisplay as pdp
 from pyrsm.utils import ifelse, check_dataframe, setdiff
-from pyrsm.model.model import sim_prediction, convert_binary, evalreg, convert_to_list
+from pyrsm.model.model import (
+    sim_prediction,
+    convert_binary,
+    evalreg,
+    convert_to_list,
+    reg_dashboard,
+)
 from pyrsm.model.perf import auc
 from pyrsm.stats import scale_df
 from .visualize import pred_plot_sk, vimp_plot_sk
@@ -210,10 +216,11 @@ class mlp:
 
     def plot(
         self,
-        plots: Literal["pred", "pdp", "vimp"] = "pred",
+        plots: Literal["pred", "pdp", "vimp", "dashboard"] = "pred",
         incl=None,
         excl=None,
         incl_int=[],
+        nobs: int = 1000,
         fix=True,
         hline=False,
         figsize=None,
@@ -255,3 +262,10 @@ class mlp:
                 ax=None,
                 ret=False,
             )
+
+        if "dashboard" in plots and self.mod_type == "regression":
+            model = self.fitted
+            model.fittedvalues = self.predict()["prediction"]
+            model.resid = self.data[self.rvar] - model.fittedvalues
+            model.model = pd.DataFrame({"endog": self.data[self.rvar]})
+            reg_dashboard(model, nobs=nobs)

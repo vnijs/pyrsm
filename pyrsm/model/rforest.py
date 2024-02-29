@@ -16,6 +16,7 @@ from pyrsm.model.model import (
     evalreg,
     convert_to_list,
     conditional_get_dummies,
+    reg_dashboard,
 )
 from pyrsm.model.perf import auc
 from .visualize import pred_plot_sk, vimp_plot_sk
@@ -214,6 +215,7 @@ class rforest:
         incl=None,
         excl=None,
         incl_int=[],
+        nobs: int = 1000,
         fix=True,
         hline=False,
         figsize=None,
@@ -254,3 +256,10 @@ class rforest:
                 ax=None,
                 ret=False,
             )
+
+        if "dashboard" in plots and self.mod_type == "regression":
+            model = self.fitted
+            model.fittedvalues = self.predict()["prediction"]
+            model.resid = self.data[self.rvar] - model.fittedvalues
+            model.model = pd.DataFrame({"endog": self.data[self.rvar]})
+            reg_dashboard(model, nobs=nobs)

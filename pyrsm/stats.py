@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from math import sqrt
-from pyrsm.utils import ifelse, setdiff
+from pyrsm.utils import ifelse, setdiff, intersect
 
 
 def varprop(x, na=True):
@@ -193,8 +193,10 @@ def scale_df(
             )
         ]
 
+    isNum = intersect(isNum, df.columns.tolist())
     if excl is not None:
         isNum = setdiff(isNum, excl)
+
     dfs = df[isNum]
 
     if train is None:
