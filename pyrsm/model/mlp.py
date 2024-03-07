@@ -194,19 +194,17 @@ class mlp:
             data_onehot = pd.get_dummies(data_std, drop_first=False)
         else:
             data_onehot = pd.get_dummies(data, drop_first=False)
+
+        # adding back levels for categorical variables is they were removed
         if data_onehot.shape[1] != self.data_onehot.shape[1]:
-            data_onehot_missing = pd.DataFrame(
-                {
-                    k: [False] * data_onehot.shape[0]
-                    for k in setdiff(self.data_onehot.columns, data_onehot.columns)
-                }
-            )
-            data_onehot = pd.concat([data_onehot, data_onehot_missing], axis=1)
+            for k in setdiff(self.data_onehot.columns, data_onehot.columns):
+                data_onehot[k] = [False]
             data_onehot = data_onehot[self.data_onehot.columns]
 
         if self.mod_type == "classification":
             data["prediction"] = self.fitted.predict_proba(data_onehot)[:, -1]
         else:
+            print(data_onehot.head())
             data["prediction"] = (
                 self.fitted.predict(data_onehot) * self.stds[self.rvar]
                 + self.means[self.rvar]
