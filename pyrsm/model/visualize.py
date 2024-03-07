@@ -6,6 +6,7 @@ import numpy as np
 import seaborn as sns
 import statsmodels as sm
 from sklearn.inspection import permutation_importance
+from pyrsm.stats import scale_df
 from pyrsm.utils import ifelse, intersect, setdiff, check_dataframe, check_series
 from .model import sim_prediction, extract_evars, extract_rvar
 from .perf import auc
@@ -336,6 +337,17 @@ def pred_plot_sk(
             "This function requires a fitted sklearn model with a named features. If you are using one-hot encoding, please use get_dummies on your dataset before fitting the model."
         )
 
+    if isinstance(data, dict):
+        means = data["means"]
+        stds = data["stds"]
+        data = data["data"]
+        # print(data.head())
+        data = scale_df(data, means=means, stds=stds, sf=1)
+        # print(data.head())
+    else:
+        means = None
+        stds = None
+
     data = check_dataframe(data)
 
     not_transformed = [c for c in data.columns for f in fn if c == f]
@@ -371,7 +383,17 @@ def pred_plot_sk(
         if sk_type == "classification":
             return fitted.predict_proba(data)[:, 1]
         else:
-            return fitted.predict(data)
+            if (
+                sk_type == "regression"
+                and means is not None
+                and stds is not None
+                and rvar is not None
+            ):
+                pred = fitted.predict(data) * stds[rvar] + means[rvar]
+            else:
+                pred = fitted.predict(data)
+
+            return pred
 
     if incl is None:
         incl = not_transformed + transformed
@@ -456,6 +478,12 @@ def pred_plot_sk(
         if sum(is_num) < 2:
             min_max = calc_ylim("prediction", iplot, min_max)
         pred_dict[v] = iplot
+
+    if len(pred_dict) > 0 and means is not None and stds is not None:
+        for k in pred_dict.keys():
+            for c in means.keys():
+                if c in pred_dict[k].columns:
+                    pred_dict[k][c] = pred_dict[k][c] * stds[c] + means[c]
 
     row = col = 0
     for i, v in enumerate(incl):
@@ -654,6 +682,8 @@ def vimp_plot_sk(fitted, X, y, rep=5, ax=None, ret=False):
         fitted, X, y, scoring=scoring, n_repeats=rep, random_state=1234
     )
     data = pd.DataFrame(imp.importances.T)
+    # print(data)
+    # print(fitted.feature_names_in_)
     data.columns = fitted.feature_names_in_
     sorted_idx = pd.DataFrame(data.mean().sort_values())
     fig = sorted_idx.plot.barh(

@@ -65,7 +65,7 @@ class logistic:
             self.weights_name = self.weights = None
 
         if self.lev is not None and self.rvar is not None:
-            self.data[self.rvar] = convert_binary(self.data[self.rvar], self.lev)
+            self.data = convert_binary(self.data, self.rvar, self.lev)
 
         if self.form:
             self.fitted = smf.glm(
@@ -196,6 +196,8 @@ class logistic:
         minq=0.025,
         maxq=0.975,
         figsize=None,
+        ax=None,
+        ret=None,
     ) -> None:
         """
         Plots for a logistic regression model
@@ -212,7 +214,7 @@ class logistic:
         if "pred" in plots:
             pred_plot_sm(
                 self.fitted,
-                data=ifelse(data is None, self.data, data),
+                data=ifelse(data is None, self.data[self.evar + [self.rvar]], data),
                 incl=incl,
                 excl=ifelse(excl is None, [], excl),
                 incl_int=incl_int,
@@ -223,13 +225,15 @@ class logistic:
                 maxq=maxq,
             )
         if "vimp" in plots:
-            vimp_plot_sm(
+            return_vimp = vimp_plot_sm(
                 self.fitted,
                 data=ifelse(data is None, self.data, data),
                 rep=10,
-                ax=None,
-                ret=False,
+                ax=ax,
+                ret=True,
             )
+            if ret is not None:
+                return return_vimp
 
     def chisq_test(self, test=None, dec=3) -> None:
         """

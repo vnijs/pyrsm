@@ -78,7 +78,7 @@ class mlp:
 
         if self.mod_type == "classification":
             if self.lev is not None and self.rvar is not None:
-                self.data[self.rvar] = convert_binary(self.data[self.rvar], self.lev)
+                self.data = convert_binary(self.data, self.rvar, self.lev)
 
             self.mlp = MLPClassifier(
                 hidden_layer_sizes=self.hidden_layer_sizes,
@@ -217,31 +217,57 @@ class mlp:
     def plot(
         self,
         plots: Literal["pred", "pdp", "vimp", "dashboard"] = "pred",
+        data=None,
         incl=None,
         excl=None,
         incl_int=[],
         nobs: int = 1000,
         fix=True,
         hline=False,
+        nnv=40,
+        minq=0.025,
+        maxq=0.975,
         figsize=None,
+        ax=None,
+        ret=None,
     ) -> None:
         """
         Plots for a Multi-layer Perceptron model (NN)
         """
+        rvar = self.rvar
         if "pred" in plots:
+            if data is None:
+                data_dct = {
+                    "data": self.data[self.evar + [rvar]],
+                    "means": self.means,
+                    "stds": self.stds,
+                }
+            else:
+                if self.rvar in data.columns:
+                    vars = self.evar + [rvar]
+                    if self.mod_type == "classification":
+                        data = convert_binary(data, rvar, self.lev)
+                else:
+                    vars = self.evar
+                    rvar = None
+                data_dct = {
+                    "data": data[vars],
+                    "means": self.means,
+                    "stds": self.stds,
+                }
+
             pred_plot_sk(
                 self.fitted,
-                # self.data[[self.rvar] + self.evar],
-                self.data_std[[self.rvar] + self.evar],
-                self.rvar,
+                data=data_dct,
+                rvar=rvar,
                 incl=incl,
                 excl=ifelse(excl is None, [], excl),
                 incl_int=incl_int,
                 fix=fix,
                 hline=hline,
-                nnv=40,
-                minq=0.025,
-                maxq=0.975,
+                nnv=nnv,
+                minq=minq,
+                maxq=maxq,
             )
 
         if "pdp" in plots:
@@ -254,14 +280,17 @@ class mlp:
             )
 
         if "vimp" in plots:
-            vimp_plot_sk(
+            return_vimp = vimp_plot_sk(
                 self.fitted,
                 self.data_onehot,
                 self.data[self.rvar],
                 rep=5,
-                ax=None,
-                ret=False,
+                ax=ax,
+                ret=True,
             )
+
+            if ret is not None:
+                return return_vimp
 
         if "dashboard" in plots and self.mod_type == "regression":
             model = self.fitted

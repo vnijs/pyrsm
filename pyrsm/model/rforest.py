@@ -77,7 +77,7 @@ class rforest:
 
         if self.mod_type == "classification":
             if self.lev is not None and self.rvar is not None:
-                self.data[self.rvar] = convert_binary(self.data[self.rvar], self.lev)
+                self.data = convert_binary(self.data, self.rvar, self.lev)
 
             self.rf = RandomForestClassifier(
                 n_estimators=self.n_estimators,
@@ -212,13 +212,19 @@ class rforest:
     def plot(
         self,
         plots: Literal["pred", "pdp", "vimp"] = "pred",
+        data=None,
         incl=None,
         excl=None,
         incl_int=[],
         nobs: int = 1000,
         fix=True,
         hline=False,
+        nnv=20,
+        minq=0.025,
+        maxq=0.975,
         figsize=None,
+        ax=None,
+        ret=None,
     ) -> None:
         """
         Plots for a random forest model model
@@ -226,16 +232,16 @@ class rforest:
         if "pred" in plots:
             pred_plot_sk(
                 self.fitted,
-                self.data[self.evar + [self.rvar]],
-                self.rvar,
+                data=ifelse(data is None, self.data[self.evar], data),
+                rvar=self.rvar,
                 incl=incl,
                 excl=[],
                 incl_int=incl_int,
                 fix=fix,
                 hline=hline,
-                nnv=20,
-                minq=0.025,
-                maxq=0.975,
+                nnv=nnv,
+                minq=minq,
+                maxq=maxq,
             )
 
         if "pdp" in plots:
@@ -248,14 +254,16 @@ class rforest:
             )
 
         if "vimp" in plots:
-            vimp_plot_sk(
+            return_vimp = vimp_plot_sk(
                 self.fitted,
                 self.data_onehot,
                 self.data[self.rvar],
                 rep=5,
-                ax=None,
-                ret=False,
+                ax=ax,
+                ret=True,
             )
+            if ret is not None:
+                return return_vimp
 
         if "dashboard" in plots and self.mod_type == "regression":
             model = self.fitted

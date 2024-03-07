@@ -197,7 +197,8 @@ def scale_df(
     if excl is not None:
         isNum = setdiff(isNum, excl)
 
-    dfs = df[isNum]
+    df[isNum] = df[isNum].astype(np.float64)
+    dfs = df[isNum].copy()
 
     if train is None:
         train = np.array([True] * df.shape[0])

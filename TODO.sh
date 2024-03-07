@@ -22,6 +22,7 @@ pip uninstall -y pyrsm
 rm -rf ~/gh/pyrsm/dist
 # sudo rm -rf ~/gh/pyrsm/build/*
 # pip install -q build
+# pip install -q twine
 python -m build ~/gh/pyrsm
 
 # try sending to pypi testing ground first
@@ -51,13 +52,14 @@ pip install --user -e ~/gh/pyrsm
 poetry env list
 
 # create a new
-sudo rm -rf ~/testenv
+rm -rf ~/testenv
 conda activate pyrsm
 python -m venv ~/testenv
 conda deactivate
 source ~/testenv/bin/activate
 pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "pyrsm==0.9.12"
-pip install "pyrsm>=0.9.14"
+pip install pyrsm --upgrade
+python -c "import pyrsm as rsm; print(rsm.__version__); print(rsm.__file__)"
 python -c "import pyrsm as rsm"
 python -c "import pyrsm as rsm; rsm.radiant.radiant()"
 python -c "import pyrsm as rsm; rsm.radiant.model.regress()"

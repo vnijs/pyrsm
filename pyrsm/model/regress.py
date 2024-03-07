@@ -201,7 +201,12 @@ class regress:
         incl_int=[],
         fix=True,
         hline=False,
+        nnv=20,
+        minq=0.025,
+        maxq=0.975,
         figsize=None,
+        ax=None,
+        ret=None,
     ) -> None:
         """
         Plots for a linear regression model
@@ -221,24 +226,26 @@ class regress:
         if "pred" in plots:
             pred_plot_sm(
                 self.fitted,
-                data=ifelse(data is None, self.data, data),
+                data=ifelse(data is None, self.data[self.evar], data),
                 incl=incl,
                 excl=ifelse(excl is None, [], excl),
                 incl_int=incl_int,
                 fix=fix,
                 hline=hline,
-                nnv=20,
-                minq=0.025,
-                maxq=0.975,
+                nnv=nnv,
+                minq=minq,
+                maxq=maxq,
             )
         if "vimp" in plots:
-            vimp_plot_sm(
+            return_vimp = vimp_plot_sm(
                 self.fitted,
                 data=ifelse(data is None, self.data, data),
                 rep=10,
-                ax=None,
-                ret=False,
+                ax=ax,
+                ret=True,
             )
+            if ret is not None:
+                return return_vimp
         if "coef" in plots:
             coef_plot(
                 self.fitted,

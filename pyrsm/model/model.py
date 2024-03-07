@@ -67,8 +67,11 @@ def convert_to_list(v):
         return list(v)
 
 
-def convert_binary(rvar, lev):
-    return ifelse(rvar == lev, 1, ifelse(rvar.isna(), np.nan, 0))
+def convert_binary(data, rvar, lev):
+    cb = ifelse(data[rvar] == lev, 1, ifelse(data[rvar].isna(), np.nan, 0))
+    data = data.drop(columns=rvar).copy()
+    data.loc[:, rvar] = cb
+    return data
 
 
 def conditional_get_dummies(df):
