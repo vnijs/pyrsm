@@ -198,7 +198,7 @@ class mlp:
         # adding back levels for categorical variables is they were removed
         if data_onehot.shape[1] != self.data_onehot.shape[1]:
             for k in setdiff(self.data_onehot.columns, data_onehot.columns):
-                data_onehot[k] = [False]
+                data_onehot[k] = False
             data_onehot = data_onehot[self.data_onehot.columns]
 
         if self.mod_type == "classification":
