@@ -5,3 +5,4 @@ from .model import *
 from .perf import *
 from .regress import *
 from .visualize import *
+from .xgboost import *
