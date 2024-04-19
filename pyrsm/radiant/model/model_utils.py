@@ -260,6 +260,19 @@ def make_estimate(
                         "max_iter": input.max_iter(),
                     }
                 )
+            elif ret == 'xgb':
+                args.update(
+                    {
+                        "mod_type": input.mod_type(),
+                        "n_estimators": input.n_estimators(),
+                        "learning_rate": input.learning_rate(),
+                        "max_depth": input.max_depth(),
+                        "min_split_loss": input.min_split_loss(),
+                        "sub_sample": input.sub_sample(),
+                        "min_child_weight": input.min_child_weight(),
+                        "random_state": input.random_state(),
+                    }
+                )
 
             args_str = ru.drop_default_args(args, getattr(rsm, fun))
 

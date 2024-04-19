@@ -17,7 +17,7 @@ from pyrsm.model.model import (
 from pyrsm.model.perf import auc
 from .visualize import pred_plot_sk, vimp_plot_sk
 
-class xgboost:
+class exgboost:
     def __init__(
         self,
         data: pd.DataFrame | pl.DataFrame | dict[str, pd.DataFrame | pl.DataFrame],
@@ -26,12 +26,12 @@ class xgboost:
         evar: Optional[list[str]] = None,
         objective: Literal["reg", "binary:logistic"] = "reg",
         n_estimators: int = 100,
-        learning_rate: float = 0.1,
-        max_depth: int = 3,
+        max_depth: int = 6,
         subsample: float = 1,
-        colsample_bytree: float = 1,
-        colsample_bylevel: float = 1,
-        reg_lambda: float = 1,
+        # learning_rate: float = 0.1,
+        # min_split_loss: float = 1,
+        # min_child_weight: float = 1,
+        # reg_lambda: float = 1,
         random_state: int = 1234,
         mod_type: Literal["regression", "classification"] = "classification",
         **kwargs,
@@ -49,12 +49,12 @@ class xgboost:
         self.mod_type = mod_type
         self.objective = objective
         self.n_estimators = n_estimators
-        self.learning_rate = learning_rate
         self.max_depth = max_depth
         self.subsample = subsample
-        self.colsample_bytree = colsample_bytree
-        self.colsample_bylevel = colsample_bylevel
-        self.reg_lambda = reg_lambda
+        # self.learning_rate = learning_rate
+        # self.min_split_loss = min_split_loss
+        # self.min_child_weight = min_child_weight
+        # self.reg_lambda = reg_lambda
         self.random_state = random_state
         self.kwargs = kwargs
 
@@ -111,7 +111,7 @@ class xgboost:
             print(
                 evalreg(
                     pd.DataFrame().assign(
-                        rvar=self.data_std[[self.rvar]],
+                        rvar=self.data[[self.rvar]],
                         prediction=self.fitted.predict(self.data_onehot),
                     ),
                     "rvar",
@@ -127,8 +127,8 @@ class xgboost:
             kwargs_list = [f"{k}={v}" for k, v in self.kwargs.items()]
             print(f"Extra arguments      : {', '.join(kwargs_list)}")
         
-        print("\nRaw data             :")
-        print(self.data[self.evar].head().to_string(index=False))
+        # print("\nRaw data             :")
+        # print(self.data[self.evar].head().to_string(index=False))
 
         print("\nEstimation data      :")
         print(self.data_onehot.head().to_string(index=False))
