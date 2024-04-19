@@ -12,3 +12,4 @@ from .model.logistic import *
 from .model.rforest import *
 from .model.mlp import *
 from .radiant import *
+from .model.exgboost import *
