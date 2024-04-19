@@ -43,12 +43,13 @@ def summary_extra(self):
                     "learning_rate",
                     "Learning Rate:",
                     value=self.state.get("learning_rate", 0.3),
+                    step=0.1,
                 ),
             ),
             ru.make_side_by_side(
                 ui.input_numeric(
                     "max_depth",
-                    "Max features:",
+                    "Max depth:",
                     value=self.state.get("max_depth", 6),
                 ),
                 ui.input_numeric(
@@ -59,11 +60,12 @@ def summary_extra(self):
             ),
             ru.make_side_by_side(
                 ui.input_numeric(
-                    "sub_sample",
-                    "Sub-sample:",
-                    value=self.state.get("sub_sample", 1),
+                    "subsample",
+                    "Subsample:",
+                    value=self.state.get("subsample", 1.0),
                     min=0,
-                    max=1
+                    max=1,
+                    step=0.1,
                 ),
                 ui.input_numeric(
                     "min_split_loss",

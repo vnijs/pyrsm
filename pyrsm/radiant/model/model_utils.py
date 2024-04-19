@@ -268,7 +268,7 @@ def make_estimate(
                         "learning_rate": input.learning_rate(),
                         "max_depth": input.max_depth(),
                         "min_split_loss": input.min_split_loss(),
-                        "sub_sample": input.sub_sample(),
+                        "subsample": input.subsample(),
                         "min_child_weight": input.min_child_weight(),
                         "random_state": input.random_state(),
                     }
