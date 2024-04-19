@@ -3,9 +3,6 @@ import pandas as pd
 import polars as pl
 import matplotlib.pyplot as plt
 
-# from sklearn.model_selection import GridSearchCV
-# from sklearn.model_selection import StratifiedKFold
-# from sklearn import metrics, tree
 from xgboost import XGBClassifier, XGBRegressor
 from sklearn.inspection import PartialDependenceDisplay as pdp
 from pyrsm.utils import ifelse, check_dataframe, setdiff
@@ -80,9 +77,7 @@ class xgboost:
                 random_state=self.random_state,
                 **kwargs,
             )
-        # only use drop_first=True for a decision tree where the categorical
-        # variables are only binary
-        # self.data_onehot = pd.get_dummies(self.data[evar], drop_first=drop_first)
+
         self.data_onehot = conditional_get_dummies(self.data[evar])
         self.n_features = [len(evar), self.data_onehot.shape[1]]
         self.fitted = self.xgb.fit(self.data_onehot, self.data[self.rvar])
