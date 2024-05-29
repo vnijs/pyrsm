@@ -12,3 +12,4 @@ from .model.regress import *
 from .model.visualize import *
 from .notebook import *
 from .example_data import *
+from .model.exgboost import *
