@@ -103,13 +103,13 @@ class mlp:
                 random_state=self.random_state,
                 **kwargs,
             )
-        self.data_std, self.means, self.stds = scale_df(
-            self.data[[rvar] + self.evar], sf=1, stats=True
-        )
+        self.data_std, self.means, self.stds = scale_df(self.data[[rvar] + self.evar], sf=1, stats=True)
         # use drop_first=True
         self.data_onehot = pd.get_dummies(self.data_std[self.evar], drop_first=True)
         self.n_features = [len(evar), self.data_onehot.shape[1]]
+
         self.fitted = self.mlp.fit(self.data_onehot, self.data_std[self.rvar])
+        self.n_weights = sum(weight_matrix.size for weight_matrix in self.fitted.coefs_)
         self.nobs = self.data.dropna().shape[0]
 
     def summary(self, dec=3) -> None:
@@ -122,10 +122,9 @@ class mlp:
         if self.mod_type == "classification":
             print(f"Level                : {self.lev}")
         print(f"Explanatory variables: {', '.join(self.evar)}")
-        print(
-            f"Model type           : {ifelse(self.mod_type == 'classification', 'classification', 'regression')}"
-        )
+        print(f"Model type           : {ifelse(self.mod_type == 'classification', 'classification', 'regression')}")
         print(f"Nr. of features      : ({self.n_features[0]}, {self.n_features[1]})")
+        print(f"Nr. of weights       : {format(self.n_weights, ',.0f')}")
         print(f"Nr. of observations  : {format(self.nobs, ',.0f')}")
         print(f"Hidden_layer_sizes   : {self.hidden_layer_sizes}")
         print(f"Activation function  : {self.activation}")
@@ -166,9 +165,7 @@ class mlp:
         print("\nEstimation data      :")
         print(self.data_onehot.head().to_string(index=False))
 
-    def predict(
-        self, data=None, cmd=None, data_cmd=None, scale=True, means=None, stds=None
-    ) -> pd.DataFrame:
+    def predict(self, data=None, cmd=None, data_cmd=None, scale=True, means=None, stds=None) -> pd.DataFrame:
         """
         Predict probabilities or values for an MLP
         """
@@ -205,10 +202,7 @@ class mlp:
             data["prediction"] = self.fitted.predict_proba(data_onehot)[:, -1]
         else:
             print(data_onehot.head())
-            data["prediction"] = (
-                self.fitted.predict(data_onehot) * self.stds[self.rvar]
-                + self.means[self.rvar]
-            )
+            data["prediction"] = self.fitted.predict(data_onehot) * self.stds[self.rvar] + self.means[self.rvar]
 
         return data
 
@@ -273,9 +267,7 @@ class mlp:
                 figsize = (8, len(self.data_onehot.columns) * 2)
             fig, ax = plt.subplots(figsize=figsize)
             ax.set_title("Partial Dependence Plots")
-            fig = pdp.from_estimator(
-                self.fitted, self.data_onehot, self.data_onehot.columns, ax=ax, n_cols=2
-            )
+            fig = pdp.from_estimator(self.fitted, self.data_onehot, self.data_onehot.columns, ax=ax, n_cols=2)
 
         if "vimp" in plots:
             return_vimp = vimp_plot_sk(
