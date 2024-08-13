@@ -19,23 +19,48 @@ from pyrsm.model.perf import auc
 from pyrsm.stats import scale_df
 from .visualize import pred_plot_sk, vimp_plot_sk
 
+# update docstrings using https://chatgpt.com/share/e/95faf46d-7f74-4ab7-b24b-fac0d22e6dec
+
 
 class mlp:
     """
-    Initialize Multi-layer Perceptron (NN) model
+    Initialize a Multi-layer Perceptron (NN) model.
 
     Parameters
     ----------
-    data: pandas DataFrame; dataset
-    lev: String; name of the level in the response variable
-    rvar: String; name of the column to be used as the response variable
-    evar: List of strings; contains the names of the column of data to be used as the explanatory (target) variable
-    hidden_layer_sizes: The number of neurons in the hidden layer and the number of hidden layers (e..g, (5,) for 5 neurons in 1 hidden layer, (5, 5) for 5 neurons in 2 hidden layers, etc.)
-    activation: Activation function apply to transform for the nodes in the hidden layer
-    solver: The solver used for weight optimization
-    alpha: L2 penalty (regularization term) parameter
+    data : pd.DataFrame or pl.DataFrame or dict of str to pd.DataFrame or pl.DataFrame
+        The dataset to be used. If a dictionary is provided, the key will be used as the dataset name.
+    rvar : str, optional
+        The name of the column to be used as the response variable.
+    lev : str, optional
+        The level in the response variable to be modeled.
+    evar : list of str, optional
+        The names of the columns to be used as explanatory (target) variables.
+    hidden_layer_sizes : tuple, default=(5,)
+        The number of neurons in the hidden layers. For example, (5,) for 5 neurons in 1 hidden layer, (5, 5) for 5 neurons in 2 hidden layers, etc.
+    activation : {'identity', 'logistic', 'tanh', 'relu'}, default='tanh'
+        Activation function to transform the data at each node in the hidden layer.
+    solver : {'lbfgs', 'sgd', 'adam'}, default='lbfgs'
+        The solver for weight optimization. Note that 'adam' also uses stochastic gradient descent.
+    alpha : float, default=0.0001
+        L2 penalty (regularization term) parameter.
+    batch_size : float or str, default='auto'
+        Size of minibatches for stochastic optimizers (i.e., 'sgd' or 'adam'). If 'auto', batch_size=min(200, n_samples).
+    learning_rate_init : float, default=0.001
+        Initial learning rate used. It controls the step-size in updating the weights. Only used when solver='sgd' or 'adam'.
+    max_iter : int, default=1_000_000
+        Maximum number of iterations. The solver iterates until convergence (determined by 'tol') or this number of iterations.
+    random_state : int, default=1234
+        Seed of the pseudo-random number generator to use for shuffling the data.
+    mod_type : {'regression', 'classification'}, default='classification'
+        Type of model to fit, either regression or classification.
+    **kwargs : dict
+        Additional arguments to be passed to the sklearn's Multi-layer Perceptron functions.
 
-    **kwargs : Named arguments to be passed to the sklearn's Multi-layer Perceptron functions
+    Examples
+    --------
+    >>> model = mlp(data=df, rvar='target', evar=['feature1', 'feature2'])
+
     """
 
     def __init__(
@@ -50,7 +75,7 @@ class mlp:
         alpha: float = 0.0001,
         batch_size: float | str = "auto",
         learning_rate_init: float = 0.001,
-        max_iter: int = 10_000,
+        max_iter: int = 1_000_000,
         random_state: int = 1234,
         mod_type: Literal["regression", "classification"] = "classification",
         **kwargs,
@@ -103,10 +128,8 @@ class mlp:
                 random_state=self.random_state,
                 **kwargs,
             )
-        self.data_std, self.means, self.stds = scale_df(
-            self.data[[rvar] + self.evar], sf=1, stats=True
-        )
-        # use drop_first=True
+        self.data_std, self.means, self.stds = scale_df(self.data[[rvar] + self.evar], sf=1, stats=True)
+        # use drop_first=True for one-hot encoding because NN models include a bias term
         self.data_onehot = pd.get_dummies(self.data_std[self.evar], drop_first=True)
         self.n_features = [len(evar), self.data_onehot.shape[1]]
         self.fitted = self.mlp.fit(self.data_onehot, self.data_std[self.rvar])
@@ -114,7 +137,16 @@ class mlp:
 
     def summary(self, dec=3) -> None:
         """
-        Summarize output from a Multi-layer Perceptron (NN) model
+        Summarize the output from a Multi-layer Perceptron (NN) model.
+
+        Parameters
+        ----------
+        dec : int, default=3
+            Number of decimal places to display in the summary.
+
+        Examples
+        --------
+        >>> model.summary()
         """
         print("Multi-layer Perceptron (NN)")
         print(f"Data                 : {self.name}")
@@ -122,9 +154,7 @@ class mlp:
         if self.mod_type == "classification":
             print(f"Level                : {self.lev}")
         print(f"Explanatory variables: {', '.join(self.evar)}")
-        print(
-            f"Model type           : {ifelse(self.mod_type == 'classification', 'classification', 'regression')}"
-        )
+        print(f"Model type           : {ifelse(self.mod_type == 'classification', 'classification', 'regression')}")
         print(f"Nr. of features      : ({self.n_features[0]}, {self.n_features[1]})")
         print(f"Nr. of observations  : {format(self.nobs, ',.0f')}")
         print(f"Hidden_layer_sizes   : {self.hidden_layer_sizes}")
@@ -166,11 +196,33 @@ class mlp:
         print("\nEstimation data      :")
         print(self.data_onehot.head().to_string(index=False))
 
-    def predict(
-        self, data=None, cmd=None, data_cmd=None, scale=True, means=None, stds=None
-    ) -> pd.DataFrame:
+    def predict(self, data=None, cmd=None, data_cmd=None, scale=True, means=None, stds=None) -> pd.DataFrame:
         """
-        Predict probabilities or values for an MLP
+        Predict probabilities or values for the MLP model.
+
+        Parameters
+        ----------
+        data : pd.DataFrame, optional
+            The data to predict. If None, uses the training data.
+        cmd : dict, optional
+            Command dictionary to simulate predictions.
+        data_cmd : dict, optional
+            Command dictionary to modify the data before predictions.
+        scale : bool, default=True
+            Whether to scale the data before prediction.
+        means : pd.Series, optional
+            Means of the training data features for scaling. Will use the means used during estimation if not provided.
+        stds : pd.Series, optional
+            Standard deviations of the training data features for scaling. Will use the standard deviations used during estimation if not provided.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame with predictions.
+
+        Examples
+        --------
+        >>> predictions = model.predict(new_data)
         """
         if data is None:
             data = self.data.loc[:, self.evar].copy()
@@ -205,10 +257,7 @@ class mlp:
             data["prediction"] = self.fitted.predict_proba(data_onehot)[:, -1]
         else:
             print(data_onehot.head())
-            data["prediction"] = (
-                self.fitted.predict(data_onehot) * self.stds[self.rvar]
-                + self.means[self.rvar]
-            )
+            data["prediction"] = self.fitted.predict(data_onehot) * self.stds[self.rvar] + self.means[self.rvar]
 
         return data
 
@@ -230,7 +279,43 @@ class mlp:
         ret=None,
     ) -> None:
         """
-        Plots for a Multi-layer Perceptron model (NN)
+        Generate plots for the Multi-layer Perceptron model.
+
+        Parameters
+        ----------
+        plots : {'pred', 'pdp', 'vimp', 'dashboard'}, default='pred'
+            Type of plot to generate. Options are 'pred' for prediction plot, 'pdp' for partial dependence plot, 'vimp' for variable importance plot which uses premutation importance, and 'dashboard' for a regression dashboard.
+        data : pd.DataFrame, optional
+            Data to use for the plots. If None, uses the training data.
+        incl : list of str, optional
+            Variables to include in the plots.
+        excl : list of str, optional
+            Variables to exclude from the plots.
+        incl_int : list, optional
+            Interactions to include in the plots.
+        nobs : int, default=1000
+            Number of observations to include in the scatter plots for the dashboard plot.
+        fix : bool, default=True
+            Whether to fix the scale of the plots based on the maximum impact range of the include explanatory variables.
+        hline : bool, default=False
+            Whether to include a horizontal line at the mean response rate in the plots.
+        nnv : int, default=40
+            Number of values to use for the prediction plot.
+        minq : float, default=0.025
+            Minimum quantile for the prediction plot.
+        maxq : float, default=0.975
+            Maximum quantile for the prediction plot.
+        figsize : tuple, optional
+            Figure size for the plots.
+        ax : plt.Axes, optional
+            Axes object to plot on.
+        ret : bool, optional
+            Whether to return the the variable (permutation) importance scores.
+
+        Examples
+        --------
+        >>> model.plot(plots='pdp')
+        >>> model.plot(plots='vimp', data=new_data)
         """
         rvar = self.rvar
         if "pred" in plots:
@@ -273,9 +358,7 @@ class mlp:
                 figsize = (8, len(self.data_onehot.columns) * 2)
             fig, ax = plt.subplots(figsize=figsize)
             ax.set_title("Partial Dependence Plots")
-            fig = pdp.from_estimator(
-                self.fitted, self.data_onehot, self.data_onehot.columns, ax=ax, n_cols=2
-            )
+            fig = pdp.from_estimator(self.fitted, self.data_onehot, self.data_onehot.columns, ax=ax, n_cols=2)
 
         if "vimp" in plots:
             return_vimp = vimp_plot_sk(

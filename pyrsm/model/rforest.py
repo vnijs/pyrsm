@@ -99,7 +99,7 @@ class rforest:
         # only use drop_first=True for a decision tree where the categorical
         # variables are only binary
         # self.data_onehot = pd.get_dummies(self.data[evar], drop_first=drop_first)
-        self.data_onehot = conditional_get_dummies(self.data[evar])
+        self.data_onehot = conditional_get_dummies(self.data[self.evar])
         self.n_features = [len(evar), self.data_onehot.shape[1]]
         self.fitted = self.rf.fit(self.data_onehot, self.data[self.rvar])
         self.nobs = self.data.dropna().shape[0]
@@ -115,9 +115,7 @@ class rforest:
             print(f"Level                : {self.lev}")
         print(f"Explanatory variables: {', '.join(self.evar)}")
         print(f"OOB                  : {self.oob_score}")
-        print(
-            f"Model type           : {ifelse(self.mod_type == 'classification', 'classification', 'regression')}"
-        )
+        print(f"Model type           : {ifelse(self.mod_type == 'classification', 'classification', 'regression')}")
         if self.max_features == "sqrt":
             # round down
             nr = int(sqrt(self.n_features[1]))
@@ -136,9 +134,7 @@ class rforest:
         print(f"random_state         : {self.random_state}")
         if self.mod_type == "classification":
             cpred = self.fitted.oob_decision_function_[:, 1]
-            print(
-                f"AUC                  : {round(auc(self.data[self.rvar], cpred), dec)}"
-            )
+            print(f"AUC                  : {round(auc(self.data[self.rvar], cpred), dec)}")
         else:
             print("Model fit            :")
             print(
@@ -166,12 +162,7 @@ class rforest:
         """
         Predict probabilities or values for a random forest model
         """
-        if (
-            data is None
-            and self.oob_score
-            and (data_cmd is None or data_cmd == "")
-            and (cmd is None or cmd == "")
-        ):
+        if data is None and self.oob_score and (data_cmd is None or data_cmd == "") and (cmd is None or cmd == ""):
             data = self.data.loc[:, self.evar].copy()
             if self.mod_type == "classification":
                 pred = self.fitted.oob_decision_function_[:, 1]
@@ -224,7 +215,7 @@ class rforest:
         ret=None,
     ) -> None:
         """
-        Plots for a random forest model model
+        Plots for a random forest model
         """
         if "pred" in plots:
             pred_plot_sk(
@@ -246,9 +237,7 @@ class rforest:
                 figsize = (8, len(self.data_onehot.columns) * 2)
             fig, ax = plt.subplots(figsize=figsize)
             ax.set_title("Partial Dependence Plots")
-            fig = pdp.from_estimator(
-                self.fitted, self.data_onehot, self.data_onehot.columns, ax=ax, n_cols=2
-            )
+            fig = pdp.from_estimator(self.fitted, self.data_onehot, self.data_onehot.columns, ax=ax, n_cols=2)
 
         if "vimp" in plots:
             return_vimp = vimp_plot_sk(

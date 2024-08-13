@@ -8,7 +8,7 @@ import statsmodels as sm
 from sklearn.inspection import permutation_importance
 from pyrsm.stats import scale_df
 from pyrsm.utils import ifelse, intersect, setdiff, check_dataframe, check_series
-from .model import sim_prediction, extract_evars, extract_rvar
+from .model import sim_prediction, extract_evars, extract_rvar, conditional_get_dummies
 from .perf import auc
 
 
@@ -52,9 +52,7 @@ def distr_plot(
 
     data = data.loc[:, cols].copy()
 
-    fig, axes = plt.subplots(
-        max(math.ceil(data.shape[1] / 2), 2), 2, figsize=(10, 2 * max(data.shape[1], 4))
-    )
+    fig, axes = plt.subplots(max(math.ceil(data.shape[1] / 2), 2), 2, figsize=(10, 2 * max(data.shape[1], 4)))
     plt.subplots_adjust(wspace=0.25, hspace=0.3)
     row = 0
     for i, c in enumerate(data.columns):
@@ -65,13 +63,9 @@ def distr_plot(
                 ax=axes[row, j], title=c, rot=0, color="slateblue", **kwargs
             )
         elif pd.api.types.is_numeric_dtype(s.dtype):
-            s.plot.hist(
-                ax=axes[row, j], title=c, rot=0, color="slateblue", bins=bins, **kwargs
-            )
+            s.plot.hist(ax=axes[row, j], title=c, rot=0, color="slateblue", bins=bins, **kwargs)
         elif pd.api.types.is_categorical_dtype(s.dtype):
-            s.value_counts(sort=False).plot.bar(
-                ax=axes[row, j], title=c, rot=0, color="slateblue", **kwargs
-            )
+            s.value_counts(sort=False).plot.bar(ax=axes[row, j], title=c, rot=0, color="slateblue", **kwargs)
         else:
             print(f"No plot will be created for {c} (type {s.dtype})")
 
@@ -187,9 +181,7 @@ def pred_plot_sm(
     nr_plots = len(incl) + len(incl_int)
     if nr_plots == 0:
         return None
-    fig, ax = plt.subplots(
-        max(math.ceil(nr_plots / 2), 2), 2, figsize=(10, 2 * max(nr_plots, 4))
-    )
+    fig, ax = plt.subplots(max(math.ceil(nr_plots / 2), 2), 2, figsize=(10, 2 * max(nr_plots, 4)))
     plt.subplots_adjust(wspace=0.25, hspace=0.25)
 
     pred_dict = {}
@@ -201,10 +193,7 @@ def pred_plot_sm(
 
     for v in incl_int:
         vl = v.split(":")
-        is_num = [
-            pd.api.types.is_numeric_dtype(data[c].dtype) and data[c].nunique() > 5
-            for c in vl
-        ]
+        is_num = [pd.api.types.is_numeric_dtype(data[c].dtype) and data[c].nunique() > 5 for c in vl]
         iplot = sim_prediction(data, vary=vl, nnv=nnv, minq=minq, maxq=maxq)
         iplot["prediction"] = fitted.predict(iplot)
         if sum(is_num) < 2:
@@ -217,9 +206,7 @@ def pred_plot_sm(
         if pd.api.types.is_numeric_dtype(data[v].dtype) and data[v].nunique() > 5:
             fig = sns.lineplot(x=v, y="prediction", data=pred_dict[v], ax=ax[row, col])
         else:
-            fig = sns.lineplot(
-                x=v, y="prediction", marker="o", data=pred_dict[v], ax=ax[row, col]
-            )
+            fig = sns.lineplot(x=v, y="prediction", marker="o", data=pred_dict[v], ax=ax[row, col])
         if isinstance(min_max, tuple) and len(min_max) == 2:
             ax[row, col].set(ylim=min_max)
         if hline:
@@ -232,10 +219,7 @@ def pred_plot_sm(
     for j, v in enumerate(incl_int):
         col = ifelse(j % 2 == start_col, 0, 1)
         vl = v.split(":")
-        is_num = [
-            pd.api.types.is_numeric_dtype(data[c].dtype) and data[c].nunique() > 5
-            for c in vl
-        ]
+        is_num = [pd.api.types.is_numeric_dtype(data[c].dtype) and data[c].nunique() > 5 for c in vl]
         if sum(is_num) == 2:
             plot_data = (
                 pred_dict[v]
@@ -243,16 +227,12 @@ def pred_plot_sm(
                 .transpose()
                 .sort_values(vl[1], ascending=False)
             )
-            fig = sns.heatmap(
-                plot_data, ax=ax[row, col], xticklabels=False, yticklabels=False
-            )
+            fig = sns.heatmap(plot_data, ax=ax[row, col], xticklabels=False, yticklabels=False)
             # ax[i+j].imshow(plot_data) # not bad - investigate more
         elif sum(is_num) == 1:
             if is_num[1]:
                 vl.reverse()
-            fig = sns.lineplot(
-                x=vl[0], y="prediction", hue=vl[1], data=pred_dict[v], ax=ax[row, col]
-            )
+            fig = sns.lineplot(x=vl[0], y="prediction", hue=vl[1], data=pred_dict[v], ax=ax[row, col])
         else:
             fig = sns.lineplot(
                 x=vl[0],
@@ -353,14 +333,7 @@ def pred_plot_sk(
     not_transformed = [c for c in data.columns for f in fn if c == f]
     if transformed is None:
         transformed = list(
-            set(
-                [
-                    c
-                    for c in data.columns
-                    for f in fn
-                    if f"{c}_" in f and c != f and f"{c}_" not in data.columns
-                ]
-            )
+            set([c for c in data.columns for f in fn if f"{c}_" in f and c != f and f"{c}_" not in data.columns])
         )
 
     ints = intersect(transformed, not_transformed)
@@ -383,12 +356,7 @@ def pred_plot_sk(
         if sk_type == "classification":
             return fitted.predict_proba(data)[:, 1]
         else:
-            if (
-                sk_type == "regression"
-                and means is not None
-                and stds is not None
-                and rvar is not None
-            ):
+            if sk_type == "regression" and means is not None and stds is not None and rvar is not None:
                 pred = fitted.predict(data) * stds[rvar] + means[rvar]
             else:
                 pred = fitted.predict(data)
@@ -402,9 +370,7 @@ def pred_plot_sk(
 
     def dummify(data, trs):
         if len(trs) > 0:
-            return pd.concat(
-                [pd.get_dummies(data[trs], columns=trs), data.drop(trs, axis=1)], axis=1
-            )
+            return pd.concat([pd.get_dummies(data[trs], columns=trs), data.drop(trs, axis=1)], axis=1)
         else:
             return data
 
@@ -441,9 +407,7 @@ def pred_plot_sk(
         incl = [i for i in incl if i not in excl]
 
     nr_plots = len(incl) + len(incl_int)
-    fig, ax = plt.subplots(
-        max(math.ceil(nr_plots / 2), 2), 2, figsize=(10, 2 * max(nr_plots, 4))
-    )
+    fig, ax = plt.subplots(max(math.ceil(nr_plots / 2), 2), 2, figsize=(10, 2 * max(nr_plots, 4)))
     plt.subplots_adjust(wspace=0.25, hspace=0.25)
 
     pred_dict = {}
@@ -462,10 +426,7 @@ def pred_plot_sk(
 
     for v in incl_int:
         vl = v.split(":")
-        is_num = [
-            pd.api.types.is_numeric_dtype(data[c].dtype) and data[c].nunique() > 5
-            for c in vl
-        ]
+        is_num = [pd.api.types.is_numeric_dtype(data[c].dtype) and data[c].nunique() > 5 for c in vl]
         iplot = sim_prediction(
             data[transformed + not_transformed].dropna(),
             vary=vl,
@@ -491,9 +452,7 @@ def pred_plot_sk(
         if pd.api.types.is_numeric_dtype(data[v].dtype) and data[v].nunique() > 5:
             fig = sns.lineplot(x=v, y="prediction", data=pred_dict[v], ax=ax[row, col])
         else:
-            fig = sns.lineplot(
-                x=v, y="prediction", marker="o", data=pred_dict[v], ax=ax[row, col]
-            )
+            fig = sns.lineplot(x=v, y="prediction", marker="o", data=pred_dict[v], ax=ax[row, col])
         if isinstance(min_max, tuple) and len(min_max) == 2:
             ax[row, col].set(ylim=min_max)
         if hline:
@@ -506,10 +465,7 @@ def pred_plot_sk(
     for j, v in enumerate(incl_int):
         col = ifelse(j % 2 == start_col, 0, 1)
         vl = v.split(":")
-        is_num = [
-            pd.api.types.is_numeric_dtype(data[c].dtype) and data[c].nunique() > 5
-            for c in vl
-        ]
+        is_num = [pd.api.types.is_numeric_dtype(data[c].dtype) and data[c].nunique() > 5 for c in vl]
         if sum(is_num) == 2:
             plot_data = (
                 pred_dict[v]
@@ -517,16 +473,12 @@ def pred_plot_sk(
                 .transpose()
                 .sort_values(vl[1], ascending=False)
             )
-            fig = sns.heatmap(
-                plot_data, ax=ax[row, col], xticklabels=False, yticklabels=False
-            )
+            fig = sns.heatmap(plot_data, ax=ax[row, col], xticklabels=False, yticklabels=False)
             # ax[i+j].imshow(plot_data) # not bad - investigate more
         elif sum(is_num) == 1:
             if is_num[1]:
                 vl.reverse()
-            fig = sns.lineplot(
-                x=vl[0], y="prediction", hue=vl[1], data=pred_dict[v], ax=ax[row, col]
-            )
+            fig = sns.lineplot(x=vl[0], y="prediction", hue=vl[1], data=pred_dict[v], ax=ax[row, col])
         else:
             fig = sns.lineplot(
                 x=vl[0],
@@ -591,9 +543,7 @@ def vimp_plot_sm(fitted, data, rep=10, ax=None, ret=False):
         )
 
     def imp_calc_reg(base, pred):
-        return (
-            base - pd.DataFrame({"y": model.endog, "yhat": pred}).corr().iloc[0, 1] ** 2
-        )
+        return base - pd.DataFrame({"y": model.endog, "yhat": pred}).corr().iloc[0, 1] ** 2
 
     def imp_calc_logit(base, pred):
         return base - auc(model.endog, pred, weights=fw)
@@ -604,12 +554,7 @@ def vimp_plot_sm(fitted, data, rep=10, ax=None, ret=False):
         imp_calc = imp_calc_logit  # specifying the function to use
         xlab = "Importance (AUC decrease)"
     elif isinstance(fitted, sm.regression.linear_model.RegressionResultsWrapper):
-        baseline_fit = (
-            pd.DataFrame({"y": model.endog, "yhat": fitted.predict(data[evars])})
-            .corr()
-            .iloc[0, 1]
-            ** 2
-        )
+        baseline_fit = pd.DataFrame({"y": model.endog, "yhat": fitted.predict(data[evars])}).corr().iloc[0, 1] ** 2
         imp_calc = imp_calc_reg  # specifying the function to use
         xlab = "Importance (R-square decrease)"
     else:
@@ -624,9 +569,7 @@ def vimp_plot_sm(fitted, data, rep=10, ax=None, ret=False):
     # Iterate over each feature
     for i in range(rep):
         for feature in evars:
-            permuted[feature] = (
-                data[feature].sample(frac=1, random_state=i).reset_index(drop=True)
-            )
+            permuted[feature] = data[feature].sample(frac=1, random_state=i).reset_index(drop=True)
             importance_values[feature] = importance_values[feature] + imp_calc(
                 baseline_fit, fitted.predict(permuted[evars])
             )
@@ -678,9 +621,7 @@ def vimp_plot_sk(fitted, X, y, rep=5, ax=None, ret=False):
     X = check_dataframe(X)
     y = check_series(y)
 
-    imp = permutation_importance(
-        fitted, X, y, scoring=scoring, n_repeats=rep, random_state=1234
-    )
+    imp = permutation_importance(fitted, X, y, scoring=scoring, n_repeats=rep, random_state=1234)
     data = pd.DataFrame(imp.importances.T)
     # print(data)
     # print(fitted.feature_names_in_)
@@ -693,6 +634,86 @@ def vimp_plot_sk(fitted, X, y, rep=5, ax=None, ret=False):
         ax=ax,
     )
     fig = fig.set(title="Permutation Importance", xlabel=xlab, ylabel=None)
+
+    if ret:
+        sorted_idx.columns = ["Importance"]
+        return sorted_idx[::-1]
+
+
+def vimp_plot_sk2(model, rep=10, ax=None, ret=False):
+    """
+    Creates permutation importance plots for models estimated using the
+    sklearn library
+
+    Parameters
+    ----------
+    fitted : A fitted sklearn objects
+    rep: int
+        The number of times to resample and calculate permutation importance
+    ax : axis object
+        Add the plot to a the axis object from a matplotlib subplot
+    ret: bool
+        Return the variable importance table as a sorted DataFrame
+    """
+    # if hasattr(fitted, "model"):
+    #     model = fitted.model
+    #     if hasattr(model, "_has_freq_weights") and model._has_freq_weights:
+    #         fw = model.freq_weights
+    # else:
+    #     return "This function requires a fitted linear or logistic regression"
+
+    rvar = model.rvar
+    evars = model.evar
+    data = model.data[[rvar] + evars].copy().reset_index(drop=True).dropna()
+
+    def imp_calc_reg(base, pred):
+        return base - pd.DataFrame({"y": data[rvar], "yhat": pred}).corr().iloc[0, 1] ** 2
+
+    def imp_calc_clf(base, pred):
+        # base = 0.751
+        pauc = auc(data[rvar], pred)
+        print(base, pauc, base - pred)
+        return base - auc(data[rvar], pred)
+
+    # Calculate the baseline performance
+    if hasattr(model.fitted, "classes_"):
+        xlab = "Importance (AUC decrease)"
+        baseline_fit = auc(data[rvar], model.fitted.predict(model.data_onehot))
+        imp_calc = imp_calc_clf  # specifying the function to use
+    else:
+        baseline_fit = (
+            pd.DataFrame({"y": data[rvar], "yhat": model.fitted.predict(model.data_onehot)}).corr().iloc[0, 1] ** 2
+        )
+        imp_calc = imp_calc_reg  # specifying the function to use
+        xlab = "Importance (R-square decrease)"
+
+    # Create a copy of the dataframe
+    permuted = data.copy()
+
+    # Initialize a dictionary to store the permutation importance values
+    importance_values = {v: 0 for v in evars}
+    print(baseline_fit)
+
+    # Iterate over each feature
+    for i in range(rep):
+        for feature in evars:
+            permuted[feature] = data[feature].sample(frac=1, random_state=i).reset_index(drop=True)
+            importance_values[feature] += imp_calc(
+                baseline_fit, model.fitted.predict(conditional_get_dummies(permuted[evars]))
+            )
+            permuted[feature] = data[feature]
+
+    importance_values = {k: [v / rep] for k, v in importance_values.items()}
+    sorted_idx = pd.DataFrame(importance_values).transpose()
+    sorted_idx = sorted_idx.sort_values(0, ascending=True)
+    fig = sorted_idx.plot.barh(
+        color="slateblue",
+        legend=None,
+        figsize=(6, max(5, len(sorted_idx) * 0.4)),
+        ax=ax,
+    )
+    plt.xlabel(xlab)
+    plt.title("Permutation Importance")
 
     if ret:
         sorted_idx.columns = ["Importance"]

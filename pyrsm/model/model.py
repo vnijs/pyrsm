@@ -800,7 +800,9 @@ def scatter_plot(
             for pos, cat in enumerate(levels):
                 # Add a line for the mean
                 ax[row, col].plot(
-                    [pos - 0.5, pos + 0.5], [means[pos], means[pos]], color="blue"
+                    [pos - 0.5, pos + 0.5],
+                    [means.iloc[pos], means.iloc[pos]],
+                    color="blue",
                 )
 
         idx += 1
