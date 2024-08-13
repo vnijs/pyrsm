@@ -132,7 +132,9 @@ class mlp:
         # use drop_first=True for one-hot encoding because NN models include a bias term
         self.data_onehot = pd.get_dummies(self.data_std[self.evar], drop_first=True)
         self.n_features = [len(evar), self.data_onehot.shape[1]]
+
         self.fitted = self.mlp.fit(self.data_onehot, self.data_std[self.rvar])
+        self.n_weights = sum(weight_matrix.size for weight_matrix in self.fitted.coefs_)
         self.nobs = self.data.dropna().shape[0]
 
     def summary(self, dec=3) -> None:
@@ -156,6 +158,7 @@ class mlp:
         print(f"Explanatory variables: {', '.join(self.evar)}")
         print(f"Model type           : {ifelse(self.mod_type == 'classification', 'classification', 'regression')}")
         print(f"Nr. of features      : ({self.n_features[0]}, {self.n_features[1]})")
+        print(f"Nr. of weights       : {format(self.n_weights, ',.0f')}")
         print(f"Nr. of observations  : {format(self.nobs, ',.0f')}")
         print(f"Hidden_layer_sizes   : {self.hidden_layer_sizes}")
         print(f"Activation function  : {self.activation}")
@@ -284,7 +287,7 @@ class mlp:
         Parameters
         ----------
         plots : {'pred', 'pdp', 'vimp', 'dashboard'}, default='pred'
-            Type of plot to generate. Options are 'pred' for prediction plot, 'pdp' for partial dependence plot, 'vimp' for variable importance plot which uses premutation importance, and 'dashboard' for a regression dashboard.
+            Type of plot to generate. Options are 'pred' for prediction plot, 'pdp' for partial dependence plot, 'vimp' for variable importance plot which uses permutation importance, and 'dashboard' for a regression dashboard.
         data : pd.DataFrame, optional
             Data to use for the plots. If None, uses the training data.
         incl : list of str, optional
