@@ -87,7 +87,7 @@ class basics_compare_props:
     def shiny_ui(self, request: StarletteRequest):
         return ui.page_navbar(
             ru.head_content(),
-            ui.nav(
+            ui.nav_panel(
                 "Basics > Compare props",
                 ui.row(
                     ui.column(

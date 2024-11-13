@@ -113,7 +113,7 @@ class basics_probability_calculator:
     def shiny_ui(self, request: StarletteRequest):
         return ui.page_navbar(
             ru.head_content(),
-            ui.nav(
+            ui.nav_panel(
                 "Basics > Probability calculator",
                 ui.row(
                     ui.column(

@@ -18,3 +18,12 @@ routes = [
     Mount("/", app=App(rc.shiny_ui, rc.shiny_server, debug=False)),
 ]
 app = Starlette(debug=True, routes=routes)
+
+# from shiny import ui
+
+# app_ui = ui.page_fluid(
+#     ui.navset_tab(
+#         ui.nav_panel("Tab 1", ui.h2("Content for Tab 1")),
+#         ui.nav_panel("Tab 2", ui.h2("Content for Tab 2")),
+#     )
+# )

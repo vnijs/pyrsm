@@ -55,7 +55,7 @@ class radiant_data:
 
     def shiny_ui(self, request: StarletteRequest):
         return ui.page_navbar(
-            ui.nav(
+            ui.nav_panel(
                 None,
                 ui.row(
                     ui.column(
@@ -119,7 +119,7 @@ class radiant_sub_app:
 
     def shiny_ui(self, request: StarletteRequest):
         return ui.page_navbar(
-            ui.nav(
+            ui.nav_panel(
                 None,
                 ui.row(
                     ui.column(

@@ -250,7 +250,7 @@ class correlation:
 
             _, axes = plt.subplots(ncol, ncol, figsize=figsize)
 
-            if nobs < data.shape[0] and nobs != np.Inf and nobs != -1:
+            if nobs < data.shape[0] and nobs != np.inf and nobs != -1:
                 data = data.copy().sample(nobs)
 
             for i in range(ncol):

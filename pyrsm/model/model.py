@@ -88,7 +88,7 @@ def conditional_get_dummies(df):
 
 def sig_stars(pval):
     pval = np.nan_to_num(pval, nan=1.0)
-    cutpoints = np.array([0.001, 0.01, 0.05, 0.1, np.Inf])
+    cutpoints = np.array([0.001, 0.01, 0.05, 0.1, np.inf])
     symbols = np.array(["***", "**", "*", ".", " "])
     return [symbols[p < cutpoints][0] for p in pval]
 
@@ -783,7 +783,7 @@ def scatter_plot(
 
     idx = 0
 
-    if nobs < df.shape[0] and nobs != np.Inf and nobs != -1:
+    if nobs < df.shape[0] and nobs != np.inf and nobs != -1:
         df = df.copy().sample(nobs)
 
     while idx < nr_plots:

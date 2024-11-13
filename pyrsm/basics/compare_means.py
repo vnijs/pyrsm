@@ -260,7 +260,7 @@ class compare_means:
             if (
                 nobs is not None
                 and nobs < self.data.shape[0]
-                and nobs != np.Inf
+                and nobs != np.inf
                 and nobs != -1
             ):
                 data = self.data.copy().sample(nobs)

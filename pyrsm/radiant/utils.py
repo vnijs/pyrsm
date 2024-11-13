@@ -449,16 +449,16 @@ def ui_data_main():
 
 def ui_main_basics(height="500px", width="700px"):
     return ui.navset_card_tab(
-        ui.nav(
+        ui.nav_panel(
             "Data",
             ui_data_main(),
         ),
-        ui.nav(
+        ui.nav_panel(
             "Summary",
             ui.output_ui("show_summary_code"),
             ui.output_text_verbatim("summary"),
         ),
-        ui.nav(
+        ui.nav_panel(
             "Plot",
             ui.output_ui("show_plot_code"),
             ui.output_ui("plot_container"),
@@ -469,22 +469,22 @@ def ui_main_basics(height="500px", width="700px"):
 
 def ui_main_model():
     return ui.navset_card_tab(
-        ui.nav(
+        ui.nav_panel(
             "Data",
             ui_data_main(),
         ),
-        ui.nav(
+        ui.nav_panel(
             "Summary",
             ui.output_ui("show_estimation_code"),
             ui.output_ui("show_summary_code"),
             ui.output_text_verbatim("summary"),
         ),
-        ui.nav(
+        ui.nav_panel(
             "Predict",
             ui.output_ui("show_predict_code"),
             ui.output_data_frame("predict"),
         ),
-        ui.nav(
+        ui.nav_panel(
             "Plot",
             ui.output_ui("show_plot_code"),
             # ui.output_plot("plot", height="800px", width="700px"),

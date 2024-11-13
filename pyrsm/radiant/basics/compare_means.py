@@ -144,7 +144,7 @@ class basics_compare_means:
 
         return ui.page_navbar(
             ru.head_content(),
-            ui.nav(
+            ui.nav_panel(
                 "Basics > Compare means",
                 ui.row(
                     ui.column(

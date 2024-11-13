@@ -1026,11 +1026,11 @@ def plot_prob_lnorm(dct, type="values"):
     ub = dct["ub"] if type == "values" else dct["v_ub"]
 
     def scale(lb, ub):
-        if (ub is None or abs(ub) == np.Inf) and (lb is None or abs(lb) == np.Inf):
+        if (ub is None or abs(ub) == np.inf) and (lb is None or abs(lb) == np.inf):
             return 3
-        elif ub is not None and abs(ub) != np.Inf:
+        elif ub is not None and abs(ub) != np.inf:
             return max(3, ub)
-        elif lb is not None and abs(lb) != np.Inf:
+        elif lb is not None and abs(lb) != np.inf:
             return max(3, lb)
 
     x_range = np.linspace(0, (np.exp(meanlog) + scale(lb, ub)) * sdlog, 1000)

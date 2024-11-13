@@ -89,7 +89,7 @@ class model_logistic:
     def shiny_ui(self, request: StarletteRequest):
         return ui.page_navbar(
             ru.head_content(),
-            ui.nav(
+            ui.nav_panel(
                 "Model > Logistic regression (GLM)",
                 ui.row(
                     ui.column(

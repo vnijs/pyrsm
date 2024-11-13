@@ -24,7 +24,7 @@ def app_ui(request: StarletteRequest):
     print("Full ui re-render at: " + datetime.now().strftime("%H:%M:%S.%f"))
     return ui.page_fluid(
         ui.navset_tab(
-            ui.nav(
+            ui.nav_panel(
                 "Main",
                 ui.input_slider("n", "N", 0, 100, state.get("n", 20)),
                 ui.input_text_area("f", "Filter", value=state.get("f", "")),

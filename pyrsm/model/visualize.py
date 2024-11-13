@@ -163,7 +163,7 @@ def pred_plot_sm(
             min_max = (hline - plot_margin * hline, hline + plot_margin * hline)
         else:
             hline = False
-            min_max = (np.Inf, -np.Inf)
+            min_max = (np.inf, -np.inf)
     else:
         min_max = (hline - plot_margin * hline, hline + plot_margin * hline)
 
@@ -383,7 +383,7 @@ def pred_plot_sk(
             min_max = (hline - plot_margin * hline, hline + plot_margin * hline)
         else:
             hline = False
-            min_max = (np.Inf, -np.Inf)
+            min_max = (np.inf, -np.inf)
     else:
         min_max = (hline - plot_margin * hline, hline + plot_margin * hline)
 

@@ -120,7 +120,7 @@ class model_mlp:
     def shiny_ui(self, request: StarletteRequest):
         return ui.page_navbar(
             ru.head_content(),
-            ui.nav(
+            ui.nav_panel(
                 "Model > Neural Network",
                 ui.row(
                     ui.column(

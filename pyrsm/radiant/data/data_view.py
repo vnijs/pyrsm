@@ -53,14 +53,14 @@ class data_view:
     def shiny_ui(self, request: StarletteRequest):
         return ui.page_navbar(
             ru.head_content(),
-            ui.nav(
+            ui.nav_panel(
                 "Data > View",
                 ui.row(
                     ui.column(3, ru.ui_view(self)),
                     ui.column(
                         8,
                         ui.navset_card_tab(
-                            ui.nav("View", ru.ui_data_main()),
+                            ui.nav_panel("View", ru.ui_data_main()),
                         ),
                     ),
                 ),

@@ -64,7 +64,7 @@ class basics_goodness:
     def shiny_ui(self, request: StarletteRequest):
         return ui.page_navbar(
             ru.head_content(),
-            ui.nav(
+            ui.nav_panel(
                 "Basics > Goodness-of-fit",
                 ui.row(
                     ui.column(
