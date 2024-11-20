@@ -6,7 +6,7 @@ import polars as pl
 from scipy import stats
 from pyrsm.model import sig_stars
 from pyrsm.utils import ifelse, check_dataframe
-from typing import Union
+from typing import Literal
 from statsmodels.stats import multitest
 import pyrsm.basics.utils as bu
 import pyrsm.radiant.utils as ru
@@ -14,27 +14,60 @@ import pyrsm.radiant.utils as ru
 
 class compare_means:
     """
-    Compare mean between numeric variables in a Pandas or Polars dataframe. See
-    the notebook linked below for a worked example, including the web UI:
+    A class to perform comparison of means hypothesis testing. See the notebook 
+    linked below for a worked example, including the web UI:
 
     https://github.com/vnijs/pyrsm/blob/main/examples/basics-compare-means.ipynb
 
-    Parameters
+    Attributes
     ----------
-    data : Pandas or Polars dataframe with categorical variables or a
-        dictionary with a single dataframe as the value and the
-        name of the dataframe as the key
-    var1: String; Name of the first numeric or categorical variable
-    var2: String or list of Strings; Names of the numberic variables
-    comb: List of string tuples; Comparisons to make. Will default to
-        all possible combinations
-    alt_hyp: String; Alternative hypothesis to use "two-sided", "less",
-        or "greater"
-    conf: float; Confidence level (e.g., .95 or .9)
-    sample_type: String; Are samples independent ("independent") or not ("paired")
-    adjust: String; Adjustment for multiple testing (None or "bonferoni" or
-        other options provided but statsmodels.stats.multitest.multipletests)
-    test_type: String; "t-test" or "wilcox"
+    data : pd.DataFrame | pl.DataFrame
+        The input data for the hypothesis test as a Pandas or Polars DataFrame.
+    var1 : str
+        The first variable/column name to test.
+    var2 : str
+        The second variable/column name to test.
+    alt_hyp : str
+        The alternative hypothesis ('two-sided', 'greater', 'less').
+    conf : float
+        The confidence level for the test.
+    comp_value : float
+        The comparison value for the test.
+    t_val : float
+        The t-statistic value.
+    p_val : float
+        The p-value of the test.
+    ci : tuple
+        The confidence interval of the test.
+    mean1 : float
+        The mean of the first variable.
+    mean2 : float
+        The mean of the second variable.
+    n1 : int
+        The number of observations for the first variable.
+    n2 : int
+        The number of observations for the second variable.
+    sd1 : float
+        The standard deviation of the first variable.
+    sd2 : float
+        The standard deviation of the second variable.
+    se : float
+        The standard error of the difference between the means.
+    me : float
+        The margin of error.
+    diff : float
+        The difference between the means of the two variables.
+    df : int
+        The degrees of freedom.
+
+    Methods
+    -------
+    __init__(data, var1, var2, alt_hyp='two-sided', conf=0.95, comp_value=0)
+        Initializes the compare_means class with the provided data and parameters.
+    summary(dec=3)
+        Prints a summary of the hypothesis test.
+    plot()
+        Plots the results of the hypothesis test.
 
     Examples
     --------
@@ -52,12 +85,34 @@ class compare_means:
         var1: str,
         var2: str,
         comb: list[tuple[str, str]] = [],
-        alt_hyp: str = "two-sided",
+        alt_hyp: Literal["two-sided", "greater", "less"] = "two-sided",
         conf: float = 0.95,
-        sample_type: str = "independent",
-        adjust: str = None,
-        test_type: str = "t-test",
+        sample_type: Literal["independent", "paired"] = "independent",
+        adjust: Literal[None, "bonferroni"] = None,
+        test_type: Literal["t-test", "wilcox"] = "t-test",
     ):
+        """
+        Constructs all the necessary attributes for the compare_means object.
+
+        Parameters
+        ----------
+        data : pd.DataFrame | pl.DataFrame
+            The input data for the hypothesis test as a Pandas or Polars DataFrame. If a dictionary is provided, the key should be the name of the dataframe.
+        var1 : str
+            The first variable/column name to include in the test. This variable can be numeric or categorical. If it is categorical, the hypothesis test will be performed for each level of the variable.
+        var2 : str
+            The second variable/column name or names to include in the test. These variables must be numeric. If multiple variables are provided, the hypothesis test will be performed for each combination of variables. If var1 is categorical, only one variable can be provided.
+        alt_hyp : str, optional
+            The alternative hypothesis ('two-sided', 'greater', 'less') (default is 'two-sided').
+        conf : float, optional
+            The confidence level for the test (default is 0.95).
+        sample_type : str
+            The type of samples ('independent' or 'paired') (default is 'independent').An example of paired samples is when the same subjects are measured at two different time points.
+        adjust : str, optional
+            Adjustment for multiple testing (None or 'bonferroni' or other options provided but statsmodels.stats.multitest.multipletests).
+        test_type : str
+            The type of test ('t-test' or 'wilcox') (default is 't-test'). The key difference between the two tests is that the t-test assumes that the data is normally distributed, while the Wilcoxon test does not.
+        """
         if isinstance(data, dict):
             self.name = list(data.keys())[0]
             self.data = data[self.name]
@@ -236,6 +291,16 @@ class compare_means:
             self.comp_stats[""] = sig_stars(self.comp_stats["p.value"])
 
     def summary(self, extra=False, dec=3) -> None:
+        """
+        Prints a summary of the hypothesis test.
+
+        Parameters
+        ----------
+        extra : bool
+            Whether to include additional columns in the output (default is False).
+        dec : int, optional
+            The number of decimal places to display (default is 3).
+        """
         print(f"Pairwise mean comparisons ({self.test_type})")
         print(f"Data      : {self.name}")
         print(f"Variables : {self.var1}, {self.var2}")
@@ -255,7 +320,17 @@ class compare_means:
         print(comp_stats.round(dec).to_string(index=False))
         print("\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1")
 
-    def plot(self, plots: str = "scatter", nobs: int = None) -> None:
+    def plot(self, plots: Literal["scatter", "box", "density", "bar"] = "scatter", nobs: int = None) -> None:
+        """
+        Plots the results of the hypothesis test.
+
+        Parameters
+        ----------
+        plots : str
+            The type of plot to create ('scatter', 'box', 'density', 'bar').
+        nobs : int, optional
+            The number of observations to plot (default is None in which case all available data points will be used).
+        """
         if plots == "scatter":
             if (
                 nobs is not None

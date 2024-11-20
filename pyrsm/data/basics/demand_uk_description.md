@@ -9,4 +9,4 @@ We have access to data from a random sample of grocery stores in the UK. The dat
 A data frame with 572 observations on 2 variable
 
 * id = Store identifier
-* demand_uk = Total category sales in units per store
+* demand = Total category sales in units per store

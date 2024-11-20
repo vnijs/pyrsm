@@ -6,10 +6,57 @@ from scipy import stats
 from pyrsm.model import sig_stars
 from pyrsm.utils import ifelse, check_dataframe
 import pyrsm.basics.utils as bu
-from typing import Union
+from typing import Literal
 
 
 class single_mean:
+    """
+    A class to perform single-mean hypothesis testing
+
+    Attributes
+    ----------
+    data : pd.DataFrame | pl.DataFrame
+        The input data for the hypothesis test as a Pandas or Polars DataFrame. If a dictionary is provided, the key should be the name of the dataframe.
+    var : str
+        The variable/column name to test.
+    alt_hyp : str
+        The alternative hypothesis ('two-sided', 'greater', 'less').
+    conf : float
+        The confidence level for the test.
+    comp_value : float
+        The comparison value for the test.
+    t_val : float
+        The t-statistic value.
+    p_val : float
+        The p-value of the test.
+    ci : tuple
+        The confidence interval of the test.
+    mean : float
+        The mean of the variable.
+    n : int
+        The number of observations.
+    n_missing : int
+        The number of missing observations.
+    sd : float
+        The standard deviation of the variable.
+    se : float
+        The standard error of the variable.
+    me : float
+        The margin of error.
+    diff : float
+        The difference between the mean and the comparison value.
+    df : int
+        The degrees of freedom.
+
+    Methods
+    -------
+    __init__(data, var, alt_hyp='two-sided', conf=0.95, comp_value=0)
+        Initializes the single_mean class with the provided data and parameters.
+    summary(dec=3)
+        Prints a summary of the hypothesis test.
+    plot()
+        Plots the results of the hypothesis test.
+    """
     def __init__(
         self,
         data: pd.DataFrame | pl.DataFrame | dict[str, pd.DataFrame | pl.DataFrame],
@@ -18,6 +65,22 @@ class single_mean:
         conf: float = 0.95,
         comp_value: float = 0,
     ):
+        """
+        Constructs all the necessary attributes for the single_mean object.
+
+        Parameters
+        ----------
+        data : pd.DataFrame | pl.DataFrame | dict[str, pd.DataFrame | pl.DataFrame]
+            The input data for the hypothesis test as a Pandas or Polars DataFrame.
+        var : str
+            The variable/column name to test.
+        alt_hyp : str, optional
+            The alternative hypothesis ('two-sided', 'greater', 'less') (default is 'two-sided').
+        conf : float, optional
+            The confidence level for the test (default is 0.95).
+        comp_value : float, optional
+            The comparison value for the test (default is 0).
+        """
         if isinstance(data, dict):
             self.name = list(data.keys())[0]
             self.data = data[self.name].copy()
@@ -54,6 +117,14 @@ class single_mean:
         self.df = self.n - 1
 
     def summary(self, dec=3) -> None:
+        """
+        Prints a summary of the hypothesis test.
+
+        Parameters
+        ----------
+        dec : int, optional
+            The number of decimal places to display (default is 3).
+        """
         print("Single mean test")
         print(f"Data      : {self.name}")
         print(f"Variables : {self.var}")
@@ -96,7 +167,15 @@ class single_mean:
         print(table2.to_string(index=False))
         print("\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1")
 
-    def plot(self, plots: str = "hist") -> None:
+    def plot(self, plots: Literal["hist", "sim"] = "hist") -> None:
+        """
+        Plots the results of the hypothesis test. The black lines in the histogram show 
+        the sample mean (solid line) and the confidence interval around the sample mean 
+        (dashed lines). The red line shows the comparison value (i.e., the value under 
+        the null-hypothesis). If the red line does not fall within the confidence interval 
+        we can reject the null-hypothesis in favor of the alternative at the specified 
+        confidence level (e.g., 0.95).
+        """
         if plots == "hist":
             fig = self.data[self.var].plot.hist(title=self.var, color="slateblue")
             plt.vlines(
