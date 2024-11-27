@@ -33,7 +33,7 @@ htmltools==0.6.0
 httpcore==1.0.6
 httpx==0.27.2
 huggingface-hub==0.26.2
-idna==3.6
+idna==3.7
 importlib-metadata @ file:///home/conda/feedstock_root/build_artifacts/importlib-metadata_1703269254275/work
 iniconfig==2.0.0
 ipykernel @ file:///Users/runner/miniforge3/conda-bld/ipykernel_1703631823913/work
