@@ -535,7 +535,7 @@ def vimp_plot_sm(fitted, data, rep=10, ax=None, ret=False):
 
     rvar = extract_rvar(model, data.columns)
     evars = extract_evars(model, data.columns)
-    data = data[[rvar] + evars].copy().reset_index(drop=True).dropna()
+    data = data[[rvar] + evars].copy().dropna().reset_index(drop=True)
 
     if len(model.endog) != data.shape[0]:
         raise Exception(
@@ -578,6 +578,7 @@ def vimp_plot_sm(fitted, data, rep=10, ax=None, ret=False):
     importance_values = {k: [v / rep] for k, v in importance_values.items()}
     sorted_idx = pd.DataFrame(importance_values).transpose()
     sorted_idx = sorted_idx.sort_values(0, ascending=True)
+    print(importance_values)
     fig = sorted_idx.plot.barh(
         color="slateblue",
         legend=None,
