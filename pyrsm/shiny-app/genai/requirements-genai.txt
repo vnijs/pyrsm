@@ -128,7 +128,7 @@ typing_extensions==4.12.2
 tzdata==2024.1
 tzlocal==5.2
 uc-micro-py==1.0.3
-urllib3==2.1.0
+urllib3==2.2.2
 uvicorn==0.27.1
 watchfiles==0.21.0
 wcwidth @ file:///home/conda/feedstock_root/build_artifacts/wcwidth_1704731205417/work
