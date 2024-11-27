@@ -74,7 +74,7 @@ pathspec==0.12.1
 patsy==0.5.6
 pexpect @ file:///home/conda/feedstock_root/build_artifacts/pexpect_1667297516076/work
 pickleshare @ file:///home/conda/feedstock_root/build_artifacts/pickleshare_1602536217715/work
-pillow==10.2.0
+pillow==10.3.0
 pkginfo==1.9.6
 platformdirs @ file:///home/conda/feedstock_root/build_artifacts/platformdirs_1701708255999/work
 pluggy==1.5.0
