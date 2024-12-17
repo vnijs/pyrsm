@@ -26,15 +26,37 @@ from pyrsm.basics.correlation import correlation
 
 class regress:
     """
-    Estimate linear regression model
+    A class to perform linear regression modeling
 
-    Parameters
+    Attributes
     ----------
-    data: pandas DataFrame; dataset
-    evar: List of strings; contains the names of the columns of data to be used as explanatory variables
-    rvar: String; name of the column to be used as the response variable
-    ivar: List of strings; contains the names of columns to interact and add as explanatory variables (e.g., ["x1:x2", "x3:x4])
-    form: String; formula for the regression equation to use if evar and rvar are not provided
+    data : pd.DataFrame
+        The input data for the regression analysis as a Pandas DataFrame. Polars DataFrames would be converted to Pandas DataFrames.
+    rvar : str
+        The response variable.
+    evar : list[str]
+        The explanatory variables.
+    ivar : list[str]
+        The interaction variables.
+    form : str
+        The formula for the regression equation.
+    fitted : statsmodels.regression.linear_model.RegressionResultsWrapper
+        The fitted regression model.
+    coef : pd.DataFrame
+        The coefficients of the model.
+    name : str
+        The name of the dataset if provided as a dictionary.
+
+    Methods
+    -------
+    __init__(data, rvar=None, evar=None, ivar=None, form=None)
+        Initialize the regress class with the provided data and parameters.
+    summary(main=True, fit=True, ci=False, ssq=False, rmse=False, vif=False, test=None, dec=3)
+        Summarize the output from the linear regression model.
+    plot(plot_type, nobs=1000, incl=None, excl=None, incl_int=None, fix=True, hline=False, nnv=20, minq=0.025, maxq=0.975)
+        Plot diagnostics for the regression model.
+    predict(data=None, ci=False, conf=0.95)
+        Make predictions using the fitted regression model.
     """
 
     def __init__(
@@ -45,6 +67,22 @@ class regress:
         ivar: Optional[list[str]] = None,
         form: Optional[str] = None,
     ) -> None:
+        """
+        Initialize the regress class to build a linear regression model with the provided data and parameters.
+
+        Parameters
+        ----------
+        data : pd.DataFrame | pl.DataFrame | dict[str, pd.DataFrame | pl.DataFrame]
+            The dataset to be used for the regression analysis.
+        rvar : str, optional
+            Name of the column in the data to be use as the response variable.
+        evar : list[str], optional
+            List of column names in the data to use as explanatory variables.
+        ivar : list[str], optional
+            List of column names to interact and add to the model as explanatory variables (e.g., ["x1:x2", "x3:x4])
+        form : str, optional
+            Formula for the regression equation to use if evar and rvar are not provided.
+        """
         if isinstance(data, dict):
             self.name = list(data.keys())[0]
             self.data = data[self.name].copy()  # needed with pandas
@@ -85,16 +123,30 @@ class regress:
         ssq=False,
         rmse=False,
         vif=False,
-        test=None,
-        dec=3,
+        test: Optional[str] = None,
+        dec: int = 3,
     ) -> None:
         """
-        Summarize output from a linear regression model
+        Summarize the output from the linear regression model.
 
-        parameters
+        Parameters
         ----------
-        ssq: Boolean; if True, include sum of squares
-        vif: Boolean; if True, include variance inflation factors
+        main : bool, default True
+            Print the main summary. Can be useful to turn off (i.e., False) when the focus is on other metrics (e.g., VIF).
+        fit : bool, default True
+            Print the fit statistics. Can be useful to turn off (i.e., False) when the focus is on other metrics (e.g., VIF).
+        ci : bool, default False
+            Print the confidence intervals for the coefficients.
+        ssq : bool, default False
+            Print the sum of squares.
+        rmse : bool, default False
+            Print the root mean square error.
+        vif : bool, default False
+            Print the generalized variance inflation factors.
+        test : list[str] or None, optional
+            List of variable names used in the model to test using an F-test or None if no tests are to be performed.
+        dec : int, default 3
+            Number of decimal places to round to.
         """
         if main:
             print("Linear regression (OLS)")
@@ -165,10 +217,26 @@ class regress:
         self, data=None, cmd=None, data_cmd=None, ci=False, conf=0.95
     ) -> pd.DataFrame:
         """
-        Predict values for a linear regression model
+        Make predictions using the fitted regression model.
+
+        Parameters
+        ----------
+        data : pd.DataFrame | pl.DataFrame, optional
+            Data to use for making predictions. If not provided, the original data used to fit the model is used.
+        ci : bool, default False
+            Calculate confidence intervals for the predictions.
+        conf : float, default 0.95
+            Confidence level for the intervals.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame containing the predictions and the data used to make those predictions.
         """
         if data is None:
             data = self.data
+        else:
+            data = check_dataframe(data)
         data = data.loc[:, self.evar].copy()
         if data_cmd is not None:
             for k, v in data_cmd.items():
@@ -210,6 +278,29 @@ class regress:
     ) -> None:
         """
         Plots for a linear regression model
+
+        Parameters
+        ----------
+        plot_type : str or list[str], default 'dist'
+            List of plot types to generate. Options include 'dist', 'corr', 'scatter', 'dashboard', 'residual', 'pred', 'vimp', 'coef'.
+        nobs : int, default 1000
+            Number of observations to plot. Relevant for all plots that include a scatter of data points (i.e., corr, scatter, dashboard, residual).
+        incl : list[str], optional
+            Variables to include in the plot. Relevant for prediction plots (pred) and coefficient plots (coef).
+        excl : list[str], optional
+            Variables to exclude from the plot. Relevant for prediction plots (pred) and coefficient plots (coef).
+        incl_int : list[str], optional
+            Interaction terms to include in the plot. Relevant for prediction plots (pred).
+        fix : bool, default True
+            Fix the y-axis limits. Relevant for prediction plots (pred).
+        hline : bool, default False
+            Add a horizontal line to the plot at the mean of the response variable. Relevant for prediction plots (pred).
+        nnv : int, default 20
+            Number of predicted values to calculate and to plot. Relevant for prediction plots.
+        minq : float, default 0.025
+            Minimum quantile of the explanatory variable values to use to calculate and plot predictions.
+        maxq : float, default 0.975
+            Maximum quantile of the explanatory variable values to use to calculate and plot predictions.
         """
         data = self.data[[self.rvar] + self.evar].copy()
         if "dist" in plots:
@@ -256,14 +347,14 @@ class regress:
                 figsize=figsize,
             )
 
-    def f_test(self, test=None, dec=3) -> None:
+    def f_test(self, test: Optional[str] = None, dec: int = 3) -> None:
         """
         F-test for competing models
 
         Parameters
         ----------
-        test : list
-            List of strings; contains the names of the columns of data to be tested
+        test : list[str] or None, optional
+            List of variable names used in the model to test using an F-test or None if all variables are to be tested.
         """
         evar = setdiff(self.evar, test)
         if self.ivar is not None and len(self.ivar) > 0:

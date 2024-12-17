@@ -116,7 +116,7 @@ class single_mean:
         self.diff = self.mean - self.comp_value
         self.df = self.n - 1
 
-    def summary(self, dec=3) -> None:
+    def summary(self, dec: int = 3) -> None:
         """
         Prints a summary of the hypothesis test.
 
@@ -169,12 +169,19 @@ class single_mean:
 
     def plot(self, plots: Literal["hist", "sim"] = "hist") -> None:
         """
-        Plots the results of the hypothesis test. The black lines in the histogram show 
-        the sample mean (solid line) and the confidence interval around the sample mean 
-        (dashed lines). The red line shows the comparison value (i.e., the value under 
+        Plots the results of the hypothesis test. If the 'hist' is selected a histogram
+        of the numeric variable will be shown. The solid black line in the histogram shows 
+        the sample mean. The dashed black lines show the confidence interval around the 
+        sample mean. The solid red line shows the comparison value (i.e., the value under 
         the null-hypothesis). If the red line does not fall within the confidence interval 
         we can reject the null-hypothesis in favor of the alternative at the specified 
         confidence level (e.g., 0.95).
+
+        Parameters
+        ----------
+        plots : str
+            The type of plot to generate (default is 'hist').
+ 
         """
         if plots == "hist":
             fig = self.data[self.var].plot.hist(title=self.var, color="slateblue")
