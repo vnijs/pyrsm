@@ -19,7 +19,7 @@ def test_xtile_rev():
 
 
 def test_xtile_nan():
-    x = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, np.NaN])
+    x = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, np.nan])
     bins = xtile(x, 5)
     assert all(
         bins[:9] == np.array([1, 1, 2, 2, 3, 4, 4, 5, 5])
@@ -28,7 +28,7 @@ def test_xtile_nan():
 
 
 def test_bincode_nan():
-    x = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, np.NaN])
+    x = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, np.nan])
     breaks = np.quantile(x[np.isnan(x) == False], np.array(range(0, 6)) / 5)
     bins = bincode(x, breaks)
     assert all(

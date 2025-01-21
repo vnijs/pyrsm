@@ -16,28 +16,28 @@ df
 #     assert cm.
 #     # assert c.cr[1, 0].round(3) == -0.493, "Correlations incorrect"
 # df_nan = df.copy()
-# df_nan.loc[4, "x"] = np.NaN
+# df_nan.loc[4, "x"] = np.nan
 # c = correlation(df_nan)
-# assert c.cr[1, 0].round(3) == -0.567, "Correlations with np.NaN incorrect"
+# assert c.cr[1, 0].round(3) == -0.567, "Correlations with np.nan incorrect"
 
 
 def test_correlation_pandas():
     c = correlation(df)
     assert c.cr[1, 0].round(3) == -0.493, "Correlations incorrect"
     df_nan = df.copy()
-    df_nan.loc[4, "x"] = np.NaN
+    df_nan.loc[4, "x"] = np.nan
     c = correlation(df_nan)
-    assert c.cr[1, 0].round(3) == -0.567, "Correlations with np.NaN incorrect"
+    assert c.cr[1, 0].round(3) == -0.567, "Correlations with np.nan incorrect"
 
 
 def test_correlation_polars():
     c = correlation(dfp)
     assert c.cr[1, 0].round(3) == -0.493, "Correlations incorrect"
-    ## looks like an issue converting null to NaN in pandas
+    ## looks like an issue converting null to nan in pandas
     # df_nan = dfp
     # df_nan[4, "x"] = None
     # c = correlation(df_nan)
-    # assert c.cr[1, 0].round(3) == -0.567, "Correlations with np.NaN incorrect"
+    # assert c.cr[1, 0].round(3) == -0.567, "Correlations with np.nan incorrect"
 
 
 def test_crosstab():
