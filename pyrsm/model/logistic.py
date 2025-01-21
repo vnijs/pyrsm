@@ -7,6 +7,7 @@ from statsmodels.genmod.families.links import Logit
 import statsmodels.formula.api as smf
 from scipy import stats
 from pyrsm.utils import ifelse, setdiff, check_dataframe
+from pyrsm.model.visualize import distr_plot, pred_plot_sm, vimp_plot_sm, extract_evars, extract_rvar
 from pyrsm.model.model import (
     sig_stars,
     model_fit,
@@ -18,22 +19,48 @@ from pyrsm.model.model import (
     convert_to_list,
 )
 from pyrsm.model.model import vif as calc_vif
-from .visualize import pred_plot_sm, vimp_plot_sm, extract_evars, extract_rvar
+from pyrsm.basics.correlation import correlation
 
 
 class logistic:
     """
-    Initialize logistic regression model
+    A class to perform logistic regression modeling (binary classification)
 
-    Parameters
+    Attributes
     ----------
-    data: pandas DataFrame; dataset
-    rvar: String; name of the column to be used as the response variable
-    lev: String; name of the level in the response variable
-    evar: List of strings; contains the names of the columns of data to be used as explanatory variables
-    ivar: List of strings; contains the names of columns to interact and add as explanatory variables (e.g., ["x1:x2", "x3:x4])
-    form: String; formula for the regression equation to use if evar and rvar are not provided
-    weights: String; name of the column that contains frequency weights
+    data : pd.DataFrame
+        Dataset used for the analysis. If a Polars DataFrame is provided, it will be converted to a Pandas DataFrame.
+    name : str
+        Name of the dataset if provided as a dictionary.
+    rvar : str
+        Name of the response variable in the data.
+    lev: str
+        Name of the level in the response variable the model will predict.
+    evar : list[str]
+        List of column names of the explanatory variables.
+    ivar : list[str]
+        List of strings with the names of the columns included as explanatory variables (e.g., ["x1:x2", "x3:x4"])
+    form : str
+        Model specification formula.
+    fitted : statsmodels.genmod.generalized_linear_model.GLMResultsWrapper
+        The fitted model.
+    coef : pd.DataFrame
+        The estimated model coefficients with standard errors, p-values, etc.
+    weights: pd.Series or None
+        Frequency weights used in the model if provided.
+    weights_name: str or None
+        Column name for the variable in the data containing frequency weights if provided.
+
+    Methods
+    -------
+    __init__(data, rvar=None, lev=None, evar=None, ivar=None, form=None)
+        Initialize the logistic class with the provided data and parameters.
+    summary(main=True, fit=True, ci=False, vif=False, test=None, dec=3)
+        Summarize the model output.
+    plot(plot_type, nobs=1000, incl=None, excl=None, incl_int=None, fix=True, hline=False, nnv=20, minq=0.025, maxq=0.975)
+        Plot for the model.
+    predict(data=None, cmd=None, data_cmd=None, ci=False, conf=0.95)
+        Generate predictions using the fitted regression model.
     """
 
     def __init__(
@@ -46,6 +73,24 @@ class logistic:
         form: Optional[str] = None,
         weights: Optional[str] = None,
     ) -> None:
+        """
+        Initialize the logistic class to build a logistic regression model with the provided data and parameters.
+
+        Parameters
+        ----------
+        data: pd.DataFrame | pl.DataFrame | dict[str, pd.DataFrame | pl.DataFrame],
+            Dataset used for the analysis. If a Polars DataFrame is provided, it will be converted to a Pandas DataFrame. If a dictionary is provided, the key will be used as the name of the dataset.
+        rvar : str, optional
+            Name of the column in the data to be use as the response variable.
+        lev: str
+            Name of the level in the response variable the model will predict.
+        evar : list[str], optional
+            List of column names in the data to use as explanatory variables.
+        ivar : list[str], optional
+            List of interactions to add to the model as explanatory variables (e.g., ["x1:x2", "x3:x4])
+        form : str, optional
+            Optional formula to use if rvar and evar are not provided.
+        """
         if isinstance(data, dict):
             self.name = list(data.keys())[0]
             self.data = data[self.name]
@@ -95,7 +140,7 @@ class logistic:
         df["OR%"] = 100 * ifelse(df["OR"] < 1, -(1 - df["OR"]), df["OR"] - 1)
         df["coefficient"] = self.fitted.params
         df["std.error"] = self.fitted.params / self.fitted.tvalues
-        # wierd but this is what statsmodels uses in summary
+        # statsmodels uses "t.values" as the label
         df["z.value"] = self.fitted.tvalues
         df["p.value"] = self.fitted.pvalues
         df["  "] = sig_stars(self.fitted.pvalues)
@@ -105,8 +150,22 @@ class logistic:
         self, main=True, fit=True, ci=False, vif=False, test=None, dec=3
     ) -> None:
         """
-        Summarize output from a logistic regression model
+        Summarize the logistic regression model output
 
+        Parameters
+        ----------
+        main : bool, default True
+            Print the main summary. Can be useful to turn off (i.e., False) when the focus is on other metrics (e.g., VIF).
+        fit : bool, default True
+            Print the fit statistics. Can be useful to turn off (i.e., False) when the focus is on other metrics (e.g., VIF).
+        ci : bool, default False
+            Print the confidence intervals for the coefficients.
+        vif : bool, default False
+            Print the generalized variance inflation factors.
+        test : list[str] or None, optional
+            List of variable names used in the model to test using a Chi-Square test or None if no tests are performed.
+        dec : int, default 3
+            Number of decimal places to round to.
         """
         if main:
             print("Logistic regression (GLM)")
@@ -157,10 +216,31 @@ class logistic:
         self, data=None, cmd=None, data_cmd=None, ci=False, conf=0.95
     ) -> pd.DataFrame:
         """
-        Predict probabilities for a logistic regression model
+        Generate probability predictions using the fitted model.
+
+        Parameters
+        ----------
+        data : pd.DataFrame | pl.DataFrame, optional
+            Data used to generate predictions. If not provided, the estimation data will be used.
+        cmd : dict[str, Union[int, list[int]]], optional
+            Dictionary with the names of the columns to be used in the prediction and the values to be used.
+        data_cmd : dict[str, Union[int, list[int]]], optional
+            Dictionary with the names of the columns to be used in the prediction and the values to be used.
+        ci : bool, default False
+            Calculate confidence intervals for the predictions.
+        conf : float, default 0.95
+            Confidence level for the intervals.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame containing the predictions and the data used to make those predictions.
+
         """
         if data is None:
             data = self.data
+        else:
+            data = check_dataframe(data)
         data = data.loc[:, self.evar].copy()
         if data_cmd is not None:
             for k, v in data_cmd.items():
@@ -186,6 +266,7 @@ class logistic:
         plots="or",
         data=None,
         alpha=0.05,
+        nobs: int = 1000,
         intercept=False,
         incl=None,
         excl=None,
@@ -201,8 +282,46 @@ class logistic:
     ) -> None:
         """
         Plots for a logistic regression model
+
+        Parameters
+        ----------
+        plots : str or list[str], default 'dist'
+            List of plot types to generate. Options include 'dist', 'corr', 'pred', 'vimp', 'or'.
+        nobs : int, default 1000
+            Number of observations to plot. Relevant for all plots that include a scatter of data points (i.e., corr, scatter, dashboard, residual).
+        incl : list[str], optional
+            Variables to include in the plot. Relevant for prediction plots (pred) and coefficient plots (coef).
+        excl : list[str], optional
+            Variables to exclude from the plot. Relevant for prediction plots (pred) and coefficient plots (coef).
+        incl_int : list[str], optional
+            Interaction terms to include in the plot. Relevant for prediction plots (pred).
+        fix : bool, default True
+            Fix the y-axis limits. Relevant for prediction plots (pred).
+        hline : bool, default False
+            Add a horizontal line to the plot at the mean of the response variable. Relevant for prediction plots (pred).
+        nnv : int, default 20
+            Number of predicted values to calculate and to plot. Relevant for prediction plots.
+        minq : float, default 0.025
+            Minimum quantile of the explanatory variable values to use to calculate and plot predictions.
+        maxq : float, default 0.975
+            Maximum quantile of the explanatory variable values to use to calculate and plot predictions.
         """
-        if "or" in plots:
+        plots = convert_to_list(plots)  # control for the case where a single string is passed
+        excl = ifelse(excl is None, [], excl)
+        if data is None:
+            data = self.data
+        else:
+            data = check_dataframe(data)
+        if self.rvar in data.columns:
+            data = data[[self.rvar] + self.evar].copy()
+        else:
+            data = data[self.evar].copy()
+        if "dist" in plots:
+            distr_plot(data),
+        if "corr" in plots:
+            cr = correlation(data)
+            cr.plot(nobs=nobs, figsize=figsize)
+        if "or" in plots or "coef" in plots:
             or_plot(
                 self.fitted,
                 alpha=alpha,
@@ -214,9 +333,9 @@ class logistic:
         if "pred" in plots:
             pred_plot_sm(
                 self.fitted,
-                data=ifelse(data is None, self.data[self.evar + [self.rvar]], data),
+                data=data,
                 incl=incl,
-                excl=ifelse(excl is None, [], excl),
+                excl=excl,
                 incl_int=incl_int,
                 fix=fix,
                 hline=hline,
@@ -224,15 +343,15 @@ class logistic:
                 minq=minq,
                 maxq=maxq,
             )
-        if "vimp" in plots:
+        if "vimp" in plots or "pimp" in plots:
             return_vimp = vimp_plot_sm(
                 self.fitted,
-                data=ifelse(data is None, self.data, data),
+                data=data,
                 rep=10,
                 ax=ax,
-                ret=True,
+                ret=ret,
             )
-            if ret is not None:
+            if ret:
                 return return_vimp
 
     def chisq_test(self, test=None, dec=3) -> None:
@@ -243,6 +362,8 @@ class logistic:
         ----------
         test : list
             List of strings; contains the names of the columns of data to be tested
+        dec : int, default 3
+            Number of decimal places to round to.
         """
         if test is None:
             test = self.evar
@@ -263,34 +384,10 @@ class logistic:
         else:
             form += f"{' + '.join(evar + sint)}"
 
-        # ensure constraints are unique
-        # pattern = r"(\[T\.[^\]]*\])\:"
-        # hypotheses = list(
-        #     set(
-        #         [
-        #             f"({c} = 0)"
-        #             for c in self.fitted.model.exog_names
-        #             for v in test
-        #             if f"{v}:" in c
-        #             or f":{v}" in c
-        #             or f"{v}[T." in c
-        #             or v == c
-        #             or v == re.sub(pattern, ":", c)
-        #         ]
-        #     )
-        # )
-
         print(f"\nModel 1: {form}")
         print(f"Model 2: {self.form}")
 
-        # Wald test (faster but not as accurate)
-        # out = self.fitted.wald_test(hypotheses, scalar=True)
-        # pvalue = ifelse(out.pvalue < 0.001, "< .001", round(out.pvalue, dec))
-        # print(
-        #     f"Chi-squared: {round(out.statistic, dec)} df ({out.df_denom:.0f}), p.value {pvalue}"
-        # )
-
-        # LR test of competing models (slower but more accurate)
+        # LR test of competing models (slower than Wald but more accurate)
         sub_fitted = smf.glm(
             formula=form,
             data=self.data,

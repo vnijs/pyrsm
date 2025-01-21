@@ -1,3 +1,51 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyrsm"
+dynamic = ["version"]
+description = "Python functions for Customer Analytics at the Rady School of Management (RSM)"
+readme = "README.md"
+license = {text = "AGPL-3.0-only"}
+authors = [
+    {name = "Vincent Nijs", email = "vnijs@ucsd.edu"},
+    {name = "Vikram Jambulapati", email = "vikjam@ucsd.edu"},
+    {name = "Suhas Goutham", email = "sgoutham@ucsd.edu"},
+    {name = "Raghav Prasad", email = "rprasad@ucsd.edu"},
+]
+
+dependencies = [
+    "shiny>=1.2.0",
+    "shinyswatch>=0.7.0",
+    "faicons>=0.2.2",
+    "numpy>=1.17.3",
+    "pandas>=2.2.3",
+    "polars>=1.12.0",
+    "duckdb>=1.1.2",
+    "ipykernel>=6.23.1",
+    "seaborn>=0.9.0",
+    "matplotlib>=3.1.1",
+    "statsmodels>=0.14.4",
+    "scipy>=1.4.1",
+    "scikit-learn>=1.5.2,!=1.6.*",
+    "IPython>=8.0.1",
+    "nest-asyncio>=1.5.6",
+    "black",
+    "pyarrow>=17.0.0",
+    "xgboost>=2.1.1",
+]
+
+[project.urls]
+"Bug Reports" = "https://github.com/vnijs/pyrsm/issues"
+"Source" = "https://github.com/vnijs/pyrsm"
+
+[tool.setuptools]
+include-package-data = true
+packages = {find = {exclude = ["*.tests", "*.tests.*", "tests.*", "tests", "examples", "pyrsm.radiant.www", "pyrsm.radiant.www.imgs", "pyrsm.radiant.www.js"]}}
+
+[tool.setuptools.package-data]
+pyrsm = ["pyrsm/radiant/www/*"]
+
+[tool.setuptools.dynamic]
+version = {attr = "pyrsm.__version__"}

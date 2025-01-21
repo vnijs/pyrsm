@@ -88,15 +88,24 @@ def ui_summary(self):
     )
 
 
-# def ui_main_pc(height="500px", width="700px"):
 def ui_main_pc():
-    return ui.panel_well(
-        ui.output_ui("show_summary_code"),
-        ui.output_text_verbatim("summary"),
-        ui.output_ui("plot_container"),
-        id="pc_well",
+    return ui.navset_card_tab(
+        ui.nav_panel(
+            "Output",
+            ui.output_ui("show_summary_code"),
+            ui.output_text_verbatim("summary"),
+            ui.output_ui("plot_container"),
+        )
     )
 
+# def ui_main_pc():
+#     return ui.div(
+#         {"style": "display: flex; flex-direction: column; gap: .01rem;"},  # Uses flexbox with consistent gaps
+#         ui.output_ui("show_summary_code"),
+#         ui.output_text_verbatim("summary"),
+#         ui.output_ui("plot_container"),
+#         id="pc_well",
+#     )
 
 class basics_probability_calculator:
     def __init__(self, state=None, code=True, navbar=None) -> None:
@@ -117,11 +126,9 @@ class basics_probability_calculator:
                 "Basics > Probability calculator",
                 ui.row(
                     ui.column(
-                        3,
-                        ui_summary(self),
-                        ui_type(self),
-                    ),
-                    ui.column(8, ui_main_pc()),
+                        3, ui_summary(self), ui_type(self), style="min-width: 250px; max-width: 350px"
+                    ),  # Add minimum width here
+                    ui.column(6, ui_main_pc()),
                 ),
             ),
             self.navbar,
@@ -384,7 +391,15 @@ class basics_probability_calculator:
         def plot_container():
             req(estimate())
             width, height = gen_plot()[1:]
-            return ui.output_plot("plot", height=f"{height}px", width=f"{width}px")
+            aspect_ratio = height / width
+
+            return ui.div(
+                {"style": f"width: 100%; padding-bottom: {aspect_ratio * 100}%; position: relative;"},
+                ui.div(
+                    {"style": "position: absolute; top: 0; left: 0; right: 0; bottom: 0;"},
+                    ui.output_plot("plot", height="100%", width="100%"),
+                ),
+            )
 
         # --- section standard for all apps ---
         # stops returning code if moved to utils
@@ -393,7 +408,7 @@ class basics_probability_calculator:
         async def stop_app():
             rsm.md(f"```python\n{self.stop_code}\n```")
             await session.app.stop()
-            os.kill(os.getpid(), signal.SIGTERM)
+            os.kill(os.getpid(), signal.SIGINT)
 
             return self.stop_code
 

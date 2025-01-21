@@ -2,9 +2,6 @@ from typing import Optional, Literal
 import pandas as pd
 import polars as pl
 import matplotlib.pyplot as plt
-
-# from sklearn.model_selection import GridSearchCV
-# from sklearn.model_selection import StratifiedKFold
 from sklearn.neural_network import MLPClassifier, MLPRegressor
 from sklearn.inspection import PartialDependenceDisplay as pdp
 from pyrsm.utils import ifelse, check_dataframe, setdiff
@@ -17,7 +14,7 @@ from pyrsm.model.model import (
 )
 from pyrsm.model.perf import auc
 from pyrsm.stats import scale_df
-from .visualize import pred_plot_sk, vimp_plot_sk
+from .visualize import pred_plot_sk, vimp_plot_sk, vimp_plot_sklearn
 
 # update docstrings using https://chatgpt.com/share/e/95faf46d-7f74-4ab7-b24b-fac0d22e6dec
 
@@ -59,7 +56,7 @@ class mlp:
 
     Examples
     --------
-    >>> model = mlp(data=df, rvar='target', evar=['feature1', 'feature2'])
+    >>> nn = mlp(data=df, rvar='target', evar=['feature1', 'feature2'])
 
     """
 
@@ -99,6 +96,7 @@ class mlp:
         self.learning_rate_init = learning_rate_init
         self.max_iter = max_iter
         self.random_state = random_state
+        self.ml_model = {"model": "mlp", "mod_type": mod_type}
         self.kwargs = kwargs
 
         if self.mod_type == "classification":
@@ -148,7 +146,7 @@ class mlp:
 
         Examples
         --------
-        >>> model.summary()
+        >>> nn.summary()
         """
         print("Multi-layer Perceptron (NN)")
         print(f"Data                 : {self.name}")
@@ -259,7 +257,7 @@ class mlp:
         if self.mod_type == "classification":
             data["prediction"] = self.fitted.predict_proba(data_onehot)[:, -1]
         else:
-            print(data_onehot.head())
+            # print(data_onehot.head())
             data["prediction"] = self.fitted.predict(data_onehot) * self.stds[self.rvar] + self.means[self.rvar]
 
         return data
@@ -270,7 +268,7 @@ class mlp:
         data=None,
         incl=None,
         excl=None,
-        incl_int=[],
+        incl_int=None,
         nobs: int = 1000,
         fix=True,
         hline=False,
@@ -318,21 +316,28 @@ class mlp:
         Examples
         --------
         >>> model.plot(plots='pdp')
-        >>> model.plot(plots='vimp', data=new_data)
+        >>> model.plot(plots='pred', data=new_data)
         """
-        rvar = self.rvar
+
+        plots = convert_to_list(plots)  # control for the case where a single string is passed
+        excl = convert_to_list(excl)
+        incl = convert_to_list(incl)
+        incl_int = convert_to_list(incl_int)
+
+        plots = convert_to_list(plots)  # control for the case where a single string is passed
+        excl = ifelse(excl is None, [], excl)
         if "pred" in plots:
             if data is None:
                 data_dct = {
-                    "data": self.data[self.evar + [rvar]],
+                    "data": self.data[self.evar + [self.rvar]],
                     "means": self.means,
                     "stds": self.stds,
                 }
             else:
                 if self.rvar in data.columns:
-                    vars = self.evar + [rvar]
+                    vars = self.evar + [self.rvar]
                     if self.mod_type == "classification":
-                        data = convert_binary(data, rvar, self.lev)
+                        data = convert_binary(data, self.rvar, self.lev)
                 else:
                     vars = self.evar
                     rvar = None
@@ -345,9 +350,9 @@ class mlp:
             pred_plot_sk(
                 self.fitted,
                 data=data_dct,
-                rvar=rvar,
+                rvar=self.rvar,
                 incl=incl,
-                excl=ifelse(excl is None, [], excl),
+                excl=excl,
                 incl_int=incl_int,
                 fix=fix,
                 hline=hline,
@@ -361,19 +366,32 @@ class mlp:
                 figsize = (8, len(self.data_onehot.columns) * 2)
             fig, ax = plt.subplots(figsize=figsize)
             ax.set_title("Partial Dependence Plots")
+            # the below will fail in sklearn 1.6.0 and 1.6.1
+            # use 1.5.2 or older for now
             fig = pdp.from_estimator(self.fitted, self.data_onehot, self.data_onehot.columns, ax=ax, n_cols=2)
 
-        if "vimp" in plots:
+        if "vimp" in plots or "pimp" in plots:
             return_vimp = vimp_plot_sk(
+                self,
+                rep=5,
+                ax=ax,
+                ret=ret,
+            )
+
+            if ret:
+                return return_vimp
+
+        if "vimp_sklearn" in plots or "pimp_sklearn" in plots:
+            return_vimp = vimp_plot_sklearn(
                 self.fitted,
                 self.data_onehot,
                 self.data[self.rvar],
                 rep=5,
                 ax=ax,
-                ret=True,
+                ret=ret,
             )
 
-            if ret is not None:
+            if ret:
                 return return_vimp
 
         if "dashboard" in plots and self.mod_type == "regression":

@@ -3,7 +3,7 @@ import pandas as pd
 import polars as pl
 import numpy as np
 from scipy import stats
-from pyrsm.model import sig_stars
+from pyrsm.model.model import sig_stars
 from pyrsm.utils import ifelse, check_dataframe
 import pyrsm.basics.utils as bu
 from typing import Union

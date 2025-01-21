@@ -15,6 +15,8 @@ from pyrsm.radiant.basics.goodness import basics_goodness
 from pyrsm.radiant.basics.correlation import basics_correlation
 from pyrsm.radiant.model.regress import model_regress
 from pyrsm.radiant.model.logistic import model_logistic
+from pyrsm.radiant.model.mlp import model_mlp
+from pyrsm.radiant.model.rforest import model_rforest
 import nest_asyncio
 import uvicorn
 import webbrowser
@@ -134,6 +136,20 @@ def radiant(
     )
     app_logistic = App(rc.shiny_ui, rc.shiny_server)
 
+    data_dct, descriptions_dct = ru.get_dfs(pkg="model", name="diamonds")
+    # data_dctc, descriptions_dctc = ru.get_dfs(pkg="model", name="titanic")
+    # data_dct.update({"titanic": data_dctc})
+    # descriptions_dct.update({"titanic": descriptions_dctc})
+
+    rc = model_rforest(data_dct, descriptions_dct, state=None, code=True, navbar=ru.radiant_navbar())
+    app_rforest = App(rc.shiny_ui, rc.shiny_server)
+
+    # # mlp app
+    rc = model_mlp(data_dct, descriptions_dct, state=None, code=True, navbar=ru.radiant_navbar())
+    app_mlp = App(rc.shiny_ui, rc.shiny_server)
+
+    #
+
     # ---- combine apps ----
     routes = [
         Mount("/basics/prob-calc/", app=app_pc),
@@ -146,6 +162,8 @@ def radiant(
         Mount("/basics/correlation/", app=app_cr),
         Mount("/models/regress/", app=app_regress),
         Mount("/models/logistic/", app=app_logistic),
+        Mount("/models/rforest/", app=app_rforest),
+        Mount("/models/mlp/", app=app_mlp),
         Mount("/www/", app=app_static),
         Mount("/", app=app_data),  # MUST BE LAST!!!!
     ]

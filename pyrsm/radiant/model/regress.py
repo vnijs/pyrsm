@@ -102,6 +102,7 @@ class model_regress:
                         ru.ui_summary(summary_extra(self)),
                         mu.ui_predict(self),
                         ru.ui_plot(self, choices, plots_extra(self)),
+                        style="min-width: 250px; max-width: 350px",
                     ),
                     ui.column(8, ru.ui_main_model()),
                 ),
@@ -173,7 +174,7 @@ class model_regress:
         async def stop_app():
             rsm.md(f"```python\n{self.stop_code}\n```")
             await session.app.stop()
-            os.kill(os.getpid(), signal.SIGTERM)
+            os.kill(os.getpid(), signal.SIGINT)
 
 
 def regress(

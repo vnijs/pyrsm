@@ -116,7 +116,6 @@ def quote(v, k, ignore=["data"]):
 
 def copy_icon(cmd, id):
     cmd = escape_quotes(cmd).replace("\n", "\\n")
-    print(cmd)
     return (
         ui.input_action_link(
             id,
@@ -124,6 +123,7 @@ def copy_icon(cmd, id):
             icon=icon_svg("copy", width="1.5em", height="1.5em"),
             title="Copy to clipboard",
             onclick=f"""copyToClipboard("{cmd}");""",
+            style="position: absolute; right: 2px; top: 2px; z-index: 10;",
         ),
     )
 
@@ -153,16 +153,14 @@ def code_formatter(code, self, input, session, id="copy"):
     Format python code using black
     """
     cmd = self.stop_code = black.format_str(code, mode=black.Mode())
-    print(cmd)
     copy_reset(input, session, id=id)
     return ui.TagList(
-        ui.HTML(
-            f"<details {ifelse(self.code, 'open', '')}><summary>View generated Python code</summary>"
-        ),
-        copy_icon(cmd, id=id),
-        ui.markdown(f"""\n```python\n{cmd.rstrip()}\n```"""),
-        ui.tags.script(
-            "hljs.highlightAll(); hljs.configure({ignoreUnescapedHTML: true});"
+        ui.HTML(f"<details {ifelse(self.code, 'open', '')}><summary>View generated Python code</summary>"),
+        ui.div(
+            {"class": "code-container", "style": "position: relative;"},  # Add container with relative positioning
+            copy_icon(cmd, id=id),
+            ui.markdown(f"""\n```python\n{cmd.rstrip()}\n```"""),
+            ui.tags.script("hljs.highlightAll(); hljs.configure({ignoreUnescapedHTML: true});"),
         ),
         ui.HTML("</details>"),
         ui.br(),
@@ -487,7 +485,6 @@ def ui_main_model():
         ui.nav_panel(
             "Plot",
             ui.output_ui("show_plot_code"),
-            # ui.output_plot("plot", height="800px", width="700px"),
             ui.output_ui("plot_container"),
         ),
         id="tabs",
@@ -496,9 +493,7 @@ def ui_main_model():
 
 def radiant_navbar():
     return (
-        ui.nav_control(
-            ui.input_action_link("data", "Data", onclick='window.location.href = "/";')
-        ),
+        ui.nav_control(ui.input_action_link("data", "Data", onclick='window.location.href = "/";')),
         ui.nav_menu(
             "Basics",
             "Probability",
@@ -562,14 +557,24 @@ def radiant_navbar():
             "Estimate",
             ui.nav_control(
                 ui.input_action_link(
-                    "reg",
+                    "regress",
                     "Linear Regression (OLS)",
                     onclick='window.location.href = "/models/regress/";',
                 ),
                 ui.input_action_link(
-                    "lr",
+                    "logistic",
                     "Logistic Regression (GLM)",
                     onclick='window.location.href = "/models/logistic/";',
+                ),
+                ui.input_action_link(
+                    "rf",
+                    "Multi-layer Perceptron classifier/regressor (NN)",
+                    onclick='window.location.href = "/models/rforest/";',
+                ),
+                ui.input_action_link(
+                    "mlp",
+                    "Random Forest classifier/regressor",
+                    onclick='window.location.href = "/models/rforest/";',
                 ),
             ),
         ),

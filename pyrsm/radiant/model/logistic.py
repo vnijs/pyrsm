@@ -98,6 +98,7 @@ class model_logistic:
                         ru.ui_summary(summary_extra(self)),
                         mu.ui_predict(self),
                         ru.ui_plot(self, choices, plots_extra(self)),
+                        style="min-width: 250px; max-width: 350px",
                     ),
                     ui.column(8, ru.ui_main_model()),
                 ),
@@ -158,9 +159,7 @@ class model_logistic:
             )
 
         mu.make_int_inputs(self, input, output, get_data)
-        show_code, estimate = mu.make_estimate(
-            self, input, output, get_data, fun="logistic", ret="lr", debug=False
-        )
+        show_code, estimate = mu.make_estimate(self, input, output, get_data, fun="logistic", ret="clf", debug=False)
         mu.make_summary(
             self,
             input,
@@ -168,7 +167,7 @@ class model_logistic:
             session,
             show_code,
             estimate,
-            ret="lr",
+            ret="clf",
             sum_fun=rsm.model.logistic.summary,
         )
         mu.make_predict(
@@ -178,7 +177,7 @@ class model_logistic:
             session,
             show_code,
             estimate,
-            ret="lr",
+            ret="clf",
             pred_fun=rsm.model.logistic.predict,
         )
         mu.make_plot(
@@ -188,7 +187,7 @@ class model_logistic:
             session,
             show_code,
             estimate,
-            ret="lr",
+            ret="clf",
         )
 
         # --- section standard for all apps ---
@@ -198,7 +197,7 @@ class model_logistic:
         async def stop_app():
             rsm.md(f"```python\n{self.stop_code}\n```")
             await session.app.stop()
-            os.kill(os.getpid(), signal.SIGTERM)
+            os.kill(os.getpid(), signal.SIGINT)
 
 
 def logistic(

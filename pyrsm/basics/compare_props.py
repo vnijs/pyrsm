@@ -9,7 +9,7 @@ from statsmodels.stats.proportion import proportions_ztest
 from statsmodels.stats import multitest
 import pyrsm.basics.utils as bu
 import pyrsm.radiant.utils as ru
-from pyrsm.model import sig_stars
+from pyrsm.model.model import sig_stars
 from pyrsm.utils import ifelse, check_dataframe
 
 

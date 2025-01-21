@@ -151,3 +151,6 @@ model-DecisionTree-classification.ipynb
 model-RandomForest-classification.ipynb
 model-XGB-classification.ipynb
 pyrsm/model/testing-rf-permutation-importance.ipynb
+
+.devcontainer/
+.devcontainer.json

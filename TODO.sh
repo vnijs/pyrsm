@@ -10,12 +10,12 @@
 
 ## check version and location of pyrsm
 python -c "import pyrsm as rsm; print(rsm.__version__); print(rsm.__file__)"
-pip install --user "pyrsm>=0.9.27"
+pip install --user "pyrsm>=1.0.4"
 
 ## select commands to run and use the Command Palette to send to open terminal
 # use python build to install locally testing
 conda activate msba
-conda activate pyrsm
+# conda activate pyrsm
 pip uninstall -y pyrsm
 # pip uninstall -y pyrsm
 # sudo rm -rf ~/gh/pyrsm/dist
@@ -38,11 +38,14 @@ python -m twine upload --repository pypi dist/*
 # create here: https://pypi.org/manage/account/token/
 
 ## now install in "editable" mode
-conda activate pyrsm
+# conda activate pyrsm
 pip uninstall -y pyrsm
 rm -rf ~/gh/pyrsm/dist
 pip install --user -e ~/gh/pyrsm
 
+
+pip install --user pyrsm --upgrade
+python -c "import pyrsm as rsm; print(rsm.__version__); print(rsm.__file__)"
 
 conda activate base
 pip uninstall --user pyrsm

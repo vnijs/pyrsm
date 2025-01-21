@@ -24,7 +24,7 @@ If you have python and pip3 install you can use the below to install the latest 
 
 The examples above are (mostly) connected to the example data and analyses initially created for the family of Radiant R packages. See  https://radiant-rstats.github.io/docs/index.html for more details
 
-&copy; Vincent Nijs (2022) <a rel="license" href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank"><img alt="Creative Commons License" style="border-width: 0" src="images/by-nc-sa.png"/></a>
+&copy; Vincent Nijs (2025) <a rel="license" href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank"><img alt="Creative Commons License" style="border-width: 0" src="images/by-nc-sa.png"/></a>
 
 ## Links
 

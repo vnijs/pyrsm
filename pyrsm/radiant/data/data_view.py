@@ -56,7 +56,7 @@ class data_view:
             ui.nav_panel(
                 "Data > View",
                 ui.row(
-                    ui.column(3, ru.ui_view(self)),
+                    ui.column(3, ru.ui_view(self), style="min-width: 250px; max-width: 350px"),
                     ui.column(
                         8,
                         ui.navset_card_tab(
@@ -93,7 +93,7 @@ class data_view:
         async def stop_app():
             rsm.md(f"```python\n{self.stop_code}\n```")
             await session.app.stop()
-            os.kill(os.getpid(), signal.SIGTERM)
+            os.kill(os.getpid(), signal.SIGINT)
 
 
 def view(

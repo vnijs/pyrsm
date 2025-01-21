@@ -4,7 +4,7 @@ import re
 import statsmodels.formula.api as smf
 from typing import Optional, Union
 from pyrsm.utils import ifelse, format_nr, setdiff, check_dataframe
-from pyrsm.model.visualize import pred_plot_sm, vimp_plot_sm
+from pyrsm.model.visualize import distr_plot, pred_plot_sm, vimp_plot_sm
 from pyrsm.model.model import (
     sig_stars,
     model_fit,
@@ -20,7 +20,6 @@ from pyrsm.model.model import (
     convert_to_list,
 )
 from pyrsm.model.model import vif as calc_vif
-from pyrsm.model.visualize import distr_plot
 from pyrsm.basics.correlation import correlation
 
 
@@ -31,32 +30,32 @@ class regress:
     Attributes
     ----------
     data : pd.DataFrame
-        The input data for the regression analysis as a Pandas DataFrame. Polars DataFrames would be converted to Pandas DataFrames.
+        The data used in the analysis should be a Pandas or Polars DataFrame. Can also pass in a dictionary with the name of the DataFrame as the key and the DataFrame as the value.
+    name : str
+        The name of the dataset if provided as a dictionary.
     rvar : str
         The response variable.
     evar : list[str]
-        The explanatory variables.
+        List of column names of the explanatory variables.
     ivar : list[str]
-        The interaction variables.
+        List of strings with the names of the columns included as explanatory variables (e.g., ["x1:x2", "x3:x4"])
     form : str
-        The formula for the regression equation.
+        Model specification formula.
     fitted : statsmodels.regression.linear_model.RegressionResultsWrapper
-        The fitted regression model.
+        The fitted model.
     coef : pd.DataFrame
-        The coefficients of the model.
-    name : str
-        The name of the dataset if provided as a dictionary.
+        The estimated model coefficients with standard errors, p-values, etc.
 
     Methods
     -------
     __init__(data, rvar=None, evar=None, ivar=None, form=None)
         Initialize the regress class with the provided data and parameters.
     summary(main=True, fit=True, ci=False, ssq=False, rmse=False, vif=False, test=None, dec=3)
-        Summarize the output from the linear regression model.
+        Summarize the model output.
     plot(plot_type, nobs=1000, incl=None, excl=None, incl_int=None, fix=True, hline=False, nnv=20, minq=0.025, maxq=0.975)
-        Plot diagnostics for the regression model.
-    predict(data=None, ci=False, conf=0.95)
-        Make predictions using the fitted regression model.
+        Plots for the model.
+    predict(data=None, cmd=None, data_cmd=None, ci=False, conf=0.95)
+        Generate predictions using the fitted model.
     """
 
     def __init__(
@@ -72,16 +71,16 @@ class regress:
 
         Parameters
         ----------
-        data : pd.DataFrame | pl.DataFrame | dict[str, pd.DataFrame | pl.DataFrame]
-            The dataset to be used for the regression analysis.
+        data: pd.DataFrame | pl.DataFrame | dict[str, pd.DataFrame | pl.DataFrame],
+            Dataset used for the analysis. If a Polars DataFrame is provided, it will be converted to a Pandas DataFrame. If a dictionary is provided, the key will be used as the name of the dataset.
         rvar : str, optional
             Name of the column in the data to be use as the response variable.
         evar : list[str], optional
             List of column names in the data to use as explanatory variables.
         ivar : list[str], optional
-            List of column names to interact and add to the model as explanatory variables (e.g., ["x1:x2", "x3:x4])
+            List of interactions to add to the model as explanatory variables (e.g., ["x1:x2", "x3:x4])
         form : str, optional
-            Formula for the regression equation to use if evar and rvar are not provided.
+            Optional formula to use if rvar and evar are not provided.
         """
         if isinstance(data, dict):
             self.name = list(data.keys())[0]
@@ -127,7 +126,7 @@ class regress:
         dec: int = 3,
     ) -> None:
         """
-        Summarize the output from the linear regression model.
+        Summarize the linear regression model output
 
         Parameters
         ----------
@@ -144,7 +143,7 @@ class regress:
         vif : bool, default False
             Print the generalized variance inflation factors.
         test : list[str] or None, optional
-            List of variable names used in the model to test using an F-test or None if no tests are to be performed.
+            List of variable names used in the model to test using a Chi-Square test or None if no tests are performed.
         dec : int, default 3
             Number of decimal places to round to.
         """
@@ -217,12 +216,16 @@ class regress:
         self, data=None, cmd=None, data_cmd=None, ci=False, conf=0.95
     ) -> pd.DataFrame:
         """
-        Make predictions using the fitted regression model.
+        Generate predictions using the fitted model.
 
         Parameters
         ----------
         data : pd.DataFrame | pl.DataFrame, optional
-            Data to use for making predictions. If not provided, the original data used to fit the model is used.
+            Data used to generate predictions. If not provided, the estimation data will be used.
+        cmd : dict[str, Union[int, list[int]]], optional
+            Dictionary with the names of the columns to be used in the prediction and the values to be used.
+        data_cmd : dict[str, Union[int, list[int]]], optional
+            Dictionary with the names of the columns to be used in the prediction and the values to be used.
         ci : bool, default False
             Calculate confidence intervals for the predictions.
         conf : float, default 0.95
@@ -266,7 +269,7 @@ class regress:
         intercept=False,
         incl=None,
         excl=None,
-        incl_int=[],
+        incl_int=None,
         fix=True,
         hline=False,
         nnv=20,
@@ -281,7 +284,7 @@ class regress:
 
         Parameters
         ----------
-        plot_type : str or list[str], default 'dist'
+        plots : str or list[str], default 'dist'
             List of plot types to generate. Options include 'dist', 'corr', 'scatter', 'dashboard', 'residual', 'pred', 'vimp', 'coef'.
         nobs : int, default 1000
             Number of observations to plot. Relevant for all plots that include a scatter of data points (i.e., corr, scatter, dashboard, residual).
@@ -302,7 +305,20 @@ class regress:
         maxq : float, default 0.975
             Maximum quantile of the explanatory variable values to use to calculate and plot predictions.
         """
-        data = self.data[[self.rvar] + self.evar].copy()
+        plots = convert_to_list(plots)  # control for the case where a single string is passed
+        excl = convert_to_list(excl)
+        incl = convert_to_list(incl)
+        incl_int = convert_to_list(incl_int)
+        
+        if data is None:
+            data = self.data
+        else:
+            data = check_dataframe(data)
+        if self.rvar in data.columns:
+            data = data[[self.rvar] + self.evar].copy()
+        else:
+            data = data[self.evar].copy()
+
         if "dist" in plots:
             distr_plot(data)
         if "corr" in plots:
@@ -317,9 +333,9 @@ class regress:
         if "pred" in plots:
             pred_plot_sm(
                 self.fitted,
-                data=ifelse(data is None, self.data[self.evar], data),
+                data=data[self.evar],
                 incl=incl,
-                excl=ifelse(excl is None, [], excl),
+                excl=excl,
                 incl_int=incl_int,
                 fix=fix,
                 hline=hline,
@@ -327,15 +343,15 @@ class regress:
                 minq=minq,
                 maxq=maxq,
             )
-        if "vimp" in plots:
+        if "vimp" in plots or "pimp" in plots:
             return_vimp = vimp_plot_sm(
                 self.fitted,
-                data=ifelse(data is None, self.data, data),
+                data=data,
                 rep=10,
                 ax=ax,
-                ret=True,
+                ret=ret,
             )
-            if ret is not None:
+            if ret:
                 return return_vimp
         if "coef" in plots:
             coef_plot(
@@ -355,6 +371,8 @@ class regress:
         ----------
         test : list[str] or None, optional
             List of variable names used in the model to test using an F-test or None if all variables are to be tested.
+        dec : int, default 3
+            Number of decimal places to round to.
         """
         evar = setdiff(self.evar, test)
         if self.ivar is not None and len(self.ivar) > 0:

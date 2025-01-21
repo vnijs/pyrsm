@@ -11,4 +11,5 @@ from .model.regress import *
 from .model.logistic import *
 from .model.rforest import *
 from .model.mlp import *
+from .model.xgboost import *
 from .radiant import *

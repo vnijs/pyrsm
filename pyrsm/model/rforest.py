@@ -3,10 +3,6 @@ import pandas as pd
 import polars as pl
 import matplotlib.pyplot as plt
 from math import sqrt, log2
-
-# from sklearn.model_selection import GridSearchCV
-# from sklearn.model_selection import StratifiedKFold
-# from sklearn import metrics, tree
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.inspection import PartialDependenceDisplay as pdp
 from pyrsm.utils import ifelse, check_dataframe, setdiff
@@ -19,7 +15,7 @@ from pyrsm.model.model import (
     reg_dashboard,
 )
 from pyrsm.model.perf import auc
-from .visualize import pred_plot_sk, vimp_plot_sk
+from .visualize import pred_plot_sk, vimp_plot_sk, vimp_plot_sklearn
 
 
 class rforest:
@@ -28,7 +24,8 @@ class rforest:
 
     Parameters
     ----------
-    data: pandas DataFrame; dataset
+    data : pd.DataFrame | pl.DataFrame | dict[str, pd.DataFrame | pl.DataFrame]
+        The input data for the regression analysis, should be a Pandas or Polars DataFrame. Can also pass in a dictionary with the name of the DataFrame as the key and the DataFrame as the value.
     lev: String; name of the level in the response variable
     rvar: String; name of the column to be used as the response variable
     evar: List of strings; contains the names of the column of data to be used as the explanatory (target) variable
@@ -73,6 +70,7 @@ class rforest:
         self.max_features = max_features
         self.max_samples = max_samples
         self.random_state = random_state
+        self.ml_model = {"model": "rforest", "mod_type": mod_type}
         self.kwargs = kwargs
 
         if self.mod_type == "classification":
@@ -107,6 +105,11 @@ class rforest:
     def summary(self, dec=3) -> None:
         """
         Summarize output from a Random Forest model
+
+        Parameters
+        ----------
+        dec : int, default 3
+            Number of decimal places to round to.
         """
         print("Random Forest")
         print(f"Data                 : {self.name}")
@@ -182,8 +185,8 @@ class rforest:
             cmd = {k: ifelse(isinstance(v, str), [v], v) for k, v in cmd.items()}
             data = sim_prediction(data=data, vary=cmd)
 
-        # not dropping the first level of the categorical variables
-        data_onehot = pd.get_dummies(data, drop_first=False)
+        # only dropping the first level for binary categorical variables
+        data_onehot = conditional_get_dummies(data)
 
         # adding back levels for categorical variables is they were removed
         if data_onehot.shape[1] != self.data_onehot.shape[1]:
@@ -217,13 +220,27 @@ class rforest:
         """
         Plots for a random forest model
         """
+        plots = convert_to_list(plots)  # control for the case where a single string is passed
+        excl = convert_to_list(excl)
+        incl = convert_to_list(incl)
+        incl_int = convert_to_list(incl_int)
+
+        if data is None:
+            data = self.data
+        else:
+            data = check_dataframe(data)
+        if self.rvar in data.columns:
+            data = data[[self.rvar] + self.evar].copy()
+        else:
+            data = data[self.evar].copy()
+
         if "pred" in plots:
             pred_plot_sk(
                 self.fitted,
                 data=ifelse(data is None, self.data[self.evar], data),
                 rvar=self.rvar,
                 incl=incl,
-                excl=[],
+                excl=excl,
                 incl_int=incl_int,
                 fix=fix,
                 hline=hline,
@@ -239,16 +256,28 @@ class rforest:
             ax.set_title("Partial Dependence Plots")
             fig = pdp.from_estimator(self.fitted, self.data_onehot, self.data_onehot.columns, ax=ax, n_cols=2)
 
-        if "vimp" in plots:
+        if "vimp" in plots or "pimp" in plots:
             return_vimp = vimp_plot_sk(
+                self,
+                rep=5,
+                ax=ax,
+                ret=ret,
+            )
+
+            if ret:
+                return return_vimp
+
+        if "vimp_sklearn" in plots or "pimp_sklearn" in plots:
+            return_vimp = vimp_plot_sklearn(
                 self.fitted,
                 self.data_onehot,
                 self.data[self.rvar],
                 rep=5,
                 ax=ax,
-                ret=True,
+                ret=ret,
             )
-            if ret is not None:
+
+            if ret:
                 return return_vimp
 
         if "dashboard" in plots and self.mod_type == "regression":

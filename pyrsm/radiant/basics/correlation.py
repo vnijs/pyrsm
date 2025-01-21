@@ -101,9 +101,8 @@ class basics_correlation:
                         ru.ui_data(self),
                         ui_summary(self),
                         # ui_plot(self),
-                        ru.ui_plot(
-                            self, {"corr": "Correlation plot"}, plots_extra(self)
-                        ),
+                        ru.ui_plot(self, {"corr": "Correlation plot"}, plots_extra(self)),
+                        style="min-width: 250px; max-width: 350px",
                     ),
                     ui.column(8, ru.ui_main_basics(self)),
                 ),
@@ -212,7 +211,7 @@ class basics_correlation:
         async def stop_app():
             rsm.md(f"```python\n{self.stop_code}\n```")
             await session.app.stop()
-            os.kill(os.getpid(), signal.SIGTERM)
+            os.kill(os.getpid(), signal.SIGINT)
 
 
 def correlation(

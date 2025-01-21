@@ -3,7 +3,7 @@ from starlette.routing import Mount
 from starlette.staticfiles import StaticFiles
 from pathlib import Path
 from shiny import App
-from pyrsm.radiant.data_view import data_view
+from pyrsm.radiant.data.data_view import data_view
 import pyrsm.radiant.utils as ru
 
 www_dir = Path(__file__).parent.parent / "radiant" / "www"

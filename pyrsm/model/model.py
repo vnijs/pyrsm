@@ -59,7 +59,9 @@ def extract_rvar(model, cn):
 
 
 def convert_to_list(v):
-    if isinstance(v, list) or v is None:
+    if v is None:
+        return []
+    elif isinstance(v, list):
         return v
     elif isinstance(v, str):
         return [v]
@@ -74,14 +76,28 @@ def convert_binary(data, rvar, lev):
     return data
 
 
+def is_binary(series):
+    """
+    Efficiently check if a series has more than 2 unique values.
+    Stops checking as soon as it finds a third unique value.
+    """
+    seen = set()
+    for val in series:
+        if pd.isna(val):  # Skip NA values
+            continue
+        seen.add(val)
+        if len(seen) > 2:
+            return True
+    return False
+
+
 def conditional_get_dummies(df):
     for column in df.select_dtypes(include=["object", "category"]).columns:
-        unique_values = df[column].nunique()
-        if unique_values == 2:  # Binary variable
+        if not is_binary(df[column]):
             dummies = pd.get_dummies(df[column], prefix=column, drop_first=True)
-        else:  # Multi-level variable
+        else:
             dummies = pd.get_dummies(df[column], prefix=column)
-        # Drop the original column and concatenate the new dummy columns
+        # drop the original column and concatenate the new dummy columns
         df = pd.concat([df.drop(column, axis=1), dummies], axis=1)
     return df
 
@@ -246,7 +262,7 @@ def or_plot(fitted, alpha=0.05, intercept=False, incl=None, excl=None, figsize=N
             incl[0] = True
         df = df[incl]
 
-    if excl is not None:
+    if excl is not None and excl != []:
         excl = ifelse(isinstance(excl, str), [excl], excl)
         rx = "(" + "|".join([f"^{v}$|^{v}\\[" for v in excl]) + ")"
         excl = df["index"].str.match(rf"{rx}")

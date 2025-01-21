@@ -47,7 +47,7 @@ def bincode(x, breaks, right=True, include_lowest=True):
 
     for i in range(n):
         if np.isnan(x[i]):
-            code[i] = np.NaN
+            code[i] = np.nan
             print(f"Entry {i} is a missing value")
         else:
             lo = 0

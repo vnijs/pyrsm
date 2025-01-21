@@ -318,6 +318,12 @@ reg.predict(ci=True, conf=0.05).round(3)
 reg.predict(data=diamonds.assign(carat=1)).round(3)
 ```
 
+```{python}
+reg.plot("coef")
+```
+
+
+
 ## Radiant for Python App: Linear regression (OLS)
 
 All the output shown above can be reproduced using the Radiant-for-Python web interface. An example of what the code required to start the web interface is shown below. See if you can reproduce the result.
@@ -340,4 +346,3 @@ rsm.radiant.regress(
 <p align="center">
 <img src="figures/linear-regression-pred-plots.png">
 </p>
-

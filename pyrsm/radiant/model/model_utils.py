@@ -195,7 +195,7 @@ def make_estimate(
     module="model.",
     run=True,
     ec=None,
-    debug=False,
+    debug=True,
 ):
     if ec is None:
 
@@ -231,7 +231,20 @@ def make_estimate(
             ):
                 args["ivar"] = list(input.interactions())
 
-            if ret == "rf":
+            if ret == "xgb":
+                args.update(
+                    {
+                        "mod_type": input.mod_type(),
+                        "n_estimators": input.n_estimators(),
+                        "max_depth": input.max_depth(),
+                        "min_child_weight": input.min_child_weight(),
+                        "learning_rate": input.learning_rate(),
+                        "subsample": input.subsample(),
+                        "colsample_bytree": input.colsample_bytree(),
+                        "random_state": input.random_state(),
+                    }
+                )
+            elif ret == "rf":
                 if input.max_features() in ["sqrt", "log2"]:
                     max_features = input.max_features()
                 else:
@@ -464,4 +477,12 @@ def make_plot(self, input, output, session, show_code, estimate, ret, pc=None):
     def plot_container():
         req(estimate(), input.plots())
         width, height = gen_plot()[1:]
-        return ui.output_plot("plot", height=f"{height}px", width=f"{width}px")
+        aspect_ratio = height / width
+        # return ui.output_plot("plot", height=f"{height}px", width=f"{width}px")
+        return ui.div(
+            {"style": f"width: 100%; padding-bottom: {aspect_ratio * 100}%; position: relative;"},
+            ui.div(
+                {"style": "position: absolute; top: 0; left: 0; right: 0; bottom: 0;"},
+                ui.output_plot("plot", height="100%", width="100%"),
+            ),
+        )

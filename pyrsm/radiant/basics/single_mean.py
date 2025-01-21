@@ -80,6 +80,7 @@ class basics_single_mean:
                         ru.ui_data(self),
                         ui_summary(self),
                         ru.ui_plot(self, choices),
+                        style="min-width: 250px; max-width: 350px",
                     ),
                     ui.column(8, ru.ui_main_basics()),
                 ),
@@ -176,7 +177,7 @@ class basics_single_mean:
         async def stop_app():
             rsm.md(f"```python\n{self.stop_code}\n```")
             await session.app.stop()
-            os.kill(os.getpid(), signal.SIGTERM)
+            os.kill(os.getpid(), signal.SIGINT)
 
 
 def single_mean(

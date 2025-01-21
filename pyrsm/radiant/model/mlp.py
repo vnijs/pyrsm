@@ -87,7 +87,7 @@ def summary_extra(self):
             ru.input_return_text_area(
                 "extra_args",
                 label="Additional arguments:",
-                placeholder="max_depth=5, n_jobs=-1",
+                placeholder="n_jobs=-1",
                 value=self.state.get("extra_args", ""),
             ),
         ),
@@ -129,6 +129,7 @@ class model_mlp:
                         ru.ui_summary(summary_extra(self)),
                         mu.ui_predict(self, show_ci=False),
                         ru.ui_plot(self, choices, plots_extra(self)),
+                        style="min-width: 250px; max-width: 350px",
                     ),
                     ui.column(8, ru.ui_main_model()),
                 ),
@@ -178,6 +179,7 @@ class model_mlp:
                 choices=levs,
             )
 
+        # needed for prediction plots
         mu.make_int_inputs(self, input, output, get_data)
         show_code, estimate = mu.make_estimate(
             self, input, output, get_data, fun="mlp", ret="nn", debug=False
@@ -190,7 +192,7 @@ class model_mlp:
             show_code,
             estimate,
             ret="nn",
-            sum_fun=rsm.model.logistic.summary,
+            sum_fun=rsm.model.mlp.summary,
         )
         mu.make_predict(
             self,
@@ -200,7 +202,7 @@ class model_mlp:
             show_code,
             estimate,
             ret="nn",
-            pred_fun=rsm.model.logistic.predict,
+            pred_fun=rsm.model.mlp.predict,
             show_ci=False,
         )
         mu.make_plot(
@@ -220,7 +222,7 @@ class model_mlp:
         async def stop_app():
             rsm.md(f"```python\n{self.stop_code}\n```")
             await session.app.stop()
-            os.kill(os.getpid(), signal.SIGTERM)
+            os.kill(os.getpid(), signal.SIGINT)
 
 
 def mlp(

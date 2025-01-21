@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import polars as pl
 from scipy import stats
-from pyrsm.model import sig_stars
+from pyrsm.model.model import sig_stars
 from pyrsm.utils import ifelse, check_dataframe
 from typing import Literal
 from statsmodels.stats import multitest

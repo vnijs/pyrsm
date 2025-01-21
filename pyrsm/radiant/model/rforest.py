@@ -113,6 +113,7 @@ class model_rforest:
                         ru.ui_summary(summary_extra(self)),
                         mu.ui_predict(self, show_ci=False),
                         ru.ui_plot(self, choices, plots_extra(self)),
+                        style="min-width: 250px; max-width: 350px",
                     ),
                     ui.column(8, ru.ui_main_model()),
                 ),
@@ -162,6 +163,7 @@ class model_rforest:
                 choices=levs,
             )
 
+        # needed for prediction plots
         mu.make_int_inputs(self, input, output, get_data)
         show_code, estimate = mu.make_estimate(
             self, input, output, get_data, fun="rforest", ret="rf", debug=False
@@ -204,7 +206,7 @@ class model_rforest:
         async def stop_app():
             rsm.md(f"```python\n{self.stop_code}\n```")
             await session.app.stop()
-            os.kill(os.getpid(), signal.SIGTERM)
+            os.kill(os.getpid(), signal.SIGINT)
 
 
 def rforest(

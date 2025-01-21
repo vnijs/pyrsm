@@ -16,6 +16,9 @@ from pyrsm.utils import ifelse
 import pyrsm.radiant.utils as ru
 import pyrsm.radiant.model.model_utils as mu
 
+import os
+import multiprocessing as mp
+
 
 def ui_summary(self):
     return ui.panel_conditional(
@@ -152,6 +155,7 @@ class basics_compare_means:
                         ru.ui_data(self),
                         ui_summary(self),
                         ru.ui_plot(self, choices, plots_extra(self)),
+                        style="min-width: 250px; max-width: 350px",
                     ),
                     ui.column(8, ru.ui_main_basics(self)),
                 ),
@@ -336,7 +340,7 @@ class basics_compare_means:
         async def stop_app():
             rsm.md(f"```python\n{self.stop_code}\n```")
             await session.app.stop()
-            os.kill(os.getpid(), signal.SIGTERM)
+            os.kill(os.getpid(), signal.SIGINT)
 
 
 def compare_means(
