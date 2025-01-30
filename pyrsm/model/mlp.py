@@ -11,6 +11,7 @@ from pyrsm.model.model import (
     evalreg,
     convert_to_list,
     reg_dashboard,
+    nobs_dropped,
 )
 from pyrsm.model.perf import auc
 from pyrsm.stats import scale_df
@@ -98,6 +99,10 @@ class mlp:
         self.random_state = random_state
         self.ml_model = {"model": "mlp", "mod_type": mod_type}
         self.kwargs = kwargs
+        self.nobs_all = self.data.shape[0]
+        self.data = self.data[[rvar] + self.evar].dropna()
+        self.nobs = self.data.shape[0]
+        self.nobs_dropped = self.nobs_all - self.nobs
 
         if self.mod_type == "classification":
             if self.lev is not None and self.rvar is not None:
@@ -126,6 +131,7 @@ class mlp:
                 random_state=self.random_state,
                 **kwargs,
             )
+
         self.data_std, self.means, self.stds = scale_df(self.data[[rvar] + self.evar], sf=1, stats=True)
         # use drop_first=True for one-hot encoding because NN models include a bias term
         self.data_onehot = pd.get_dummies(self.data_std[self.evar], drop_first=True)
@@ -133,7 +139,6 @@ class mlp:
 
         self.fitted = self.mlp.fit(self.data_onehot, self.data_std[self.rvar])
         self.n_weights = sum(weight_matrix.size for weight_matrix in self.fitted.coefs_)
-        self.nobs = self.data.dropna().shape[0]
 
     def summary(self, dec=3) -> None:
         """
@@ -157,7 +162,7 @@ class mlp:
         print(f"Model type           : {ifelse(self.mod_type == 'classification', 'classification', 'regression')}")
         print(f"Nr. of features      : ({self.n_features[0]}, {self.n_features[1]})")
         print(f"Nr. of weights       : {format(self.n_weights, ',.0f')}")
-        print(f"Nr. of observations  : {format(self.nobs, ',.0f')}")
+        print(f"Nr. of observations  : {format(self.nobs, ',.0f')}{nobs_dropped(self)}")
         print(f"Hidden_layer_sizes   : {self.hidden_layer_sizes}")
         print(f"Activation function  : {self.activation}")
         print(f"Solver               : {self.solver}")
@@ -244,9 +249,11 @@ class mlp:
                 # scaling the full dataset by the means used during estimation
                 data_std = scale_df(data, sf=1, means=self.means, stds=self.stds)
 
+            # data_onehot = pd.get_dummies(data_std, drop_first=False)
             data_onehot = pd.get_dummies(data_std, drop_first=False)
         else:
-            data_onehot = pd.get_dummies(data, drop_first=False)
+            # data_onehot = pd.get_dummies(data, drop_first=False)
+            data_onehot = pd.get_dummies(data, drop_first=True)
 
         # adding back levels for categorical variables is they were removed
         if data_onehot.shape[1] != self.data_onehot.shape[1]:
@@ -321,11 +328,9 @@ class mlp:
 
         plots = convert_to_list(plots)  # control for the case where a single string is passed
         excl = convert_to_list(excl)
-        incl = convert_to_list(incl)
+        incl = ifelse(incl is None, None, convert_to_list(incl))
         incl_int = convert_to_list(incl_int)
 
-        plots = convert_to_list(plots)  # control for the case where a single string is passed
-        excl = ifelse(excl is None, [], excl)
         if "pred" in plots:
             if data is None:
                 data_dct = {

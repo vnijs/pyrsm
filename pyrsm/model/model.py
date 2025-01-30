@@ -442,6 +442,13 @@ def predict_ci(fitted, df, conf=0.95, alpha=None):
         )
 
 
+def nobs_dropped(obj):
+    if hasattr(obj, "nobs_dropped") and obj.nobs_dropped > 0:
+        return f" ({obj.nobs_dropped:,.0f} obs. dropped)"
+    else:
+        return ""
+
+
 def model_fit(fitted, dec: int = 3, prn: bool = True) -> Union[str, pd.DataFrame]:
     """
     Compute various model fit statistics for a fitted linear or logistic regression model
@@ -478,11 +485,11 @@ Pseudo R-squared (McFadden adjusted): {mfit.pseudo_rsq_mcf_adj.values[0].round(d
 Area under the RO Curve (AUC): {mfit.AUC.values[0].round(dec)}
 Log-likelihood: {mfit.log_likelihood.values[0].round(dec)}, AIC: {mfit.AIC.values[0].round(dec)}, BIC: {mfit.BIC.values[0].round(dec)}
 Chi-squared: {mfit.chisq.values[0].round(dec)}, df({mfit.chisq_df.values[0]}), p.value {np.where(mfit.chisq_pval.values[0] < .001, "< 0.001", mfit.chisq_pval.values[0].round(dec))} 
-Nr obs: {mfit.nobs.values[0]:,.0f}"""
+Nr obs: {mfit.nobs.values[0]:,.0f}{nobs_dropped(fitted)}"""
         elif model_type == "regression":
             output = f"""R-squared: {mfit.rsq.values[0].round(dec)}, Adjusted R-squared: {mfit.rsq_adj.values[0].round(dec)}
 F-statistic: {mfit.fvalue[0].round(dec)} df({mfit.ftest_df_model.values[0]:.0f}, {mfit.ftest_df_resid.values[0]:.0f}), p.value {np.where(mfit.ftest_pval.values[0] < .001, "< 0.001", mfit.ftest_pval.values[0].round(dec))}
-Nr obs: {mfit.nobs.values[0]:,.0f}"""
+Nr obs: {mfit.nobs.values[0]:,.0f}{nobs_dropped(fitted)}"""
         else:
             output = "Model type not supported"
         return output

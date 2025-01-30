@@ -81,7 +81,7 @@ class logistic:
         data: pd.DataFrame | pl.DataFrame | dict[str, pd.DataFrame | pl.DataFrame],
             Dataset used for the analysis. If a Polars DataFrame is provided, it will be converted to a Pandas DataFrame. If a dictionary is provided, the key will be used as the name of the dataset.
         rvar : str, optional
-            Name of the column in the data to be use as the response variable.
+            Name of the column in the data to be used as the response variable.
         lev: str
             Name of the level in the response variable the model will predict.
         evar : list[str], optional
@@ -136,6 +136,7 @@ class logistic:
                 freq_weights=self.weights,
                 family=Binomial(link=Logit()),
             ).fit()
+        self.fitted.nobs_dropped = self.data.shape[0] - self.fitted.nobs
         df = pd.DataFrame(np.exp(self.fitted.params), columns=["OR"]).dropna()
         df["OR%"] = 100 * ifelse(df["OR"] < 1, -(1 - df["OR"]), df["OR"] - 1)
         df["coefficient"] = self.fitted.params
@@ -307,7 +308,10 @@ class logistic:
             Maximum quantile of the explanatory variable values to use to calculate and plot predictions.
         """
         plots = convert_to_list(plots)  # control for the case where a single string is passed
-        excl = ifelse(excl is None, [], excl)
+        excl = convert_to_list(excl)
+        incl = ifelse(incl is None, None, convert_to_list(incl))
+        incl_int = convert_to_list(incl_int)
+
         if data is None:
             data = self.data
         else:

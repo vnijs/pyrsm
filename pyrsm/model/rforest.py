@@ -13,6 +13,7 @@ from pyrsm.model.model import (
     convert_to_list,
     conditional_get_dummies,
     reg_dashboard,
+    nobs_dropped,
 )
 from pyrsm.model.perf import auc
 from .visualize import pred_plot_sk, vimp_plot_sk, vimp_plot_sklearn
@@ -72,6 +73,10 @@ class rforest:
         self.random_state = random_state
         self.ml_model = {"model": "rforest", "mod_type": mod_type}
         self.kwargs = kwargs
+        self.nobs_all = self.data.shape[0]
+        self.data = self.data[[self.rvar] + self.evar].dropna()
+        self.nobs = self.data.shape[0]
+        self.nobs_dropped = self.nobs_all - self.nobs
 
         if self.mod_type == "classification":
             if self.lev is not None and self.rvar is not None:
@@ -100,7 +105,6 @@ class rforest:
         self.data_onehot = conditional_get_dummies(self.data[self.evar])
         self.n_features = [len(evar), self.data_onehot.shape[1]]
         self.fitted = self.rf.fit(self.data_onehot, self.data[self.rvar])
-        self.nobs = self.data.dropna().shape[0]
 
     def summary(self, dec=3) -> None:
         """
@@ -130,7 +134,7 @@ class rforest:
         else:
             nr = int(self.max_features)
         print(f"Nr. of features      : ({self.n_features[0]}, {self.n_features[1]})")
-        print(f"Nr. of observations  : {format(self.nobs, ',.0f')}")
+        print(f"Nr. of observations  : {format(self.nobs, ',.0f')}{nobs_dropped(self)}")
         print(f"max_features         : {self.max_features} ({int(nr)})"),
         print(f"n_estimators         : {self.n_estimators}")
         print(f"min_samples_leaf     : {self.min_samples_leaf}")
@@ -222,7 +226,7 @@ class rforest:
         """
         plots = convert_to_list(plots)  # control for the case where a single string is passed
         excl = convert_to_list(excl)
-        incl = convert_to_list(incl)
+        incl = ifelse(incl is None, None, convert_to_list(incl))
         incl_int = convert_to_list(incl_int)
 
         if data is None:
@@ -237,7 +241,7 @@ class rforest:
         if "pred" in plots:
             pred_plot_sk(
                 self.fitted,
-                data=ifelse(data is None, self.data[self.evar], data),
+                data=data,
                 rvar=self.rvar,
                 incl=incl,
                 excl=excl,

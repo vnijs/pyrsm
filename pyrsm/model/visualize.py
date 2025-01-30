@@ -592,6 +592,7 @@ def vimp_plot_sm(fitted, data, rep=10, ax=None, ret=False):
         sorted_idx.columns = ["Importance"]
         return sorted_idx[::-1]
 
+
 def vimp_plot_sk(model, rep=5, ax=None, ret=False):
     """
     Creates permutation importance plots for models estimated using the
@@ -611,11 +612,7 @@ def vimp_plot_sk(model, rep=5, ax=None, ret=False):
     """
     rvar = model.rvar
     evars = model.evar
-
-    if model.ml_model["model"] == "mlp":
-        data = model.data_std[[rvar] + evars].copy().reset_index(drop=True).dropna()
-    else:
-        data = model.data[[rvar] + evars].copy().reset_index(drop=True).dropna()
+    data = model.data[[rvar] + evars].copy().reset_index(drop=True).dropna()
 
     def imp_calc_reg(base, pred):
         return base - pd.DataFrame({"y": data[rvar], "yhat": pred}).corr().iloc[0, 1] ** 2
@@ -626,35 +623,27 @@ def vimp_plot_sk(model, rep=5, ax=None, ret=False):
     # Calculate the baseline performance
     if hasattr(model.fitted, "classes_"):
         xlab = "Importance (AUC decrease)"
-        baseline_fit = auc(data[rvar], model.fitted.predict(model.data_onehot))
+        baseline_fit = auc(data[rvar], model.predict(data[evars])["prediction"])
         imp_calc = imp_calc_clf  # specifying the function to use
     else:
         baseline_fit = (
-            pd.DataFrame({"y": data[rvar], "yhat": model.fitted.predict(model.data_onehot)}).corr().iloc[0, 1] ** 2
+            pd.DataFrame({"y": data[rvar], "yhat": model.predict(data[evars])["prediction"]}).corr().iloc[0, 1] ** 2
         )
         imp_calc = imp_calc_reg  # specifying the function to use
         xlab = "Importance (R-square decrease)"
 
     # Create a copy of the dataframe
-    permuted = data.copy()
+    permuted = data[evars].copy()
 
     # Initialize a dictionary to store the permutation importance values
     importance_values = {v: 0 for v in evars}
-
-    def make_dummies(perm):
-        if model.ml_model["model"] == "mlp":
-            return pd.get_dummies(perm, drop_first=True)
-        else:
-            return conditional_get_dummies(perm)
 
     # Iterate over each feature
     for i in range(rep):
         for feature in evars:
             permuted[feature] = data[feature].sample(frac=1, random_state=i).reset_index(drop=True)
-            importance_values[feature] += imp_calc(
-                baseline_fit, model.fitted.predict(make_dummies(permuted[evars]))
-            )
-            permuted[feature] = data[feature] # reverting to original values
+            importance_values[feature] += imp_calc(baseline_fit, model.predict(permuted)["prediction"])
+            permuted[feature] = data[feature]  # reverting to original values
 
     importance_values = {k: [v / rep] for k, v in importance_values.items()}
     sorted_idx = pd.DataFrame(importance_values).transpose()
@@ -671,6 +660,7 @@ def vimp_plot_sk(model, rep=5, ax=None, ret=False):
     if ret:
         sorted_idx.columns = ["Importance"]
         return sorted_idx[::-1]
+
 
 def vimp_plot_sklearn(fitted, X, y, rep=5, ax=None, ret=False):
     """

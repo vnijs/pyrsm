@@ -107,6 +107,7 @@ class regress:
                 self.form += f" + {' + '.join(self.ivar)}"
             self.fitted = smf.ols(self.form, data=self.data).fit()
 
+        self.fitted.nobs_dropped = self.data.shape[0] - self.fitted.nobs
         df = pd.DataFrame(self.fitted.params, columns=["coefficient"]).dropna()
         df["std.error"] = self.fitted.params / self.fitted.tvalues
         df["t.value"] = self.fitted.tvalues
@@ -304,12 +305,14 @@ class regress:
             Minimum quantile of the explanatory variable values to use to calculate and plot predictions.
         maxq : float, default 0.975
             Maximum quantile of the explanatory variable values to use to calculate and plot predictions.
+        figsize : tuple, optional
+            Figure size for the plots in inches (e.g., "(3, 6)"). Relevant for 'corr', 'scatter', 'residual', and 'coef' plots.
         """
         plots = convert_to_list(plots)  # control for the case where a single string is passed
         excl = convert_to_list(excl)
-        incl = convert_to_list(incl)
+        incl = ifelse(incl is None, None, convert_to_list(incl))
         incl_int = convert_to_list(incl_int)
-        
+
         if data is None:
             data = self.data
         else:
