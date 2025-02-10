@@ -181,7 +181,7 @@ class logistic:
 
             df = self.coef.copy()
             df["OR"] = df["OR"].round(dec)
-            df["coefficient"] = df["coefficient"].round(2)
+            df["coefficient"] = df["coefficient"].round(dec)
             df["std.error"] = df["std.error"].round(dec)
             df["z.value"] = df["z.value"].round(dec)
             df["p.value"] = ifelse(

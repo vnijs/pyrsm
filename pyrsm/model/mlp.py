@@ -138,7 +138,9 @@ class mlp:
         self.n_features = [len(evar), self.data_onehot.shape[1]]
 
         self.fitted = self.mlp.fit(self.data_onehot, self.data_std[self.rvar])
-        self.n_weights = sum(weight_matrix.size for weight_matrix in self.fitted.coefs_)
+        self.n_weights = sum(weight_matrix.size for weight_matrix in self.fitted.coefs_) + sum(
+            [len(i) for i in self.fitted.intercepts_]
+        )
 
     def summary(self, dec=3) -> None:
         """

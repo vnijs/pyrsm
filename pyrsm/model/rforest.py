@@ -101,7 +101,7 @@ class rforest:
             )
         # only use drop_first=True for a decision tree where the categorical
         # variables are only binary
-        # self.data_onehot = pd.get_dummies(self.data[evar], drop_first=drop_first)
+        # self.data_onehot = pd.get_dummies(self.data[evar], drop_first=False)
         self.data_onehot = conditional_get_dummies(self.data[self.evar])
         self.n_features = [len(evar), self.data_onehot.shape[1]]
         self.fitted = self.rf.fit(self.data_onehot, self.data[self.rvar])
@@ -138,6 +138,7 @@ class rforest:
         print(f"max_features         : {self.max_features} ({int(nr)})"),
         print(f"n_estimators         : {self.n_estimators}")
         print(f"min_samples_leaf     : {self.min_samples_leaf}")
+        print(f"max_samples          : {self.max_samples}")
         print(f"random_state         : {self.random_state}")
         if self.mod_type == "classification":
             cpred = self.fitted.oob_decision_function_[:, 1]
