@@ -12,6 +12,7 @@ import tools.tool_handlers as th
 from app_utils import load_dotenv
 from openai import AsyncOpenAI
 from pyrsm.basics import single_mean, compare_means
+from pyrsm.model import regress
 import pyrsm as rsm
 
 tools = tfd.tools
@@ -20,7 +21,7 @@ load_dotenv()
 llm = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 # Load default data
-base_dir = "pyrsm/data/"
+base_dir = "pyrsm/data"
 demand_uk = pd.read_parquet(f"{base_dir}/basics/demand_uk.parquet")
 with open(f"{base_dir}/basics/demand_uk_description.md", "r") as f:
     demand_uk_description = f.read()
@@ -34,7 +35,7 @@ app_ui = ui.page_sidebar(
         ui.h4("Data Management"),
         ui.input_file("data_file", "Upload Data (CSV/Parquet)", accept=[".csv", ".parquet"]),
         ui.input_file("desc_file", "Upload Description (MD/TXT)", accept=[".md", ".txt"]),
-        ui.input_select("dataset_select", "Select Dataset", choices=["demand_uk", "salary"]),
+        ui.input_select("dataset_select", "Select Dataset", choices=["salary", "demand_uk"]),
         ui.output_ui("current_description"),
         width=400,
     ),
@@ -146,19 +147,19 @@ def server(input):
                         await th.handle_linear_regression(tool_call, chat)
 
                     # Get interpretation after tool execution
-                    await chat.append_message(
-                        {
-                            "role": "system",
-                            "content": f"Provide a detailed interpretation of the results from calling the {tool_call} function. If a plot was created, please provide an interpretation of the plot as well.",
-                        }
-                    )
-                    interpret_response = await llm.chat.completions.create(
-                        model="gpt-4o", messages=chat.messages(format="openai")
-                    )
-                    # Append the interpretation
-                    await chat.append_message(
-                        {"role": "assistant", "content": interpret_response.choices[0].message.content}
-                    )
+                    # await chat.append_message(
+                    #     {
+                    #         "role": "system",
+                    #         "content": f"Provide a detailed interpretation of the results from calling the {tool_call} function. If a plot was created, please provide an interpretation of the plot as well.",
+                    #     }
+                    # )
+                    # interpret_response = await llm.chat.completions.create(
+                    #     model="gpt-4o", messages=chat.messages(format="openai")
+                    # )
+                    # # Append the interpretation
+                    # await chat.append_message(
+                    #     {"role": "assistant", "content": interpret_response.choices[0].message.content}
+                    # )
             else:
                 # If no tool calls, just append the response content
                 await chat.append_message({"role": "assistant", "content": message.content})

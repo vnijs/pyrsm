@@ -113,15 +113,15 @@ linear_regression_tool = {
             },
             "evar": {
                 "type": "string",
-                "description": "The explanatory or independent variables to be used in the regression model. Ask the user to select these variables from a list of all available variables but exclude the response variable if already selected.",
+                "description": "A required list of explanatory or independent variables to be used in the regression model as a list of the variable names. If therer fewer than 10 explanatory variables in the data use all of them to start. Else, ask the user to select these variables from a list of all available variables but exclude the response variable.",
             },
             "ivar": {
                 "type": "string",
-                "description": "An optional list if interaction terms to included as explanatory (independent) in the regression model. Ask the user if they want to include interactions terms. If they do, ask them select the interactions as a pair of explanatory variables. For example, if we have variables x1 and x2 in the model as explanatory variables in the model, a possible interaction term would be included as 'x1:x2'. Notice the colon between the variable names.",
+                "description": "An optional list of interaction terms to included as explanatory (independent) variable in the regression model. Ask the user if they want to include interactions terms. If they do, ask them select the interactions as a pair of explanatory variables. For example, if we have variables x1 and x2 in the model as explanatory variables in the model, a possible interaction term would be included as 'x1:x2'. Notice the colon between the variable names. Do NOT include interactions unless the user explicity asks for them.",
             },
         },
         "required": ["data", "rvar", "evar"],
-    }
+    },
 }
 
 tools = [
