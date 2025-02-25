@@ -8,7 +8,7 @@ import statsmodels as sm
 from sklearn.inspection import permutation_importance
 from pyrsm.stats import scale_df
 from pyrsm.utils import ifelse, intersect, setdiff, check_dataframe, check_series
-from .model import sim_prediction, extract_evars, extract_rvar, conditional_get_dummies
+from .model import sim_prediction, extract_evars, extract_rvar
 from .perf import auc
 
 
