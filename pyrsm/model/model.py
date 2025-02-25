@@ -1,5 +1,6 @@
 from typing import Union, Optional
 import re
+import os
 import pandas as pd
 import polars as pl
 import numpy as np
@@ -13,10 +14,11 @@ from statsmodels.stats.outliers_influence import variance_inflation_factor
 from math import ceil
 from scipy import stats
 from sklearn import metrics
-from sklearn.model_selection import StratifiedShuffleSplit
+from sklearn.model_selection import StratifiedShuffleSplit, GridSearchCV, StratifiedKFold, KFold
 from scipy.special import expit
 from pyrsm.utils import ifelse, expand_grid, check_dataframe
 from pyrsm.stats import weighted_mean, weighted_sd
+from pyrsm.notebook import load_state, save_state
 from .perf import auc
 
 
@@ -82,22 +84,45 @@ def is_binary(series):
     Stops checking as soon as it finds a third unique value.
     """
     seen = set()
+    series = series.dropna()
     for val in series:
-        if pd.isna(val):  # Skip NA values
-            continue
         seen.add(val)
         if len(seen) > 2:
             return True
     return False
 
 
-def conditional_get_dummies(df):
+def check_binary(data, rvar, lev):
+    unique_levels = data[rvar].unique()
+    data = convert_binary(data, rvar, lev)
+    rvar_sum = data[rvar].sum()
+    if rvar_sum == 0 or rvar_sum == data.shape[0]:
+        raise ValueError(
+            f"All converted response values are {1 if rvar_sum == data.shape[0] else 0}. "
+            f"Available levels in {rvar}: {unique_levels} and '{lev}' was selected."
+        )
+    else:
+        return data
+
+
+def conditional_get_dummies(df, drop_nonvarying=True):
     for column in df.select_dtypes(include=["object", "category"]).columns:
         if not is_binary(df[column]):
             dummies = pd.get_dummies(df[column], prefix=column, drop_first=True)
         else:
             dummies = pd.get_dummies(df[column], prefix=column)
-        # drop the original column and concatenate the new dummy columns
+        if not drop_nonvarying and len(dummies.columns) == 0:
+            dummies = pd.get_dummies(df[column], prefix=column, drop_first=False)
+
+        df = pd.concat([df.drop(column, axis=1), dummies], axis=1)
+    return df
+
+
+def get_dummies(df, drop_first=True, drop_nonvarying=True):
+    for column in df.select_dtypes(include=["object", "category"]).columns:
+        dummies = pd.get_dummies(df[column], prefix=column, drop_first=drop_first)
+        if not drop_nonvarying and len(dummies.columns) == 0:
+            dummies = pd.get_dummies(df[column], prefix=column, drop_first=False)
         df = pd.concat([df.drop(column, axis=1), dummies], axis=1)
     return df
 
@@ -860,3 +885,61 @@ def residual_plot(
     """
 
     scatter_plot(fitted, df, nobs=nobs, figsize=figsize, resid=True)
+
+
+def cross_validation(mlobj, name, param_grid, scoring, directory="cv_objects", n_splits=5, n_jobs=2, random_state=1234):
+    """
+    Use cross-validation to find the best hyper parameters for a machine learning model
+
+    Parameters
+    ----------
+    fitted : A fitted linear regression model
+    nobs : int
+        Number of observations to use for the scatter plots. The default
+        value is 1,000. To use all observations in the plots, use nobs=-1
+    figsize : tuple
+        A tuple that determines the figure size. If None, size is
+        determined based on the number of variables in the modelkkk
+    mlobj: An object created by the pyrsm package with a fitted machine learning model
+    name: str
+        Name of the model
+    param_grid: dict
+        Dictionary with parameters to use for cross-validation
+    scoring: dict
+        Dictionary with scoring metrics to use for cross-validation
+    directory : str
+        Directory to save the cross-validation object. Defaults to "cv_objects"
+    n_splits : int
+        Number of splits to use in cross validation. Defaults to 5.
+    n_jobs : int
+        Number of just to start to run the cross validation. Defaults to 2.
+    random_state : int:
+        Random seed to use. Defaults to 1234.
+
+    Returns:
+        cv: An sklearn GridSearchCV object
+    """
+
+    cv_file = f"{directory}/{name}-cross-validation-object.pkl"
+    if os.path.exists(cv_file):
+        cv = load_state(cv_file)["cv"]
+    else:
+        rvar = mlobj.rvar
+        if mlobj.mod_type == "classification":
+            kfolds = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+        else:
+            kfolds = KFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+        cv = GridSearchCV(
+            mlobj.fitted,
+            param_grid=param_grid,
+            scoring=scoring,
+            cv=kfolds,
+            n_jobs=n_jobs,
+            refit=list(scoring.keys())[0],
+            verbose=5,
+        ).fit(mlobj.data_onehot, mlobj.data[rvar])
+        if not os.path.exists(directory):
+            os.mkdir(directory)
+        save_state({"cv": cv}, cv_file)
+
+    return cv

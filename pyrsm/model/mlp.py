@@ -7,11 +7,12 @@ from sklearn.inspection import PartialDependenceDisplay as pdp
 from pyrsm.utils import ifelse, check_dataframe, setdiff
 from pyrsm.model.model import (
     sim_prediction,
-    convert_binary,
+    check_binary,
     evalreg,
     convert_to_list,
     reg_dashboard,
     nobs_dropped,
+    get_dummies
 )
 from pyrsm.model.perf import auc
 from pyrsm.stats import scale_df
@@ -106,7 +107,7 @@ class mlp:
 
         if self.mod_type == "classification":
             if self.lev is not None and self.rvar is not None:
-                self.data = convert_binary(self.data, self.rvar, self.lev)
+                self.data = check_binary(self.data, self.rvar, self.lev)
 
             self.mlp = MLPClassifier(
                 hidden_layer_sizes=self.hidden_layer_sizes,
@@ -134,7 +135,7 @@ class mlp:
 
         self.data_std, self.means, self.stds = scale_df(self.data[[rvar] + self.evar], sf=1, stats=True)
         # use drop_first=True for one-hot encoding because NN models include a bias term
-        self.data_onehot = pd.get_dummies(self.data_std[self.evar], drop_first=True)
+        self.data_onehot = get_dummies(self.data_std[self.evar])
         self.n_features = [len(evar), self.data_onehot.shape[1]]
 
         self.fitted = self.mlp.fit(self.data_onehot, self.data_std[self.rvar])
@@ -240,6 +241,7 @@ class mlp:
         if data_cmd is not None and data_cmd != "":
             for k, v in data_cmd.items():
                 data[k] = v
+
         elif cmd is not None and cmd != "":
             cmd = {k: ifelse(isinstance(v, str), [v], v) for k, v in cmd.items()}
             data = sim_prediction(data=data, vary=cmd)
@@ -251,11 +253,9 @@ class mlp:
                 # scaling the full dataset by the means used during estimation
                 data_std = scale_df(data, sf=1, means=self.means, stds=self.stds)
 
-            # data_onehot = pd.get_dummies(data_std, drop_first=False)
-            data_onehot = pd.get_dummies(data_std, drop_first=False)
+            data_onehot = get_dummies(data_std, drop_nonvarying=False)
         else:
-            # data_onehot = pd.get_dummies(data, drop_first=False)
-            data_onehot = pd.get_dummies(data, drop_first=True)
+            data_onehot = get_dummies(data, drop_nonvarying=False)
 
         # adding back levels for categorical variables is they were removed
         if data_onehot.shape[1] != self.data_onehot.shape[1]:
@@ -266,14 +266,13 @@ class mlp:
         if self.mod_type == "classification":
             data["prediction"] = self.fitted.predict_proba(data_onehot)[:, -1]
         else:
-            # print(data_onehot.head())
             data["prediction"] = self.fitted.predict(data_onehot) * self.stds[self.rvar] + self.means[self.rvar]
 
         return data
 
     def plot(
         self,
-        plots: Literal["pred", "pdp", "vimp", "dashboard"] = "pred",
+        plots: Literal["pred", "pdp", "vimp", "vimp_sklearn", "dashboard"] = "pred",
         data=None,
         incl=None,
         excl=None,
@@ -315,12 +314,12 @@ class mlp:
             Minimum quantile for the prediction plot.
         maxq : float, default=0.975
             Maximum quantile for the prediction plot.
-        figsize : tuple, optional
-            Figure size for the plots.
+        figsize : tuple[int, int], default None
+            Figure size for the plots in inches.
         ax : plt.Axes, optional
             Axes object to plot on.
         ret : bool, optional
-            Whether to return the the variable (permutation) importance scores.
+            Whether to return the variable (permutation) importance scores for a "vimp" plot.
 
         Examples
         --------
@@ -343,8 +342,6 @@ class mlp:
             else:
                 if self.rvar in data.columns:
                     vars = self.evar + [self.rvar]
-                    if self.mod_type == "classification":
-                        data = convert_binary(data, self.rvar, self.lev)
                 else:
                     vars = self.evar
                     rvar = None

@@ -7,7 +7,7 @@ from sklearn.inspection import PartialDependenceDisplay as pdp
 from pyrsm.utils import ifelse, check_dataframe, setdiff
 from pyrsm.model.model import (
     sim_prediction,
-    convert_binary,
+    check_binary,
     evalreg,
     convert_to_list,
     conditional_get_dummies,
@@ -82,7 +82,7 @@ class xgboost:
 
         if self.mod_type == "classification":
             if self.lev is not None and self.rvar is not None:
-                self.data = convert_binary(self.data, self.rvar, self.lev)
+                self.data = check_binary(self.data, self.rvar, self.lev)
             objective = "binary:logistic"
             self.xgb = xgb.XGBClassifier(
                 objective=objective,
@@ -190,8 +190,8 @@ class xgboost:
             cmd = {k: ifelse(isinstance(v, str), [v], v) for k, v in cmd.items()}
             data = sim_prediction(data=data, vary=cmd)
 
-        # not dropping the first level of the categorical variables
-        data_onehot = conditional_get_dummies(data)
+        # only dropping the first level for binary categorical variables
+        data_onehot = conditional_get_dummies(data, drop_nonvarying=False)
 
         # adding back levels for categorical variables is they were removed
         if data_onehot.shape[1] != self.data_onehot.shape[1]:
@@ -206,7 +206,7 @@ class xgboost:
 
     def plot(
         self,
-        plots: Literal["pred", "pdp", "vimp"] = "pred",
+        plots: Literal["pred", "pdp", "vimp", "vimp_sklearn", "dashboard"] = "pred",
         data=None,
         incl=None,
         excl=None,
@@ -223,6 +223,35 @@ class xgboost:
     ) -> None:
         """
         Plots for an XGBoost model
+
+        Parameters
+        ----------
+        plots : str or list[str], default 'pred'
+            List of plot types to generate. Options include 'pred', 'pdp', 'vimp', 'vimp_sklearn', 'dashboard'.
+        nobs : int, default 1000
+            Number of observations to plot. Relevant for all plots that include a scatter of data points (i.e., corr, scatter, dashboard, residual).
+        incl : list[str], optional
+            Variables to include in the plot. Relevant for prediction plots (pred) and coefficient plots (coef).
+        excl : list[str], optional
+            Variables to exclude from the plot. Relevant for prediction plots (pred) and coefficient plots (coef).
+        incl_int : list[str], optional
+            Interaction terms to include in the plot. Relevant for prediction plots (pred).
+        fix : bool, default True
+            Fix the y-axis limits. Relevant for prediction plots (pred).
+        hline : bool, default False
+            Add a horizontal line to the plot at the mean of the response variable. Relevant for prediction plots (pred).
+        nnv : int, default 20
+            Number of predicted values to calculate and to plot. Relevant for prediction plots.
+        minq : float, default 0.025
+            Minimum quantile of the explanatory variable values to use to calculate and plot predictions.
+        maxq : float, default 0.975
+            Maximum quantile of the explanatory variable values to use to calculate and plot predictions.
+        figsize : tuple[int, int], default None
+            Figure size for the plots in inches (e.g., "(3, 6)"). Relevant for 'corr', 'scatter', 'residual', and 'coef' plots.
+        ax : plt.Axes, optional
+            Axes object to plot on.
+        ret : bool, optional
+            Whether to return the variable (permutation) importance scores for a "vimp" plot.
         """
         plots = convert_to_list(plots)  # control for the case where a single string is passed
         excl = convert_to_list(excl)
