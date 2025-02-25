@@ -15,7 +15,7 @@ from pyrsm.model.model import (
     or_plot,
     sim_prediction,
     predict_ci,
-    convert_binary,
+    check_binary,
     convert_to_list,
 )
 from pyrsm.model.model import vif as calc_vif
@@ -110,7 +110,7 @@ class logistic:
             self.weights_name = self.weights = None
 
         if self.lev is not None and self.rvar is not None:
-            self.data = convert_binary(self.data, self.rvar, self.lev)
+            self.data = check_binary(self.data, self.rvar, self.lev)
 
         if self.form:
             self.fitted = smf.glm(
@@ -306,6 +306,17 @@ class logistic:
             Minimum quantile of the explanatory variable values to use to calculate and plot predictions.
         maxq : float, default 0.975
             Maximum quantile of the explanatory variable values to use to calculate and plot predictions.
+        figsize : tuple[int, int], default None
+            Figure size for the plots in inches.
+        ax : plt.Axes, optional
+            Axes object to plot on.
+        ret : bool, optional
+            Whether to return the variable (permutation) importance scores for a "vimp" plot.
+
+        Examples
+        --------
+        >>> clf_lr.plot(plots='pdp')
+        >>> clf_lr.plot(plots='pred', data=new_data)
         """
         plots = convert_to_list(plots)  # control for the case where a single string is passed
         excl = convert_to_list(excl)

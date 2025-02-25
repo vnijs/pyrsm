@@ -305,8 +305,12 @@ class regress:
             Minimum quantile of the explanatory variable values to use to calculate and plot predictions.
         maxq : float, default 0.975
             Maximum quantile of the explanatory variable values to use to calculate and plot predictions.
-        figsize : tuple, optional
+        figsize : tuple[int, int], default None
             Figure size for the plots in inches (e.g., "(3, 6)"). Relevant for 'corr', 'scatter', 'residual', and 'coef' plots.
+        ax : plt.Axes, optional
+            Axes object to plot on.
+        ret : bool, optional
+            Whether to return the variable (permutation) importance scores for a "vimp" plot.
         """
         plots = convert_to_list(plots)  # control for the case where a single string is passed
         excl = convert_to_list(excl)
