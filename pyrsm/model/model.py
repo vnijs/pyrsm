@@ -29,16 +29,18 @@ def make_train(
     random_state: int = 1234,
 ):
     """
-    Use stratified sampling on one or more variables to create a training
-    variable for your dataset
+    If a stratification variable has been provide, will use stratified sampling on one or more variables to create a training variable for your dataset.
     """
-    splits = StratifiedShuffleSplit(
-        n_splits=1, test_size=test_size, random_state=random_state
-    )
     data = check_dataframe(data)
-    training_var = np.zeros(data.shape[0])
-    for train_index, test_index in splits.split(data, data[strat_var]):
-        training_var[train_index] = 1
+
+    if strat_var:
+        training_var = np.zeros(data.shape[0])
+        splits = StratifiedShuffleSplit(n_splits=1, test_size=test_size, random_state=random_state)
+        for train_index, test_index in splits.split(data, data[strat_var]):
+            training_var[train_index] = 1
+    else:
+        training_var = np.random.choice([0, 1], size=data.shape[0], p=[test_size, 1 - test_size])
+
     return training_var
 
 
@@ -887,28 +889,34 @@ def residual_plot(
     scatter_plot(fitted, df, nobs=nobs, figsize=figsize, resid=True)
 
 
-def cross_validation(mlobj, name, param_grid, scoring, directory="cv_objects", n_splits=5, n_jobs=2, random_state=1234):
+def cross_validation(
+    mlobj,
+    name,
+    param_grid,
+    scoring=None,
+    prn=True,
+    directory="cv-objects",
+    n_splits=5,
+    n_jobs=2,
+    verbose=1,
+    random_state=1234,
+):
     """
-    Use cross-validation to find the best hyper parameters for a machine learning model
+    Use cross-validation to find the best hyper parameters for a machine learning model. This function can be used with the pyrsm package to automatically save the cross-validation object to a file and load it if it already exists.
 
     Parameters
     ----------
-    fitted : A fitted linear regression model
-    nobs : int
-        Number of observations to use for the scatter plots. The default
-        value is 1,000. To use all observations in the plots, use nobs=-1
-    figsize : tuple
-        A tuple that determines the figure size. If None, size is
-        determined based on the number of variables in the modelkkk
     mlobj: An object created by the pyrsm package with a fitted machine learning model
     name: str
-        Name of the model
+        Name of the model to use in the file name for the cross-validation object. Most likely the same as the name of the model object
     param_grid: dict
         Dictionary with parameters to use for cross-validation
     scoring: dict
-        Dictionary with scoring metrics to use for cross-validation
+        Dictionary with scoring metrics to use for cross-validation. Defaults to {"r2": "r2", "rmse": "neg_root_mean_squared_error"} for regression and {"AUC": "roc_auc", "accuracy": "accuracy"} for classification
+    prn : bool
+        If True print output from cross-validation
     directory : str
-        Directory to save the cross-validation object. Defaults to "cv_objects"
+        Directory to save the cross-validation object. Defaults to "cv-objects"
     n_splits : int
         Number of splits to use in cross validation. Defaults to 5.
     n_jobs : int
@@ -920,26 +928,50 @@ def cross_validation(mlobj, name, param_grid, scoring, directory="cv_objects", n
         cv: An sklearn GridSearchCV object
     """
 
+    if not hasattr(mlobj, "mod_type"):
+        raise ValueError("mlobj must be a pyrsm object")
+    if not hasattr(mlobj, "fitted"):
+        raise ValueError("mlobj must be a pyrsm object with a fitted model")
+    if not hasattr(mlobj, "data_onehot"):
+        raise ValueError("mlobj must be a pyrsm object with data_onehot")
+
+    if mlobj.mod_type == "classification":
+        kfolds = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+        if scoring is None:
+            scoring = {"AUC": "roc_auc", "accuracy": "accuracy"}
+    elif mlobj.mod_type == "regression":
+        kfolds = KFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+        if scoring is None:
+            scoring = {"r2": "r2", "rmse": "neg_root_mean_squared_error"}
+    else:
+        raise ValueError("mlobj must be a pyrsm object with a fitted model")
+
+    refit = list(scoring.keys())[0]
+
     cv_file = f"{directory}/{name}-cross-validation-object.pkl"
     if os.path.exists(cv_file):
         cv = load_state(cv_file)["cv"]
     else:
         rvar = mlobj.rvar
-        if mlobj.mod_type == "classification":
-            kfolds = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
-        else:
-            kfolds = KFold(n_splits=n_splits, shuffle=True, random_state=random_state)
         cv = GridSearchCV(
             mlobj.fitted,
             param_grid=param_grid,
             scoring=scoring,
             cv=kfolds,
             n_jobs=n_jobs,
-            refit=list(scoring.keys())[0],
-            verbose=5,
+            refit=refit,
+            verbose=verbose,
         ).fit(mlobj.data_onehot, mlobj.data[rvar])
         if not os.path.exists(directory):
             os.mkdir(directory)
         save_state({"cv": cv}, cv_file)
+
+    if prn:
+        print("The best parameters are:", cv.best_params_)
+        print("The best model fit score is:", cv.best_score_)
+        print(
+            "The GirdSearchCV model fit estimates:\n",
+            pd.DataFrame(cv.cv_results_).sort_values(f"rank_test_{refit}").head(),
+        )
 
     return cv
