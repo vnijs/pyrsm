@@ -142,7 +142,7 @@ def weighted_mean(df, wt):
 
 
 def scale_df(
-    df, wt=None, sf=2, excl=None, train=None, ddof=0, stats=False, means=None, stds=None
+    df, wt=None, sf=1, excl=None, train=None, ddof=0, stats=False, means=None, stds=None
 ):
     """
     Scale the numeric variables in a Pandas dataframe
@@ -153,8 +153,9 @@ def scale_df(
     wt : Pandas series or None
         Weights to use during scaling. The length of the vector should
         be the same as the number of rows in the df
-    sf : float
-        Scale factor to use (default is 2).
+    sf : int
+        Scale factor to use. Default is 1 standard deviation but 2 standard deviation is
+        also a good option to enhance comparability with categorical variables
     excl : None or list
         Provide list of column names to exclude when applying standardization
     train : bool
@@ -222,9 +223,6 @@ def scale_df(
             stds = sf * weighted_sd(dfs[train], wt[train], ddof=ddof)
         else:
             stds = np.array([stds[c] for c in isNum])
-        # df.loc[:, isNum] = (dfs - weighted_mean(dfs[train], wt[train])) / (
-        #     sf * weighted_sd(dfs[train], wt[train], ddof=ddof)
-        # )
 
     df.loc[:, isNum] = (dfs - means) / stds
 

@@ -66,6 +66,14 @@ class correlation:
                 cdf = self.data.iloc[:, [i, j]]
                 # pairwise deletion
                 cdf = cdf[~np.any(np.isnan(cdf), axis=1)]
+                # convert bool to int to avoid errors in scipy
+                cdf = cdf.astype(
+                    {
+                        col: int
+                        for col in cdf.columns
+                        if cdf[col].dtype == bool
+                    }
+                )
                 if self.method == "spearman":
                     c = stats.spearmanr(cdf.iloc[:, 0], cdf.iloc[:, 1])
                 elif self.method == "kendall":

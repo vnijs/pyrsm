@@ -49,6 +49,7 @@ class rforest:
         min_samples_leaf: float | int = 1,
         max_features: float | int | Literal["sqrt", "log2"] = "sqrt",
         max_samples: float = 1.0,
+        sample_weight: Optional[list[float]] = None,
         oob_score: bool = True,
         random_state: int = 1234,
         mod_type: Literal["regression", "classification"] = "classification",
@@ -72,6 +73,7 @@ class rforest:
         self.max_samples = max_samples
         self.random_state = random_state
         self.ml_model = {"model": "rforest", "mod_type": mod_type}
+        self.sample_weight = sample_weight
         self.kwargs = kwargs
         self.nobs_all = self.data.shape[0]
         self.data = self.data[[self.rvar] + self.evar].dropna()
@@ -103,7 +105,7 @@ class rforest:
         # variables are only binary
         self.data_onehot = conditional_get_dummies(self.data[self.evar])
         self.n_features = [len(evar), self.data_onehot.shape[1]]
-        self.fitted = self.rf.fit(self.data_onehot, self.data[self.rvar])
+        self.fitted = self.rf.fit(self.data_onehot, self.data[self.rvar], sample_weight=self.sample_weight)
 
     def summary(self, dec=3) -> None:
         """
