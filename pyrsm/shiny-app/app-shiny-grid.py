@@ -1,7 +1,6 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 from shiny import App, Inputs, Outputs, Session, reactive, render, ui
-
 
 # Create a date range
 dates = pd.date_range("20230101", periods=6)

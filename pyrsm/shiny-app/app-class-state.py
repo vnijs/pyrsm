@@ -1,8 +1,8 @@
-from shiny import App, ui, reactive, render
-from starlette.applications import Starlette
-from starlette.routing import Mount
 import pandas as pd
+from shiny import App, reactive, render, ui
+from starlette.applications import Starlette
 from starlette.requests import Request as StarletteRequest
+from starlette.routing import Mount
 
 
 def check_input_value(k, i):

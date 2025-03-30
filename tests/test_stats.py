@@ -1,12 +1,13 @@
-from pyrsm.stats import (
-    varprop,
-    seprop,
-    weighted_mean,
-    weighted_sd,
-    scale_df,
-)
 import numpy as np
 import pandas as pd
+
+from pyrsm.stats import (
+    scale_df,
+    seprop,
+    varprop,
+    weighted_mean,
+    weighted_sd,
+)
 
 
 def test_varprop():
@@ -44,22 +45,22 @@ def test_weighted_sd():
 
 def test_scale_df():
     assert all(
-        scale_df(df, ddof=1).round(5).loc[0, ["x", "y", "z"]].values
+        scale_df(df, sf=2, ddof=1).round(5).loc[0, ["x", "y", "z"]].values
         == np.array([0, -0.18632, -0.10984])
     ), "Scaled pandas dataframe incorrect"
     assert all(
-        scale_df(df, ddof=1).round(5).loc[1, ["x", "y", "z"]].values
+        scale_df(df, sf=2, ddof=1).round(5).loc[1, ["x", "y", "z"]].values
         == np.array([1, -0.33123, -0.26362])
     ), "Scaled pandas dataframe incorrect"
 
 
 def test_weighted_scale_df():
     assert all(
-        scale_df(df, wt, ddof=0).round(5).loc[0, ["x", "y", "z"]].values
+        scale_df(df, wt, sf=2, ddof=0).round(5).loc[0, ["x", "y", "z"]].values
         == np.array([0, 0.07771, 0.12461])
     ), "Weighted scaled pandas dataframe incorrect"
     assert all(
-        scale_df(df, wt, ddof=0).round(5).loc[1, ["x", "y", "z"]].values
+        scale_df(df, wt, sf=2, ddof=0).round(5).loc[1, ["x", "y", "z"]].values
         == np.array([1, -0.21587, -0.20129])
     ), "Weighted scaled pandas dataframe incorrect"
 

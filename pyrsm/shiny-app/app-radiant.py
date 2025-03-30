@@ -1,21 +1,23 @@
 from pathlib import Path
+
 from shiny import App, ui
 from starlette.applications import Starlette
 from starlette.routing import Mount
 from starlette.staticfiles import StaticFiles
+
 from pyrsm.radiant import utils as ru
-from pyrsm.radiant.data.data_view import data_view
+from pyrsm.radiant.basics.compare_means import basics_compare_means
+from pyrsm.radiant.basics.compare_props import basics_compare_props
+from pyrsm.radiant.basics.correlation import basics_correlation
+from pyrsm.radiant.basics.cross_tabs import basics_cross_tabs
+from pyrsm.radiant.basics.goodness import basics_goodness
 from pyrsm.radiant.basics.probability_calculator import basics_probability_calculator
 from pyrsm.radiant.basics.single_mean import basics_single_mean
 from pyrsm.radiant.basics.single_prop import basics_single_prop
-from pyrsm.radiant.basics.compare_means import basics_compare_means
-from pyrsm.radiant.basics.compare_props import basics_compare_props
-from pyrsm.radiant.basics.cross_tabs import basics_cross_tabs
-from pyrsm.radiant.basics.goodness import basics_goodness
-from pyrsm.radiant.basics.correlation import basics_correlation
-from pyrsm.radiant.model.regress import model_regress
+from pyrsm.radiant.data.data_view import data_view
 from pyrsm.radiant.model.logistic import model_logistic
 from pyrsm.radiant.model.mlp import model_mlp
+from pyrsm.radiant.model.regress import model_regress
 from pyrsm.radiant.model.rforest import model_rforest
 
 # import polars as pl

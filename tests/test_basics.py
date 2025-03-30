@@ -1,15 +1,13 @@
-from pyrsm.basics.compare_means import compare_means
-from pyrsm.basics.correlation import correlation
-from pyrsm.basics.cross_tabs import cross_tabs
 import numpy as np
 import pandas as pd
 import polars as pl
 
+# from pyrsm.basics.compare_means import compare_means
+from pyrsm.basics.correlation import correlation
+from pyrsm.basics.cross_tabs import cross_tabs
+
 df = pd.DataFrame({"x": [0, 1, 1, 1, 0, 0, 0], "y": [2, 1, 1, 1, 2, 2, 10]})
 dfp = pl.DataFrame(df.copy())
-dfp
-df
-
 
 # def test_compare_means():
 #     cm = compare_means({"df": df}, var1="x", var2="y")

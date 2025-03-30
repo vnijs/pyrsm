@@ -151,14 +151,14 @@ def copy_reset(input, session, id="copy"):
 
 def code_formatter(code, self, input, session, id="copy"):
     """
-    Format python code using black
+    Format python code using ruff
     """
     cmd = self.stop_code = black.format_str(code, mode=black.Mode())
     copy_reset(input, session, id=id)
     return ui.TagList(
         ui.HTML(f"<details {ifelse(self.code, 'open', '')}><summary>View generated Python code</summary>"),
         ui.div(
-            {"class": "code-container", "style": "position: relative;"},  # Add container with relative positioning
+            {"class": "code-container", "style": "position: relative;"},
             copy_icon(cmd, id=id),
             ui.markdown(f"""\n```python\n{cmd.rstrip()}\n```"""),
             ui.tags.script("hljs.highlightAll(); hljs.configure({ignoreUnescapedHTML: true});"),

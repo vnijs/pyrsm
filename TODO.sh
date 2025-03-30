@@ -9,8 +9,8 @@
 %aimport pyrsm
 
 ## check version and location of pyrsm
-python -c "import pyrsm as rsm; print(rsm.__version__); print(rsm.__file__)"
-pip install --user "pyrsm>=1.2.0"
+# python -c "import pyrsm as rsm; print(rsm.__version__); print(rsm.__file__)"
+# pip install --user "pyrsm>=1.2.0"
 
 ## select commands to run and use the Command Palette to send to open terminal
 # use python build to install locally testing

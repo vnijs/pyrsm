@@ -1,10 +1,12 @@
+from pathlib import Path
+
+from shiny import App
 from starlette.applications import Starlette
 from starlette.routing import Mount
 from starlette.staticfiles import StaticFiles
-from pathlib import Path
-from shiny import App
-from pyrsm.radiant.model.logistic import model_logistic
+
 import pyrsm.radiant.utils as ru
+from pyrsm.radiant.model.logistic import model_logistic
 
 www_dir = Path(__file__).parent.parent.parent / "radiant" / "www"
 app_static = StaticFiles(directory=www_dir, html=False)

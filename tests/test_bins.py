@@ -1,5 +1,6 @@
 import numpy as np
-from pyrsm.bins import xtile, bincode
+
+from pyrsm.bins import bincode, xtile
 
 
 def test_xtile():
