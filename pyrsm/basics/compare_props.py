@@ -1,16 +1,18 @@
 from cmath import sqrt
+from typing import Union
+
 import numpy as np
 import pandas as pd
 import polars as pl
-from scipy import stats
-from typing import Union
 import seaborn as sns
-from statsmodels.stats.proportion import proportions_ztest
+from scipy import stats
 from statsmodels.stats import multitest
+from statsmodels.stats.proportion import proportions_ztest
+
 import pyrsm.basics.utils as bu
 import pyrsm.radiant.utils as ru
 from pyrsm.model.model import sig_stars
-from pyrsm.utils import ifelse, check_dataframe
+from pyrsm.utils import check_dataframe, ifelse
 
 
 class compare_props:

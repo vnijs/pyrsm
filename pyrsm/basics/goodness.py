@@ -1,11 +1,13 @@
 from cmath import sqrt
+from typing import Optional, Union
+
 import matplotlib.pyplot as plt
 import pandas as pd
 import polars as pl
-from pyrsm.utils import ifelse, check_dataframe
-from pyrsm.radiant import utils as ru
-from typing import Optional, Union
 from scipy.stats import chisquare
+
+from pyrsm.radiant import utils as ru
+from pyrsm.utils import check_dataframe, ifelse
 
 
 class goodness:

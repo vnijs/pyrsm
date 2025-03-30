@@ -1,15 +1,16 @@
-import platform
-import black
 import inspect
-from shiny import req
-from htmltools import tags, div, css
+import platform
 from itertools import combinations
-from shiny import render, ui, reactive
-from faicons import icon_svg
+
+import black
 import pandas as pd
 import polars as pl
-from pyrsm.utils import ifelse, check_dataframe
+from faicons import icon_svg
+from htmltools import css, div, tags
+from shiny import reactive, render, req, ui
+
 from pyrsm.example_data import load_data
+from pyrsm.utils import check_dataframe, ifelse
 
 
 def set_host(host):

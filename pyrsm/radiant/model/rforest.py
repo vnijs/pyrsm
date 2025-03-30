@@ -166,7 +166,7 @@ class model_rforest:
         # needed for prediction plots
         mu.make_int_inputs(self, input, output, get_data)
         show_code, estimate = mu.make_estimate(
-            self, input, output, get_data, fun="rforest", ret="rf", debug=False
+            self, input, output, get_data, module="model", fun="rforest", ret="rf", debug=False
         )
         mu.make_summary(
             self,

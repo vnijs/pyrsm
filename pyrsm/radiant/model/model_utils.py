@@ -1,12 +1,14 @@
 import io
+from contextlib import redirect_stderr, redirect_stdout
+
 import matplotlib.pyplot as plt
-from shiny import render, ui, reactive, req
-from contextlib import redirect_stdout, redirect_stderr
-import pyrsm.radiant.utils as ru
-from pyrsm.utils import intersect
 import numpy as np
 import pandas as pd
+from shiny import reactive, render, req, ui
+
 import pyrsm as rsm
+import pyrsm.radiant.utils as ru
+from pyrsm.utils import intersect
 
 
 def ui_predict(self, show_ci=True):
@@ -56,7 +58,7 @@ def ui_predict(self, show_ci=True):
                     "Prediction command:",
                     rows=3,
                     value=self.state.get("pred_cmd", ""),
-                    placeholder="Specify a dictionary of values to to use for prediction, e.g., {'carat': 1, 'cut': 'Ideal'}",
+                    placeholder="Specify a dictionary of values to to use for prediction, e.g., {'carat': 1, 'cut': 'Ideal'}",  # noqa: E501
                 ),
             ),
             ci,
@@ -192,7 +194,7 @@ def make_estimate(
     get_data,
     fun,
     ret,
-    module="model.",
+    module="",
     run=True,
     ec=None,
     debug=True,
@@ -274,11 +276,11 @@ def make_estimate(
                     }
                 )
 
-            args_str = ru.drop_default_args(args, getattr(rsm, fun))
+            args_str = ru.drop_default_args(args, getattr(eval(f"rsm.{module}"), fun))
 
             if "extra_args" in input and input.extra_args() != "":
                 args_str += ", " + input.extra_args()
-            return f"""rsm.{module}{fun}({args_str})""", code
+            return f"""rsm.{module}.{fun}({args_str})""", code
 
     else:
         estimation_code = ec

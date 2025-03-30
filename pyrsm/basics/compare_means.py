@@ -1,15 +1,17 @@
+from typing import Literal
+
 import matplotlib.pyplot as plt
-import seaborn as sns
 import numpy as np
 import pandas as pd
 import polars as pl
+import seaborn as sns
 from scipy import stats
-from pyrsm.model.model import sig_stars
-from pyrsm.utils import ifelse, check_dataframe
-from typing import Literal
 from statsmodels.stats import multitest
+
 import pyrsm.basics.utils as bu
 import pyrsm.radiant.utils as ru
+from pyrsm.model.model import sig_stars
+from pyrsm.utils import check_dataframe, ifelse
 
 
 class compare_means:

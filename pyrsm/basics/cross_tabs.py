@@ -1,10 +1,12 @@
+from typing import Union
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import polars as pl
 from scipy import stats
-from pyrsm.utils import ifelse, check_dataframe
-from typing import Union
+
+from pyrsm.utils import check_dataframe, ifelse
 
 
 class cross_tabs:

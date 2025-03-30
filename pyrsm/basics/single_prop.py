@@ -1,12 +1,14 @@
 from cmath import sqrt
+from typing import Union
+
+import numpy as np
 import pandas as pd
 import polars as pl
-import numpy as np
 from scipy import stats
-from pyrsm.model.model import sig_stars
-from pyrsm.utils import ifelse, check_dataframe
+
 import pyrsm.basics.utils as bu
-from typing import Union
+from pyrsm.model.model import sig_stars
+from pyrsm.utils import check_dataframe, ifelse
 
 
 class single_prop:

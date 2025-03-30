@@ -135,7 +135,7 @@ class model_regress:
         mu.make_model_inputs(self, input, output, get_data, "isNum")
         mu.make_int_inputs(self, input, output, get_data)
         show_code, estimate = mu.make_estimate(
-            self, input, output, get_data, fun="regress", ret="reg", debug=False
+            self, input, output, get_data, module="model", fun="regress", ret="reg", debug=False
         )
         mu.make_summary(
             self,

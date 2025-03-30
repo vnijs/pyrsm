@@ -159,7 +159,10 @@ class model_logistic:
             )
 
         mu.make_int_inputs(self, input, output, get_data)
-        show_code, estimate = mu.make_estimate(self, input, output, get_data, fun="logistic", ret="clf", debug=False)
+        show_code, estimate = mu.make_estimate(
+            self, input, output, get_data, module="model", fun="logistic", ret="clf", debug=False
+        )
+
         mu.make_summary(
             self,
             input,

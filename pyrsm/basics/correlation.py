@@ -1,12 +1,14 @@
+from typing import Optional, Union
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import polars as pl
-from scipy import stats
 import seaborn as sns
+from scipy import stats
+
 from pyrsm.model.model import sig_stars
 from pyrsm.utils import check_dataframe
-from typing import Optional, Union
 
 
 class correlation:

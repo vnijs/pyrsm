@@ -182,7 +182,7 @@ class model_mlp:
         # needed for prediction plots
         mu.make_int_inputs(self, input, output, get_data)
         show_code, estimate = mu.make_estimate(
-            self, input, output, get_data, fun="mlp", ret="nn", debug=False
+            self, input, output, get_data, module="model", fun="mlp", ret="nn", debug=False
         )
         mu.make_summary(
             self,
