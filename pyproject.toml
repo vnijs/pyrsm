@@ -7,7 +7,7 @@ name = "pyrsm"
 dynamic = ["version"]
 description = "Python package used in the MSBA program the Rady School of Management @ UCSD"
 readme = "README.md"
-license = {text = "AGPL-3.0-only"}
+license = "AGPL-3.0-only"
 requires-python = ">=3.12"
 authors = [
     {name = "Vincent Nijs", email = "vnijs@ucsd.edu"},
@@ -43,10 +43,10 @@ dependencies = [
 
 [tool.setuptools]
 include-package-data = true
-packages = {find = {exclude = ["*.tests", "*.tests.*", "tests.*", "tests", "examples", "pyrsm.radiant.www", "pyrsm.radiant.www.imgs", "pyrsm.radiant.www.js"]}}
+packages = {find = {include = ["pyrsm*"], exclude = ["*.tests", "*.tests.*", "tests.*", "tests", "examples"]}}
 
 [tool.setuptools.package-data]
-pyrsm = ["pyrsm/radiant/www/*"]
+"*" = ["www/*", "www/imgs/*", "www/js/*"]
 
 [tool.setuptools.dynamic]
 version = {attr = "pyrsm.__version__"}

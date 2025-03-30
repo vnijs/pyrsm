@@ -23,7 +23,8 @@ rm -rf ~/gh/pyrsm/dist
 # sudo rm -rf ~/gh/pyrsm/build/*
 # pip install -q build
 # pip install -q twine
-python -m build ~/gh/pyrsm
+# python -m build ~/gh/pyrsm
+# python -m build ~/gh/pyrsm > check.log 2>&1
 
 # try sending to pypi testing ground first
 # pip install -q twine
@@ -32,6 +33,12 @@ python -m twine upload --repository testpypi dist/*
 
 # if all goes well push to main pypi
 python -m twine upload --repository pypi dist/*
+
+# The below should work with ~/.pypirc but doesn't for some reason
+
+uv build
+uv publish --repository testpypi
+uv publish
 
 # see API keys in ~/.pypirc
 # create here: https://testpypi.org/manage/account/token/
