@@ -1,12 +1,13 @@
+import inspect
+import json
+from datetime import date, datetime
+from itertools import product
+from math import ceil
+from sys import modules
+
 import numpy as np
 import pandas as pd
-import inspect
-from itertools import product
-from datetime import date, datetime
-from math import ceil
-from IPython.display import display, Markdown
-from sys import modules
-import json
+from IPython.display import Markdown, display
 
 
 def add_description(df, md="", path=""):

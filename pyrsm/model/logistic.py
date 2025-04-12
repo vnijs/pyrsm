@@ -1,25 +1,33 @@
-from typing import Union, Optional
+from typing import Optional
+
+import numpy as np
 import pandas as pd
 import polars as pl
-import numpy as np
-from statsmodels.genmod.families import Binomial
-from statsmodels.genmod.families.links import Logit
 import statsmodels.formula.api as smf
 from scipy import stats
-from pyrsm.utils import ifelse, setdiff, check_dataframe
-from pyrsm.model.visualize import distr_plot, pred_plot_sm, vimp_plot_sm, extract_evars, extract_rvar
+from statsmodels.genmod.families import Binomial
+from statsmodels.genmod.families.links import Logit
+
+from pyrsm.basics.correlation import correlation
 from pyrsm.model.model import (
-    sig_stars,
+    check_binary,
+    convert_to_list,
     model_fit,
     or_ci,
     or_plot,
-    sim_prediction,
     predict_ci,
-    check_binary,
-    convert_to_list,
+    sig_stars,
+    sim_prediction,
 )
 from pyrsm.model.model import vif as calc_vif
-from pyrsm.basics.correlation import correlation
+from pyrsm.model.visualize import (
+    distr_plot,
+    extract_evars,
+    extract_rvar,
+    pred_plot_sm,
+    vimp_plot_sm,
+)
+from pyrsm.utils import check_dataframe, ifelse, setdiff
 
 
 class logistic:

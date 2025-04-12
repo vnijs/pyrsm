@@ -1,26 +1,28 @@
+import re
+from typing import Optional
+
 import pandas as pd
 import polars as pl
-import re
 import statsmodels.formula.api as smf
-from typing import Optional, Union
-from pyrsm.utils import ifelse, format_nr, setdiff, check_dataframe
-from pyrsm.model.visualize import distr_plot, pred_plot_sm, vimp_plot_sm
+
+from pyrsm.basics.correlation import correlation
 from pyrsm.model.model import (
-    sig_stars,
-    model_fit,
+    coef_ci,
+    coef_plot,
+    convert_to_list,
     extract_evars,
     extract_rvar,
-    scatter_plot,
+    model_fit,
+    predict_ci,
     reg_dashboard,
     residual_plot,
-    coef_plot,
-    coef_ci,
-    predict_ci,
+    scatter_plot,
+    sig_stars,
     sim_prediction,
-    convert_to_list,
 )
 from pyrsm.model.model import vif as calc_vif
-from pyrsm.basics.correlation import correlation
+from pyrsm.model.visualize import distr_plot, pred_plot_sm, vimp_plot_sm
+from pyrsm.utils import check_dataframe, format_nr, ifelse, setdiff
 
 
 class regress:
