@@ -36,6 +36,7 @@ dependencies = [
     "black",
     "pyarrow>=17.0.0",
     "xgboost>=2.1.1",
+    "mcp[cli]>=1.6.0",
 ]
 
 [project.urls]
