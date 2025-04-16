@@ -63,10 +63,10 @@ class regress:
     def __init__(
         self,
         data: pd.DataFrame | pl.DataFrame | dict[str, pd.DataFrame | pl.DataFrame],
-        rvar: Optional[str] = None,
-        evar: Optional[list[str]] = None,
-        ivar: Optional[list[str]] = None,
-        form: Optional[str] = None,
+        rvar: str | None = None,
+        evar: list[str] | None = None,
+        ivar: list[str] | None = None,
+        form: str | None = None,
     ) -> None:
         """
         Initialize the regress class to build a linear regression model with the provided data and parameters.
