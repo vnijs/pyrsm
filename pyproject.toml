@@ -34,7 +34,6 @@ dependencies = [
     "black",
     "pyarrow>=17.0.0",
     "xgboost>=2.1.1",
-    "pytest>=8.4.1",
 ]
 
 [project.urls]

@@ -19,7 +19,6 @@ conda activate msba
 pip uninstall -y pyrsm
 # pip uninstall -y pyrsm
 # sudo rm -rf ~/gh/pyrsm/dist
-rm -rf ~/gh/pyrsm/dist
 # sudo rm -rf ~/gh/pyrsm/build/*
 # pip install -q build
 # pip install -q twine
@@ -27,7 +26,9 @@ rm -rf ~/gh/pyrsm/dist
 # python -m build ~/gh/pyrsm > check.log 2>&1
 
 # try sending to pypi testing ground first
-# pip install -q twine
+# uv pip install twine pytest
+rm -rf ~/gh/pyrsm/dist
+uv build
 python -m twine check dist/*
 python -m twine upload --repository testpypi dist/*
 
@@ -35,10 +36,8 @@ python -m twine upload --repository testpypi dist/*
 python -m twine upload --repository pypi dist/*
 
 # The below should work with ~/.pypirc but doesn't for some reason
-
-uv build
-uv publish --repository testpypi
-uv publish
+# uv publish --publish-url https://test.pypi.org/
+# uv publish
 
 # see API keys in ~/.pypirc
 # create here: https://testpypi.org/manage/account/token/
@@ -89,7 +88,7 @@ conda remove -y --force pyrsm
 ## now install in "editable" mode
 sudo pip install -e ~/gh/pyrsm
 
-## in a jupyter notebook setup pyrsm for 
+## in a jupyter notebook setup pyrsm for
 ## autoreload when you edit code and save
 ## code in the pyrsm repo
 ## nothing else needed!
@@ -121,10 +120,10 @@ sudo pip install dist/pyrsm-*.tar.gz
 
 ## might be useful when testing
 conda remove -y --force pyrsm # remove current version
-conda install -c conda-forge pyrsm 
+conda install -c conda-forge pyrsm
 
 # get the sha256 code on the built tar.gz file **before**
-# building the conda version. You can get this from the version 
+# building the conda version. You can get this from the version
 # built for pip
 # add to meta.yaml
 openssl sha256 dist/pyrsm-*.tar.gz
@@ -147,7 +146,7 @@ python3 -m twine upload --repository testpypi dist/*
 # if all goes well push to main pypi
 python3 -m twine upload dist/*
 
-# use conda for local 
+# use conda for local
 
 # create a conda environment for testing
 # cc pyrsm-dev pyrsm
@@ -183,9 +182,9 @@ conda install /opt/conda/conda-bld/pyrsm*
 conda install /opt/conda/conda-bld/broken/pyrsm*
 
 # adding to base environment
-# note: need to change the sha256 code in the meta.yaml file 
-# download the tar.gz file after login in to pypi and looking at the 
-# releases then use "openssl sha256 ~/Downloads/pyrsm-0.6.3.tar.gz" 
+# note: need to change the sha256 code in the meta.yaml file
+# download the tar.gz file after login in to pypi and looking at the
+# releases then use "openssl sha256 ~/Downloads/pyrsm-0.6.3.tar.gz"
 # or similar and add the code to meta.yaml in the conda directory
 conda activate base
 # conda install -c conda-forge pyrsm
@@ -195,7 +194,7 @@ rm -rf /opt/conda/conda-bld/pyrsm*
 rm -rf /opt/conda/conda-bld/noarch/pyrsm*
 
 # get the sha256 code on the built tar.gz file **before**
-# building the conda version. You can get this from the version 
+# building the conda version. You can get this from the version
 # built for pip
 openssl sha256 dist/pyrsm-*.tar.gz
 
@@ -274,5 +273,3 @@ anaconda upload /opt/conda/conda-bld/broken/pyrsm*
 #conda install /opt/conda/conda-bld/pyrsm*
 # if this fails on the last step use the below
 #conda install /opt/conda/conda-bld/broken/pyrsm*
-
-
