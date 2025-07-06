@@ -156,3 +156,6 @@ pyrsm/model/testing-rf-permutation-importance.ipynb
 .devcontainer.json
 
 examples/model/cv-objects
+
+mcp-testing/
+.ruff_cache/

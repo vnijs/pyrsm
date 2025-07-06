@@ -1,4 +1,4 @@
-__version__ = "1.6.0"
+__version__ = "1.6.1"
 
 from . import basics, model, multivariate
 from .bins import *
@@ -15,7 +15,9 @@ def _make_wrapper(func_name, module):
         raise DeprecationWarning(
             f"{func_name}() is deprecated. Use {module}.{func_name}() instead."
         )
+
     return wrapper
+
 
 # model functions that need wrappers (enforce use of .model)
 model_functions = [
@@ -27,7 +29,7 @@ model_functions = [
     "logistic",
     "mlp",
     "xgboost",
-    "gains_plot"
+    "gains_plot",
 ]
 
 # basics classes that need wrappers (enforce use of .basics)
@@ -40,7 +42,7 @@ basics_functions = [
     "goodness",
     "prob_calc",
     "single_mean",
-    "single_prop"
+    "single_prop",
 ]
 
 # Create wrappers for model functions

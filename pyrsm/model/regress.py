@@ -86,7 +86,7 @@ class regress:
         """
         if isinstance(data, dict):
             self.name = list(data.keys())[0]
-            self.data = data[self.name].copy()  # needed with pandas
+            self.data = data[self.name]
         else:
             self.data = data  # needed with pandas
             self.name = "Not provided"

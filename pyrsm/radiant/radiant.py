@@ -61,15 +61,11 @@ def radiant(
 
     # data > view
     data_dct, descriptions_dct = ru.get_dfs(pkg="data")
-    rc = data_view(
-        data_dct, descriptions_dct, state=None, code=True, navbar=ru.radiant_navbar()
-    )
+    rc = data_view(data_dct, descriptions_dct, state=None, code=True, navbar=ru.radiant_navbar())
     app_data = App(rc.shiny_ui, rc.shiny_server, debug=False)
 
     # probability calculator mean app
-    rc = basics_probability_calculator(
-        state=None, code=True, navbar=ru.radiant_navbar()
-    )
+    rc = basics_probability_calculator(state=None, code=True, navbar=ru.radiant_navbar())
     app_pc = App(rc.shiny_ui, rc.shiny_server, debug=False)
 
     # single mean app
@@ -143,7 +139,9 @@ def radiant(
     # data_dct.update({"titanic": data_dctc})
     # descriptions_dct.update({"titanic": descriptions_dctc})
 
-    rc = model_rforest(data_dct, descriptions_dct, state=None, code=True, navbar=ru.radiant_navbar())
+    rc = model_rforest(
+        data_dct, descriptions_dct, state=None, code=True, navbar=ru.radiant_navbar()
+    )
     app_rforest = App(rc.shiny_ui, rc.shiny_server)
 
     # # mlp app

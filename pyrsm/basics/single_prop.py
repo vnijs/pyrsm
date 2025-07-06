@@ -27,7 +27,7 @@ class single_prop:
 
         if isinstance(data, dict):
             self.name = list(data.keys())[0]
-            self.data = data[self.name].copy()
+            self.data = data[self.name]
         else:
             self.data = data
             self.name = "Not provided"

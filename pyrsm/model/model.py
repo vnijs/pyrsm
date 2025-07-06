@@ -1,24 +1,27 @@
-from typing import Union, Optional
-import re
 import os
-import pandas as pd
-import polars as pl
-import numpy as np
+import re
+from math import ceil
+from typing import Optional, Union
+
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
+import numpy as np
+import pandas as pd
+import polars as pl
 import seaborn as sns
 import statsmodels as sm
 import statsmodels.api as sma
 import statsmodels.formula.api as smf
-from statsmodels.stats.outliers_influence import variance_inflation_factor
-from math import ceil
 from scipy import stats
-from sklearn import metrics
-from sklearn.model_selection import StratifiedShuffleSplit, GridSearchCV, StratifiedKFold, KFold
 from scipy.special import expit
-from pyrsm.utils import ifelse, expand_grid, check_dataframe
-from pyrsm.stats import weighted_mean, weighted_sd
+from sklearn import metrics
+from sklearn.model_selection import GridSearchCV, KFold, StratifiedKFold, StratifiedShuffleSplit
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+
 from pyrsm.notebook import load_state, save_state
+from pyrsm.stats import weighted_mean, weighted_sd
+from pyrsm.utils import check_dataframe, expand_grid, ifelse
+
 from .perf import auc
 
 
@@ -220,14 +223,12 @@ def or_ci(fitted, alpha=0.05, intercept=False, importance=False, data=None, dec=
     df[[f"{low}%", f"{high}%"]] = np.exp(fitted.conf_int(alpha=alpha))
     df["p.values"] = ifelse(fitted.pvalues < 0.001, "< .001", fitted.pvalues.round(dec))
     df["  "] = sig_stars(fitted.pvalues)
-    df["OR%"] = [f"{round(o, max(dec-2, 0))}%" for o in df["OR%"]]
+    df["OR%"] = [f"{round(o, max(dec - 2, 0))}%" for o in df["OR%"]]
     df = df.reset_index()
 
     if importance:
         df["dummy"] = df["index"].str.contains("[T", regex=False)
-        df["importance"] = (
-            pd.DataFrame().assign(OR=df["OR"], ORinv=1 / df["OR"]).max(axis=1)
-        )
+        df["importance"] = pd.DataFrame().assign(OR=df["OR"], ORinv=1 / df["OR"]).max(axis=1)
 
     if isinstance(data, pd.DataFrame):
         # using a fake response variable variable
@@ -339,9 +340,7 @@ def vif(fitted, dec=3):
         # legacy for when only an un-fitted model was accepted
         model = fitted
 
-    is_categorical = {
-        item.split("[T.")[0]: ("[T." in item) for item in model.exog_names
-    }
+    is_categorical = {item.split("[T.")[0]: ("[T." in item) for item in model.exog_names}
     if sum(is_categorical.values()) > 0:
         evar = list(is_categorical.keys())[1:]
         exog = model.exog[:, 1:]
@@ -363,9 +362,7 @@ def vif(fitted, dec=3):
             vif.append(Vcorr * Ocorr / Xcorr)
         df = pd.DataFrame(evar, columns=["index"])
     else:
-        vif = [
-            variance_inflation_factor(model.exog, i) for i in range(model.exog.shape[1])
-        ]
+        vif = [variance_inflation_factor(model.exog, i) for i in range(model.exog.shape[1])]
         df = pd.DataFrame(model.exog_names, columns=["index"])
 
     df["vif"] = vif
@@ -427,9 +424,7 @@ def predict_ci(fitted, df, conf=0.95, alpha=None):
     """
 
     if conf < 0 or conf > 1:
-        raise ValueError(
-            "Confidence level (conf) must be a numeric value between 0 and 1"
-        )
+        raise ValueError("Confidence level (conf) must be a numeric value between 0 and 1")
 
     if alpha is not None:
         raise ValueError(
@@ -455,16 +450,16 @@ def predict_ci(fitted, df, conf=0.95, alpha=None):
         return pd.DataFrame(
             {
                 "prediction": prediction,
-                f"{low*100:.2f}%": expit(Xb - me),
-                f"{high*100:.2f}%": expit(Xb + me),
+                f"{low * 100:.2f}%": expit(Xb - me),
+                f"{high * 100:.2f}%": expit(Xb + me),
             }
         )
     elif isinstance(fitted, sm.regression.linear_model.RegressionResultsWrapper):
         return pd.DataFrame(
             {
                 "prediction": prediction,
-                f"{low*100:.2f}%": Xb - me,
-                f"{high*100:.2f}%": Xb + me,
+                f"{low * 100:.2f}%": Xb - me,
+                f"{high * 100:.2f}%": Xb + me,
             }
         )
 
@@ -494,9 +489,7 @@ def model_fit(fitted, dec: int = 3, prn: bool = True) -> Union[str, pd.DataFrame
         If prn is True, print output, else return a Pandas dataframe with the results
     """
     if hasattr(fitted, "df_resid"):
-        weighted_nobs = (
-            fitted.df_resid + fitted.df_model + int(hasattr(fitted.params, "Intercept"))
-        )
+        weighted_nobs = fitted.df_resid + fitted.df_model + int(hasattr(fitted.params, "Intercept"))
         if weighted_nobs > fitted.nobs:
             fitted.nobs = weighted_nobs
     mfit_dct, model_type = get_mfit(fitted)
@@ -511,11 +504,11 @@ def model_fit(fitted, dec: int = 3, prn: bool = True) -> Union[str, pd.DataFrame
 Pseudo R-squared (McFadden adjusted): {mfit.pseudo_rsq_mcf_adj.values[0].round(dec)}
 Area under the RO Curve (AUC): {mfit.AUC.values[0].round(dec)}
 Log-likelihood: {mfit.log_likelihood.values[0].round(dec)}, AIC: {mfit.AIC.values[0].round(dec)}, BIC: {mfit.BIC.values[0].round(dec)}
-Chi-squared: {mfit.chisq.values[0].round(dec)}, df({mfit.chisq_df.values[0]}), p.value {np.where(mfit.chisq_pval.values[0] < .001, "< 0.001", mfit.chisq_pval.values[0].round(dec))} 
+Chi-squared: {mfit.chisq.values[0].round(dec)}, df({mfit.chisq_df.values[0]}), p.value {np.where(mfit.chisq_pval.values[0] < 0.001, "< 0.001", mfit.chisq_pval.values[0].round(dec))} 
 Nr obs: {mfit.nobs.values[0]:,.0f}{nobs_dropped(fitted)}"""
         elif model_type == "regression":
             output = f"""R-squared: {mfit.rsq.values[0].round(dec)}, Adjusted R-squared: {mfit.rsq_adj.values[0].round(dec)}
-F-statistic: {mfit.fvalue[0].round(dec)} df({mfit.ftest_df_model.values[0]:.0f}, {mfit.ftest_df_resid.values[0]:.0f}), p.value {np.where(mfit.ftest_pval.values[0] < .001, "< 0.001", mfit.ftest_pval.values[0].round(dec))}
+F-statistic: {mfit.fvalue[0].round(dec)} df({mfit.ftest_df_model.values[0]:.0f}, {mfit.ftest_df_resid.values[0]:.0f}), p.value {np.where(mfit.ftest_pval.values[0] < 0.001, "< 0.001", mfit.ftest_pval.values[0].round(dec))}
 Nr obs: {mfit.nobs.values[0]:,.0f}{nobs_dropped(fitted)}"""
         else:
             output = "Model type not supported"
@@ -615,9 +608,7 @@ def coef_ci(fitted, alpha: float = 0.05, intercept: bool = True, dec: int = 3):
         df["p.values"] = ifelse(fitted.pvalues < 0.001, "< .001", fitted.pvalues)
     else:
         df = df.round(dec)
-        df["p.values"] = ifelse(
-            fitted.pvalues < 0.001, "< .001", fitted.pvalues.round(dec)
-        )
+        df["p.values"] = ifelse(fitted.pvalues < 0.001, "< .001", fitted.pvalues.round(dec))
 
     df["  "] = sig_stars(fitted.pvalues)
     if intercept is False:
@@ -712,9 +703,7 @@ def reg_dashboard(fitted, nobs: int = 1000):
         color="slateblue",
     )
     pdp.set_xlabel("Residuals")
-    sns.kdeplot(
-        data.std_resid, color="green", fill=True, ax=axes[2, 1], common_norm=True
-    )
+    sns.kdeplot(data.std_resid, color="green", fill=True, ax=axes[2, 1], common_norm=True)
 
     # from https://stackoverflow.com/a/52925509/1974918
     norm_x = np.arange(-3, +3, 0.01)
@@ -782,9 +771,7 @@ def sim_prediction(
     return expand_grid(dct, dt)
 
 
-def scatter_plot(
-    fitted, df, nobs: int = 1000, figsize: tuple = None, resid=False
-) -> None:
+def scatter_plot(fitted, df, nobs: int = 1000, figsize: tuple = None, resid=False) -> None:
     """
     Scatter plot of explanatory and response variables from a fitted regression
 
