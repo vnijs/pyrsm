@@ -18,25 +18,22 @@ authors = [
 
 dependencies = [
     "shiny>=1.2.0",
-    "shinyswatch>=0.7.0",
     "faicons>=0.2.2",
-    "numpy>=1.17.3",
-    "pandas>=2.2.3",
+    "numpy>=2.0.2",
+    "pandas>=2.2.2",
     "polars>=1.12.0",
-    "duckdb>=1.1.2",
-    "ipykernel>=6.23.1",
+    "ipykernel>=6.17.1",
     "seaborn>=0.9.0",
     "matplotlib>=3.1.1",
     "statsmodels>=0.14.4",
-    "scipy>=1.4.1",
+    "scipy<=1.15.3",
     "scikit-learn>=1.5.2,!=1.6.*",
-    "IPython>=8.0.1",
+    "IPython>=7.34.0",
     "nest-asyncio>=1.5.6",
     "ruff",
     "black",
     "pyarrow>=17.0.0",
     "xgboost>=2.1.1",
-    "mcp[cli]>=1.6.0",
 ]
 
 [project.urls]
