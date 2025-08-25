@@ -115,7 +115,7 @@ shinyswatch==0.8.0
 six @ file:///home/conda/feedstock_root/build_artifacts/six_1620240208055/work
 sniffio==1.3.0
 stack-data @ file:///home/conda/feedstock_root/build_artifacts/stack_data_1669632077133/work
-starlette==0.34.0
+starlette==0.40.0
 statsmodels==0.14.4
 threadpoolctl==3.3.0
 tokenizers==0.20.3
