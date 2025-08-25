@@ -94,7 +94,7 @@ pyproject_hooks==1.0.0
 pytest==8.3.3
 python-dateutil @ file:///home/conda/feedstock_root/build_artifacts/python-dateutil_1626286286081/work
 python-dotenv==1.0.1
-python-multipart==0.0.9
+python-multipart==0.0.18
 pytz==2023.3.post1
 PyYAML==6.0.2
 pyzmq @ file:///Users/runner/miniforge3/conda-bld/pyzmq_1701783271620/work
