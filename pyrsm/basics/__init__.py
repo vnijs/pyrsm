@@ -5,5 +5,6 @@ from .correlation import *
 from .cross_tabs import *
 from .goodness import *
 from .probability_calculator import *
+from .probability_calculator_functions import *
 from .single_mean import *
 from .single_prop import *

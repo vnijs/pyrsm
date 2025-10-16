@@ -34,12 +34,8 @@ def ui_type(self):
         ui.panel_conditional(
             "input.type == 'values'",
             ru.make_side_by_side(
-                ui.input_numeric(
-                    "lb", "Lower bound:", value=self.state.get("lb", None)
-                ),
-                ui.input_numeric(
-                    "ub", "Upper bound:", value=self.state.get("ub", None)
-                ),
+                ui.input_numeric("lb", "Lower bound:", value=self.state.get("lb", None)),
+                ui.input_numeric("ub", "Upper bound:", value=self.state.get("ub", None)),
             ),
         ),
         ui.panel_conditional(
@@ -98,6 +94,7 @@ def ui_main_pc():
         )
     )
 
+
 # def ui_main_pc():
 #     return ui.div(
 #         {"style": "display: flex; flex-direction: column; gap: .01rem;"},  # Uses flexbox with consistent gaps
@@ -106,6 +103,7 @@ def ui_main_pc():
 #         ui.output_ui("plot_container"),
 #         id="pc_well",
 #     )
+
 
 class basics_probability_calculator:
     def __init__(self, state=None, code=True, navbar=None) -> None:
@@ -126,7 +124,10 @@ class basics_probability_calculator:
                 "Basics > Probability calculator",
                 ui.row(
                     ui.column(
-                        3, ui_summary(self), ui_type(self), style="min-width: 250px; max-width: 350px"
+                        3,
+                        ui_summary(self),
+                        ui_type(self),
+                        style="min-width: 250px; max-width: 350px",
                     ),  # Add minimum width here
                     ui.column(6, ui_main_pc()),
                 ),
@@ -153,9 +154,7 @@ class basics_probability_calculator:
         @render.ui
         def ui_pc_binom():
             return ru.make_side_by_side(
-                ui.input_numeric(
-                    "binom_n", label="n:", value=self.state.get("binom_n", 10), min=0
-                ),
+                ui.input_numeric("binom_n", label="n:", value=self.state.get("binom_n", 10), min=0),
                 ui.input_numeric(
                     "binom_p",
                     label="p:",
@@ -240,9 +239,7 @@ class basics_probability_calculator:
         @render.ui
         def ui_pc_norm():
             return ru.make_side_by_side(
-                ui.input_numeric(
-                    "norm_mean", label="Mean:", value=self.state.get("norm_mean", 0)
-                ),
+                ui.input_numeric("norm_mean", label="Mean:", value=self.state.get("norm_mean", 0)),
                 ui.input_numeric(
                     "norm_stdev",
                     label="St. dev.:",
@@ -276,12 +273,8 @@ class basics_probability_calculator:
         @render.ui
         def ui_pc_unif():
             return ru.make_side_by_side(
-                ui.input_numeric(
-                    "unif_min", label="Minimum:", value=self.state.get("unif_min", 0)
-                ),
-                ui.input_numeric(
-                    "unif_max", label="Maximum:", value=self.state.get("unif_max", 1)
-                ),
+                ui.input_numeric("unif_min", label="Minimum:", value=self.state.get("unif_min", 0)),
+                ui.input_numeric("unif_max", label="Maximum:", value=self.state.get("unif_max", 1)),
             )
 
         def estimation_code():
@@ -339,9 +332,8 @@ class basics_probability_calculator:
 
                 args.update({"plb": input.plb(), "pub": input.pub()})
 
-            fun = getattr(
-                rsm.basics.probability_calculator_functions, f"prob_{input.dist()}"
-            )
+            fun = getattr(rsm.basics.probability_calculator_functions, f"prob_{input.dist()}")
+            fun = getattr(rsm.basics.prob_calc, f"prob_{input.dist()}")
             args_string = ru.drop_default_args(args, fun, ignore=ignore)
             return f"""rsm.basics.prob_calc("{dist}", {args_string})"""
 
@@ -355,6 +347,7 @@ class basics_probability_calculator:
                 rsm.basics.probability_calculator_functions,
                 f"summary_prob_{input.dist()}",
             )
+            # fun = getattr(rsm.basics.prob_calc, f"summary_prob_{input.dist()}")
             args_string = ru.drop_default_args(args, fun)
             return f"""pc.summary({args_string})"""
 
@@ -394,7 +387,9 @@ class basics_probability_calculator:
             aspect_ratio = height / width
 
             return ui.div(
-                {"style": f"width: 100%; padding-bottom: {aspect_ratio * 100}%; position: relative;"},
+                {
+                    "style": f"width: 100%; padding-bottom: {aspect_ratio * 100}%; position: relative;"
+                },
                 ui.div(
                     {"style": "position: absolute; top: 0; left: 0; right: 0; bottom: 0;"},
                     ui.output_plot("plot", height="100%", width="100%"),
