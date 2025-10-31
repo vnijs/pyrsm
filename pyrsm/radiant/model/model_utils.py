@@ -1,10 +1,16 @@
 import io
+import sys
 from contextlib import redirect_stderr, redirect_stdout
 
+import matplotlib
+
+matplotlib.use("Agg")  # Use non-interactive backend
 import matplotlib.pyplot as plt
+
 import numpy as np
 import pandas as pd
 from shiny import reactive, render, req, ui
+from sklearn import datasets
 
 import pyrsm as rsm
 import pyrsm.radiant.utils as ru
@@ -35,7 +41,7 @@ def ui_predict(self, show_ci=True):
 
     return ui.panel_conditional(
         "input.tabs == 'Predict'",
-        ui.panel_well(
+        ui.card(
             ui.input_select(
                 "pred_type",
                 "Prediction input type:",
@@ -107,7 +113,6 @@ def make_model_inputs(self, input, output, get_data, mod_type="isBin"):
             choices=vars,
             multiple=True,
             size=min(8, len(vars)),
-            selectize=False,
         )
 
 
@@ -118,9 +123,7 @@ def make_int_inputs(self, input, output, get_data):
         if len(input.evar()) > 1 and input.show_interactions() is not None:
             choices = []
             nway = int(input.show_interactions())
-            isNum = intersect(
-                list(input.evar()), list(get_data()["var_types"]["isNum"].keys())
-            )
+            isNum = intersect(list(input.evar()), list(get_data()["var_types"]["isNum"].keys()))
             if len(isNum) > 0:
                 # choices += ru.qterms(isNum, nway=int(input.show_interactions()[0]))
                 choices += ru.qterms(isNum, nway=nway)
@@ -132,7 +135,6 @@ def make_int_inputs(self, input, output, get_data):
                 choices=choices,
                 multiple=True,
                 size=min(8, len(choices)),
-                selectize=False,
             )
 
     @output(id="ui_evar_test")
@@ -164,7 +166,6 @@ def make_int_inputs(self, input, output, get_data):
                 choices=input.evar(),
                 multiple=True,
                 size=min(8, len(input.evar())),
-                selectize=False,
             )
 
     @output(id="ui_incl_interactions")
@@ -183,7 +184,6 @@ def make_int_inputs(self, input, output, get_data):
                 choices=choices,
                 multiple=True,
                 size=min(8, len(choices)),
-                selectize=False,
             )
 
 
@@ -305,34 +305,38 @@ def make_estimate(
         @reactive.Calc
         @reactive.event(input.run, ignore_none=True)
         def estimate():
-            locals()[input.datasets()] = self.datasets[
-                input.datasets()
-            ]  # get data into local scope
+            dataset_name = input.datasets()
+            # locals()[dataset_name] = self.datasets[dataset_name]  # ]  # get data into local scope
+            local_namespace = {dataset_name: self.datasets[dataset_name]}
 
             ec = estimation_code()
-            # exec for multi-line
-            # https://stackoverflow.com/a/12698067/1974918
+            # # exec for multi-line
+            # # https://stackoverflow.com/a/12698067/1974918
             exec(ec[1])
-            return eval(ec[0])
+            # with open("debug.log", "a") as f:
+            #     #     f.write(f"Debug: datasets = {input.datasets()}\n")
+            #     f.write(f"Locals: = {locals().keys()}\n")
+            # f.write(f"Self: = {self.datasets[input.datasets()]}\n")
+            # f.write(f"Diamonds: = {diamonds}\n")
+
+            return eval(ec[0], globals(), local_namespace)
 
     else:
 
         @reactive.Calc
         def estimate():
-            locals()[input.datasets()] = self.datasets[
-                input.datasets()
-            ]  # get data into local scope
+            dataset_name = input.datasets()
+            # locals()[dataset_name] = self.datasets[dataset_name]  # ]  # get data into local scope
+            local_namespace = {dataset_name: self.datasets[dataset_name]}
 
             ec = estimation_code()
             exec(ec[1])
-            return eval(ec[0])
+            return eval(ec[0], globals(), local_namespace)
 
     return show_code, estimate
 
 
-def make_summary(
-    self, input, output, session, show_code, estimate, ret, sum_fun, sc=None
-):
+def make_summary(self, input, output, session, show_code, estimate, ret, sum_fun, sc=None):
     if sc is None:
 
         def summary_code():
@@ -364,14 +368,13 @@ def make_summary(
     def summary():
         out = io.StringIO()
         with redirect_stdout(out), redirect_stderr(out):
-            locals()[ret] = estimate()  # get model object into local scope
-            eval(summary_code())
+            # locals()[ret] = estimate()  # get model object into local scope
+            local_namespace = {ret: estimate()}
+            eval(summary_code(), globals(), local_namespace)
         return out.getvalue()
 
 
-def make_predict(
-    self, input, output, session, show_code, estimate, ret, pred_fun, show_ci=False
-):
+def make_predict(self, input, output, session, show_code, estimate, ret, pred_fun, show_ci=False):
     def predict_code():
         args = {}
         cmd = input.pred_cmd().strip()
@@ -390,9 +393,7 @@ def make_predict(
             if ci:
                 args.update({"ci": ci, "conf": input.conf()})
 
-        args_string = ru.drop_default_args(
-            args, pred_fun, ignore=["data", "cmd", "data_cmd"]
-        )
+        args_string = ru.drop_default_args(args, pred_fun, ignore=["data", "cmd", "data_cmd"])
         return f"""{ret}.predict({args_string})"""
 
     @output(id="show_predict_code")
@@ -410,12 +411,14 @@ def make_predict(
     @render.data_frame
     def predict():
         if input.pred_type() != "None":
-            locals()[ret] = estimate()  # get model object into local scope
+            # locals()[ret] = estimate()  # get model object into local scope
+            local_namespace = {ret: estimate()}
             if input.pred_type() in ["Data", "Data & Command"]:
-                locals()[input.pred_datasets()] = self.datasets[
+                local_namespace[input.pred_datasets()] = self.datasets[
                     input.pred_datasets()
                 ]  # get prediction data into local scope
-            pred = eval(predict_code())
+
+            pred = eval(predict_code(), globals(), local_namespace)
 
             summary = "Viewing rows {start} through {end} of {total}"
             if pred.shape[0] > 100_000:
@@ -461,8 +464,9 @@ def make_plot(self, input, output, session, show_code, estimate, ret, pc=None):
 
     @reactive.Calc
     def gen_plot():
-        locals()[ret] = estimate()
-        eval(f"""{plot_code()}""")
+        local_namespace = {ret: estimate()}
+
+        eval(f"""{plot_code()}""", globals(), local_namespace)
         fig = plt.gcf()
         width, height = fig.get_size_inches()  # Get the size in inches
         return fig, width * 96, height * 96

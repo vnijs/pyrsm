@@ -140,9 +140,9 @@ class model_mlp:
                 "Multi-layer Perceptron (Neural Network, classification) example notebook",
             ),
             ru.ui_stop(),
-            title="Radiant for Python",
-            inverse=False,
             id="navbar_id",
+            title="Radiant for Python",
+            navbar_options=ui.navbar_options(theme="dark"),
         )
 
     def shiny_server(self, input: Inputs, output: Outputs, session: Session):

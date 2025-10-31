@@ -1,5 +1,8 @@
 from typing import Union
 
+import matplotlib
+
+matplotlib.use("Agg")  # Use non-interactive backend
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -93,9 +96,7 @@ class cross_tabs:
         self.perc_col = self.observed.div(self.observed.loc["Total", :], axis=1)
         self.perc = self.observed / self.observed.loc["Total", "Total"]
 
-    def summary(
-        self, output: list[str] = ["observed", "expected"], dec: int = 2
-    ) -> None:
+    def summary(self, output: list[str] = ["observed", "expected"], dec: int = 2) -> None:
         """
         Print different output tables for a cross_tabs object
 
@@ -160,19 +161,19 @@ Deviation standardized: (o - e) / sqrt(e)
             prn += f"""
 Row percentages:
 
-{self.perc_row.transform(lambda x: (100*x).round(dec).astype(str) + "%")}
+{self.perc_row.transform(lambda x: (100 * x).round(dec).astype(str) + "%")}
 """
         if "perc_col" in output:
             prn += f"""
 Column percentages:
 
-{self.perc_col.transform(lambda x: (100*x).round(dec).astype(str) + "%")}
+{self.perc_col.transform(lambda x: (100 * x).round(dec).astype(str) + "%")}
 """
         if "perc" in output:
             prn += f"""
 Percentages:
 
-{self.perc.transform(lambda x: (100*x).round(dec).astype(str) + "%")}
+{self.perc.transform(lambda x: (100 * x).round(dec).astype(str) + "%")}
 """
         prn += f"""
 Chi-squared: {round(self.chisq_test[0], dec)} df({int(self.chisq_test[2])}), p.value {ifelse(self.chisq_test[1] < 0.001, "< .001", round(self.chisq_test[1], dec))}

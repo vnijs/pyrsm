@@ -1,5 +1,8 @@
 import pandas as pd
 import numpy as np
+import matplotlib
+
+matplotlib.use("Agg")  # Use non-interactive backend
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
 import seaborn as sns
@@ -37,9 +40,7 @@ def calc_qnt(df, rvar, lev, pred, qnt=10):
     df["bins"] = xtile(df[pred], qnt)
     df["rvar_int"] = ifelse(df[rvar] == lev, 1, ifelse(df[rvar].isna(), np.nan, 0))
     perf_df = (
-        df.groupby("bins", observed=False)
-        .rvar_int.agg(nr_obs="count", nr_resp="sum")
-        .reset_index()
+        df.groupby("bins", observed=False).rvar_int.agg(nr_obs="count", nr_resp="sum").reset_index()
     )
 
     # flip if needed
@@ -191,9 +192,7 @@ def uplift_tab(df, rvar, lev, pred, tvar, tlev, scale=1, qnt=10):
         breaks = np.concatenate(
             (
                 np.array([-np.inf]),
-                np.quantile(x[treatment], np.arange(0, n + 1) / n, method="linear")[
-                    1:-1
-                ],
+                np.quantile(x[treatment], np.arange(0, n + 1) / n, method="linear")[1:-1],
                 np.array([np.inf]),
             )
         )
@@ -237,9 +236,7 @@ def uplift_tab(df, rvar, lev, pred, tvar, tlev, scale=1, qnt=10):
                 C_n=lambda x: x.C_n.cumsum() * scale,
                 incremental_resp=lambda x: x.T_resp - x.C_resp * x.T_n / x.C_n,
             )
-            .assign(
-                inc_uplift=lambda x: x.incremental_resp / x.T_n.max() * 100, pred=pred
-            )
+            .assign(inc_uplift=lambda x: x.incremental_resp / x.T_n.max() * 100, pred=pred)
         )
         .reset_index()
         .loc[
@@ -261,9 +258,7 @@ def uplift_tab(df, rvar, lev, pred, tvar, tlev, scale=1, qnt=10):
     return tab
 
 
-def inc_uplift_plot(
-    df, rvar, lev, pred, tvar, tlev, scale=1, qnt=10, marker="o", **kwargs
-):
+def inc_uplift_plot(df, rvar, lev, pred, tvar, tlev, scale=1, qnt=10, marker="o", **kwargs):
     """
     Plot an Incremental Uplift chart
 
@@ -299,11 +294,9 @@ def inc_uplift_plot(
         pd.concat(
             [
                 pd.DataFrame({"cum_prop": [0], "inc_uplift": [0], "pred": p}),
-                uplift_tab(
-                    dct[k], rvar, lev, p, tvar, tlev, scale=scale, qnt=qnt
-                ).assign(predictor=p + ifelse(k == "", k, f" ({k})"))[
-                    ["cum_prop", "inc_uplift", "pred"]
-                ],
+                uplift_tab(dct[k], rvar, lev, p, tvar, tlev, scale=scale, qnt=qnt).assign(
+                    predictor=p + ifelse(k == "", k, f" ({k})")
+                )[["cum_prop", "inc_uplift", "pred"]],
             ]
         )
         for k in dct.keys()
@@ -312,12 +305,8 @@ def inc_uplift_plot(
 
     yend = rd[0].inc_uplift.iloc[-1]
     rd = pd.concat(rd).reset_index(drop=True)
-    fig = sns.lineplot(
-        x="cum_prop", y="inc_uplift", data=rd, hue=group, marker=marker, **kwargs
-    )
-    fig.yaxis.set_major_formatter(
-        mtick.FuncFormatter(lambda y, _: "{:.0%}".format(y / 100))
-    )
+    fig = sns.lineplot(x="cum_prop", y="inc_uplift", data=rd, hue=group, marker=marker, **kwargs)
+    fig.yaxis.set_major_formatter(mtick.FuncFormatter(lambda y, _: "{:.0%}".format(y / 100)))
     fig.xaxis.set_major_formatter(mtick.FuncFormatter(lambda x, _: "{:.0%}".format(x)))
     fig.set(ylabel="Incremental Uplift", xlabel="Percentage of population targeted")
     plt.plot([0, 1], [0, yend], linestyle="--", linewidth=1, color=plt.cm.Blues(0.7))
@@ -375,14 +364,10 @@ def inc_profit_tab(
     rd = [
         pd.concat(
             [
-                pd.DataFrame(
-                    {"cum_prop": [0], "incremental_resp": [0], "T_n": [0], "pred": p}
-                ),
-                uplift_tab(
-                    dct[k], rvar, lev, p, tvar, tlev, scale=scale, qnt=qnt
-                ).assign(predictor=p + ifelse(k == "", k, f" ({k})"))[
-                    ["cum_prop", "incremental_resp", "T_n", "pred"]
-                ],
+                pd.DataFrame({"cum_prop": [0], "incremental_resp": [0], "T_n": [0], "pred": p}),
+                uplift_tab(dct[k], rvar, lev, p, tvar, tlev, scale=scale, qnt=qnt).assign(
+                    predictor=p + ifelse(k == "", k, f" ({k})")
+                )[["cum_prop", "incremental_resp", "T_n", "pred"]],
             ]
         )
         for k in dct.keys()
@@ -457,16 +442,14 @@ def inc_profit_plot(
     # )
 
     df = [
-        inc_profit_tab(
-            dct[k], rvar, lev, p, tvar, tlev, cost, margin, scale, qnt
-        ).assign(predictor=p + ifelse(k == "", k, f" ({k})"))
+        inc_profit_tab(dct[k], rvar, lev, p, tvar, tlev, cost, margin, scale, qnt).assign(
+            predictor=p + ifelse(k == "", k, f" ({k})")
+        )
         for k in dct.keys()
         for p in pred
     ]
     df = pd.concat(df).drop(columns="pred").reset_index(drop=True)
-    fig = sns.lineplot(
-        x="cum_prop", y="inc_profit", data=df, hue=group, marker=marker, **kwargs
-    )
+    fig = sns.lineplot(x="cum_prop", y="inc_profit", data=df, hue=group, marker=marker, **kwargs)
 
     fig.set(ylabel="Incremental Profit", xlabel="Percentage of population targeted")
     fig.yaxis.set_major_formatter(mtick.FuncFormatter(lambda y, _: format(int(y), ",")))
@@ -802,16 +785,14 @@ def profit_plot(
     pred = ifelse(isinstance(pred, str), [pred], pred)
     group = ifelse(len(pred) > 1 or len(dct.keys()) > 1, "predictor", None)
     df = [
-        profit_tab(
-            dct[k], rvar, lev, p, qnt=qnt, cost=cost, margin=margin, scale=scale
-        ).assign(predictor=p + ifelse(k == "", k, f" ({k})"))
+        profit_tab(dct[k], rvar, lev, p, qnt=qnt, cost=cost, margin=margin, scale=scale).assign(
+            predictor=p + ifelse(k == "", k, f" ({k})")
+        )
         for k in dct.keys()
         for p in pred
     ]
     df = pd.concat(df).reset_index(drop=True)
-    fig = sns.lineplot(
-        x="cum_prop", y="cum_profit", data=df, hue=group, marker=marker, **kwargs
-    )
+    fig = sns.lineplot(x="cum_prop", y="cum_profit", data=df, hue=group, marker=marker, **kwargs)
     fig.set(ylabel="Profit", xlabel="Percentage of population targeted")
     fig.yaxis.set_major_formatter(mtick.FuncFormatter(lambda y, _: format(int(y), ",")))
     fig.xaxis.set_major_formatter(mtick.FuncFormatter(lambda x, _: "{:.0%}".format(x)))
@@ -831,12 +812,8 @@ def profit_plot(
             print(prof)
         [
             [
-                fig.axvline(
-                    l, linestyle="--", linewidth=1, color=sns.color_palette()[i]
-                ),
-                fig.axhline(
-                    prof[i], linestyle="--", linewidth=1, color=sns.color_palette()[i]
-                ),
+                fig.axvline(l, linestyle="--", linewidth=1, color=sns.color_palette()[i]),
+                fig.axhline(prof[i], linestyle="--", linewidth=1, color=sns.color_palette()[i]),
             ]
             for i, l in enumerate(filter(lambda x: x < 1, cnf))
         ]
@@ -900,9 +877,7 @@ def expected_profit_plot(
         )
 
     df = [
-        calc_exp_profit(dct[k], p, cost, margin).assign(
-            predictor=p + ifelse(k == "", k, f" ({k})")
-        )
+        calc_exp_profit(dct[k], p, cost, margin).assign(predictor=p + ifelse(k == "", k, f" ({k})"))
         for k in dct.keys()
         for p in pred
     ]
@@ -988,9 +963,7 @@ def ROME_plot(df, rvar, lev, pred, qnt=10, cost=1, margin=2, marker="o", **kwarg
         for p in pred
     ]
     rd = pd.concat(rd).reset_index(drop=True)
-    fig = sns.lineplot(
-        x="cum_prop", y="ROME", data=rd, hue=group, marker=marker, **kwargs
-    )
+    fig = sns.lineplot(x="cum_prop", y="ROME", data=rd, hue=group, marker=marker, **kwargs)
     fig.set(
         ylabel="Return on Marketing Expenditures (ROME)",
         xlabel="Percentage of population targeted",
@@ -1040,16 +1013,12 @@ def gains_plot(df, rvar, lev, pred, qnt=10, marker="o", **kwargs):
     pred = ifelse(isinstance(pred, str), [pred], pred)
     group = ifelse(len(pred) > 1 or len(dct.keys()) > 1, "predictor", None)
     rd = [
-        gains_tab(dct[k], rvar, lev, p, qnt=qnt).assign(
-            predictor=p + ifelse(k == "", k, f" ({k})")
-        )
+        gains_tab(dct[k], rvar, lev, p, qnt=qnt).assign(predictor=p + ifelse(k == "", k, f" ({k})"))
         for k in dct.keys()
         for p in pred
     ]
     rd = pd.concat(rd).reset_index(drop=True)
-    fig = sns.lineplot(
-        x="cum_prop", y="cum_gains", data=rd, hue=group, marker=marker, **kwargs
-    )
+    fig = sns.lineplot(x="cum_prop", y="cum_gains", data=rd, hue=group, marker=marker, **kwargs)
     fig.set(ylabel="Percentage Buyers", xlabel="Percentage of population targeted")
     plt.plot([0, 1], [0, 1], linestyle="--", linewidth=1, color=plt.cm.Blues(0.7))
     fig.yaxis.set_major_formatter(mtick.FuncFormatter(lambda y, _: "{:.0%}".format(y)))
@@ -1098,16 +1067,12 @@ def lift_plot(df, rvar, lev, pred, qnt=10, marker="o", **kwargs):
     pred = ifelse(isinstance(pred, str), [pred], pred)
     group = ifelse(len(pred) > 1 or len(dct.keys()) > 1, "predictor", None)
     rd = [
-        lift_tab(dct[k], rvar, lev, p, qnt=qnt).assign(
-            predictor=p + ifelse(k == "", k, f" ({k})")
-        )
+        lift_tab(dct[k], rvar, lev, p, qnt=qnt).assign(predictor=p + ifelse(k == "", k, f" ({k})"))
         for k in dct.keys()
         for p in pred
     ]
     rd = pd.concat(rd).reset_index(drop=True)
-    fig = sns.lineplot(
-        x="cum_prop", y="cum_lift", data=rd, hue=group, marker=marker, **kwargs
-    )
+    fig = sns.lineplot(x="cum_prop", y="cum_lift", data=rd, hue=group, marker=marker, **kwargs)
     fig.set(ylabel="Cumulative lift", xlabel="Percentage of population targeted")
     fig.axhline(1, linestyle="--", linewidth=1)
     if len(dct) > 1 or len(pred) > 1:
@@ -1188,9 +1153,7 @@ def evalbin(df, rvar, lev, pred, cost=1, margin=2, scale=1, dec=3):
             result = pd.concat([result, calculate_metrics(key, val, p)], axis=0)
 
     result.index = range(result.shape[0])
-    result["index"] = result.groupby("Type", observed=False).profit.transform(
-        lambda x: x / x.max()
-    )
+    result["index"] = result.groupby("Type", observed=False).profit.transform(lambda x: x / x.max())
     return result.round(dec)
 
 

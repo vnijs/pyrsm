@@ -1,5 +1,9 @@
 import numpy as np
 from scipy import stats
+import matplotlib
+
+matplotlib.use("Agg")  # Use non-interactive backend
+import matplotlib.pyplot as plt
 from .utils import iround, check, make_colors_continuous, ceil, floor
 
 
@@ -41,8 +45,6 @@ def prob_norm(mean, stdev, lb=None, ub=None, plb=None, pub=None):
 
 
 def plot_prob_norm(dct, type="values"):
-    import matplotlib.pyplot as plt
-
     if type == "values":
         lb, ub = dct["lb"], dct["ub"]
     else:

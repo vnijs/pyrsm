@@ -39,9 +39,7 @@ app_static = StaticFiles(directory=www_dir, html=False)
 
 # data > view
 data_dct, descriptions_dct = ru.get_dfs(pkg="data")
-rc = data_view(
-    data_dct, descriptions_dct, state=None, code=True, navbar=ru.radiant_navbar()
-)
+rc = data_view(data_dct, descriptions_dct, state=None, code=True, navbar=ru.radiant_navbar())
 app_data = App(rc.shiny_ui, rc.shiny_server, debug=False)
 
 # probability calculator mean app
@@ -85,9 +83,7 @@ app_ct = App(rc.shiny_ui, rc.shiny_server, debug=False)
 
 # goodness app
 data_dct, descriptions_dct = ru.get_dfs(pkg="basics", name="newspaper")
-rc = basics_goodness(
-    data_dct, descriptions_dct, state=None, code=True, navbar=ru.radiant_navbar()
-)
+rc = basics_goodness(data_dct, descriptions_dct, state=None, code=True, navbar=ru.radiant_navbar())
 app_gf = App(rc.shiny_ui, rc.shiny_server, debug=False)
 
 # correlation app
@@ -102,16 +98,12 @@ data_dct, descriptions_dct = ru.get_dfs(pkg="model", name="diamonds")
 data_dct.update({"diamonds100": data_dct["diamonds"].sample(100)})
 
 descriptions_dct.update({"diamonds100": descriptions_dct["diamonds"]})
-rc = model_regress(
-    data_dct, descriptions_dct, state=None, code=True, navbar=ru.radiant_navbar()
-)
+rc = model_regress(data_dct, descriptions_dct, state=None, code=True, navbar=ru.radiant_navbar())
 app_regress = App(rc.shiny_ui, rc.shiny_server)
 
 # logistic regression app
 data_dct, descriptions_dct = ru.get_dfs(pkg="model", name="titanic")
-rc = model_logistic(
-    data_dct, descriptions_dct, state=None, code=True, navbar=ru.radiant_navbar()
-)
+rc = model_logistic(data_dct, descriptions_dct, state=None, code=True, navbar=ru.radiant_navbar())
 app_logistic = App(rc.shiny_ui, rc.shiny_server)
 
 # random forest app
@@ -131,9 +123,9 @@ app_mlp = App(rc.shiny_ui, rc.shiny_server)
 #     ru.head_content(),
 #     ru.radiant_navbar(),
 #     ru.ui_stop(),
-#     title="Radiant for Python",
-#     inverse=False,
 #     id="navbar_id",
+#     title="Radiant for Python",
+#     navbar_options=ui.navbar_options(theme="dark"),
 # )
 # app_home = App(ui_nav, None)
 

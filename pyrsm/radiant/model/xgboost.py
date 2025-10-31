@@ -107,7 +107,9 @@ def plots_extra(self):
 
 
 class model_xgboost:
-    def __init__(self, datasets: dict, descriptions=None, state=None, code=True, navbar=None) -> None:
+    def __init__(
+        self, datasets: dict, descriptions=None, state=None, code=True, navbar=None
+    ) -> None:
         ru.init(
             self,
             datasets,
@@ -140,9 +142,9 @@ class model_xgboost:
                 "XGBoost (classification) example notebook",
             ),
             ru.ui_stop(),
-            title="Radiant for Python",
-            inverse=False,
             id="navbar_id",
+            title="Radiant for Python",
+            navbar_options=ui.navbar_options(theme="dark"),
         )
 
     def shiny_server(self, input: Inputs, output: Outputs, session: Session):

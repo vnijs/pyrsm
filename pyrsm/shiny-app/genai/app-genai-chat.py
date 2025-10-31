@@ -1,10 +1,14 @@
 import os
 import pandas as pd
 from shiny import App, ui, render, reactive
+import matplotlib
+
+matplotlib.use("Agg")  # Use non-interactive backend
 import matplotlib.pyplot as plt
 import traceback
 
 import sys
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "tools")))
 import tools.tool_function_definitions as tfd
 import tools.tool_handlers as th
@@ -39,7 +43,9 @@ app_ui = ui.page_sidebar(
         ui.output_ui("current_description"),
         width=400,
     ),
-    ui.navset_tab(ui.nav_panel("Chat", ui.chat_ui("chat")), ui.nav_panel("Data", ui.output_ui("data"))),
+    ui.navset_tab(
+        ui.nav_panel("Chat", ui.chat_ui("chat")), ui.nav_panel("Data", ui.output_ui("data"))
+    ),
     fillable_mobile=True,
 )
 
@@ -47,7 +53,9 @@ app_ui = ui.page_sidebar(
 def server(input):
     # Reactive values to store datasets and descriptions
     datasets = reactive.value({"demand_uk": demand_uk, "salary": salary})
-    descriptions = reactive.value({"demand_uk": demand_uk_description, "salary": salary_description})
+    descriptions = reactive.value(
+        {"demand_uk": demand_uk_description, "salary": salary_description}
+    )
     available_datasets = reactive.value(["salary", "demand_uk"])
 
     @reactive.Effect
@@ -123,7 +131,9 @@ def server(input):
             desc_dict = descriptions.get()
             current_desc = desc_dict.get(selected, "No description available")
 
-            await chat.append_message({"role": "system", "content": f"Available data: {selected} - {current_desc}"})
+            await chat.append_message(
+                {"role": "system", "content": f"Available data: {selected} - {current_desc}"}
+            )
             messages = chat.messages(format="openai")
 
             response = await llm.chat.completions.create(

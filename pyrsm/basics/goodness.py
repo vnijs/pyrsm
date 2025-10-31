@@ -1,6 +1,9 @@
 from cmath import sqrt
 from typing import Optional, Union
 
+import matplotlib
+
+matplotlib.use("Agg")  # Use non-interactive backend
 import matplotlib.pyplot as plt
 import pandas as pd
 import polars as pl
@@ -54,10 +57,7 @@ class goodness:
             {
                 column: [
                     round(
-                        (
-                            (self.observed.at[0, column] - self.expected.at[0, column])
-                            ** 2
-                        )
+                        ((self.observed.at[0, column] - self.expected.at[0, column]) ** 2)
                         / self.expected.at[0, column],
                         2,
                     ),
@@ -82,9 +82,7 @@ class goodness:
             columns=self.expected.columns.tolist()[:-1],
         )
 
-    def summary(
-        self, output: list[str] = ["observed", "expected"], dec: int = 3
-    ) -> None:
+    def summary(self, output: list[str] = ["observed", "expected"], dec: int = 3) -> None:
         pd.set_option("display.max_columns", 20)
         pd.set_option("display.max_rows", 20)
 
@@ -104,7 +102,7 @@ class goodness:
         if not 0.999 <= sum(self.probs) <= 1.001:
             raise ValueError("Probabilities do not sum to 1 ({sum(self.probs)})")
 
-        print(f'Probabilities: {" ".join(map(str, self.probs))}')
+        print(f"Probabilities: {' '.join(map(str, self.probs))}")
         print(
             f"Null hyp.    : The distribution of {self.var} is consistent with the specified distribution"
         )
@@ -137,9 +135,7 @@ class goodness:
             p_val = "< .001"
         else:
             p_val = round(p_val, dec)
-        print(
-            f"\nChi-squared: {round(chisq, dec)} df ({self.nlev - 1}), p.value {p_val}"
-        )
+        print(f"\nChi-squared: {round(chisq, dec)} df ({self.nlev - 1}), p.value {p_val}")
 
     def plot(self, plots: list[str] = [], **kwargs) -> None:
         plots = ifelse(isinstance(plots, str), [plots], plots)

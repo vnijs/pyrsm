@@ -1,5 +1,8 @@
 from typing import Optional, Union
 
+import matplotlib
+
+matplotlib.use("Agg")  # Use non-interactive backend
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -69,13 +72,7 @@ class correlation:
                 # pairwise deletion
                 cdf = cdf[~np.any(np.isnan(cdf), axis=1)]
                 # convert bool to int to avoid errors in scipy
-                cdf = cdf.astype(
-                    {
-                        col: int
-                        for col in cdf.columns
-                        if cdf[col].dtype == bool
-                    }
-                )
+                cdf = cdf.astype({col: int for col in cdf.columns if cdf[col].dtype == bool})
                 if self.method == "spearman":
                     c = stats.spearmanr(cdf.iloc[:, 0], cdf.iloc[:, 1])
                 elif self.method == "kendall":

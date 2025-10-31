@@ -1,6 +1,8 @@
 from typing import Optional
 
 import matplotlib
+
+matplotlib.use("Agg")  # Use non-interactive backend
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -93,9 +95,7 @@ class central_limit_theorem:
         ).plot()
 
         plt.axes(axes[1][0])
-        self._plot_distribution(
-            x=sample_means, x_label="Histogram of sample means"
-        ).plot()
+        self._plot_distribution(x=sample_means, x_label="Histogram of sample means").plot()
 
         plt.axes(axes[1][1])
         axes[1][1].set_ylabel("y")

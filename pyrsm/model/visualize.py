@@ -1,4 +1,7 @@
 import math
+import matplotlib
+
+matplotlib.use("Agg")  # Use non-interactive backend
 import matplotlib.pyplot as plt
 import pandas as pd
 import polars as pl
@@ -52,7 +55,9 @@ def distr_plot(
 
     data = data.loc[:, cols].copy()
 
-    fig, axes = plt.subplots(max(math.ceil(data.shape[1] / 2), 2), 2, figsize=(10, 2 * max(data.shape[1], 4)))
+    fig, axes = plt.subplots(
+        max(math.ceil(data.shape[1] / 2), 2), 2, figsize=(10, 2 * max(data.shape[1], 4))
+    )
     plt.subplots_adjust(wspace=0.25, hspace=0.3)
     row = 0
     for i, c in enumerate(data.columns):
@@ -65,7 +70,9 @@ def distr_plot(
         elif pd.api.types.is_numeric_dtype(s.dtype):
             s.plot.hist(ax=axes[row, j], title=c, rot=0, color="slateblue", bins=bins, **kwargs)
         elif pd.api.types.is_categorical_dtype(s.dtype):
-            s.value_counts(sort=False).plot.bar(ax=axes[row, j], title=c, rot=0, color="slateblue", **kwargs)
+            s.value_counts(sort=False).plot.bar(
+                ax=axes[row, j], title=c, rot=0, color="slateblue", **kwargs
+            )
         else:
             print(f"No plot will be created for {c} (type {s.dtype})")
 
@@ -193,7 +200,9 @@ def pred_plot_sm(
 
     for v in incl_int:
         vl = v.split(":")
-        is_num = [pd.api.types.is_numeric_dtype(data[c].dtype) and data[c].nunique() > 5 for c in vl]
+        is_num = [
+            pd.api.types.is_numeric_dtype(data[c].dtype) and data[c].nunique() > 5 for c in vl
+        ]
         iplot = sim_prediction(data, vary=vl, nnv=nnv, minq=minq, maxq=maxq)
         iplot["prediction"] = fitted.predict(iplot)
         if sum(is_num) < 2:
@@ -219,7 +228,9 @@ def pred_plot_sm(
     for j, v in enumerate(incl_int):
         col = ifelse(j % 2 == start_col, 0, 1)
         vl = v.split(":")
-        is_num = [pd.api.types.is_numeric_dtype(data[c].dtype) and data[c].nunique() > 5 for c in vl]
+        is_num = [
+            pd.api.types.is_numeric_dtype(data[c].dtype) and data[c].nunique() > 5 for c in vl
+        ]
         if sum(is_num) == 2:
             plot_data = (
                 pred_dict[v]
@@ -232,7 +243,9 @@ def pred_plot_sm(
         elif sum(is_num) == 1:
             if is_num[1]:
                 vl.reverse()
-            fig = sns.lineplot(x=vl[0], y="prediction", hue=vl[1], data=pred_dict[v], ax=ax[row, col])
+            fig = sns.lineplot(
+                x=vl[0], y="prediction", hue=vl[1], data=pred_dict[v], ax=ax[row, col]
+            )
         else:
             fig = sns.lineplot(
                 x=vl[0],
@@ -331,7 +344,14 @@ def pred_plot_sk(
     not_transformed = [c for c in data.columns for f in fn if c == f]
     if transformed is None:
         transformed = list(
-            set([c for c in data.columns for f in fn if f"{c}_" in f and c != f and f"{c}_" not in data.columns])
+            set(
+                [
+                    c
+                    for c in data.columns
+                    for f in fn
+                    if f"{c}_" in f and c != f and f"{c}_" not in data.columns
+                ]
+            )
         )
 
     ints = intersect(transformed, not_transformed)
@@ -354,7 +374,12 @@ def pred_plot_sk(
         if sk_type == "classification":
             return fitted.predict_proba(data)[:, 1]
         else:
-            if sk_type == "regression" and means is not None and stds is not None and rvar is not None:
+            if (
+                sk_type == "regression"
+                and means is not None
+                and stds is not None
+                and rvar is not None
+            ):
                 pred = fitted.predict(data) * stds[rvar] + means[rvar]
             else:
                 pred = fitted.predict(data)
@@ -368,7 +393,9 @@ def pred_plot_sk(
 
     def dummify(data, trs):
         if len(trs) > 0:
-            return pd.concat([pd.get_dummies(data[trs], columns=trs), data.drop(trs, axis=1)], axis=1)
+            return pd.concat(
+                [pd.get_dummies(data[trs], columns=trs), data.drop(trs, axis=1)], axis=1
+            )
         else:
             return data
 
@@ -427,7 +454,9 @@ def pred_plot_sk(
 
     for v in incl_int:
         vl = v.split(":")
-        is_num = [pd.api.types.is_numeric_dtype(data[c].dtype) and data[c].nunique() > 5 for c in vl]
+        is_num = [
+            pd.api.types.is_numeric_dtype(data[c].dtype) and data[c].nunique() > 5 for c in vl
+        ]
         iplot = sim_prediction(
             data[transformed + not_transformed].dropna(),
             vary=vl,
@@ -466,7 +495,9 @@ def pred_plot_sk(
     for j, v in enumerate(incl_int):
         col = ifelse(j % 2 == start_col, 0, 1)
         vl = v.split(":")
-        is_num = [pd.api.types.is_numeric_dtype(data[c].dtype) and data[c].nunique() > 5 for c in vl]
+        is_num = [
+            pd.api.types.is_numeric_dtype(data[c].dtype) and data[c].nunique() > 5 for c in vl
+        ]
         if sum(is_num) == 2:
             plot_data = (
                 pred_dict[v]
@@ -479,7 +510,9 @@ def pred_plot_sk(
         elif sum(is_num) == 1:
             if is_num[1]:
                 vl.reverse()
-            fig = sns.lineplot(x=vl[0], y="prediction", hue=vl[1], data=pred_dict[v], ax=ax[row, col])
+            fig = sns.lineplot(
+                x=vl[0], y="prediction", hue=vl[1], data=pred_dict[v], ax=ax[row, col]
+            )
         else:
             fig = sns.lineplot(
                 x=vl[0],
@@ -555,7 +588,10 @@ def vimp_plot_sm(fitted, data, rep=10, ax=None, ret=False):
         imp_calc = imp_calc_logit  # specifying the function to use
         xlab = "Importance (AUC decrease)"
     elif isinstance(fitted, sm.regression.linear_model.RegressionResultsWrapper):
-        baseline_fit = pd.DataFrame({"y": model.endog, "yhat": fitted.predict(data[evars])}).corr().iloc[0, 1] ** 2
+        baseline_fit = (
+            pd.DataFrame({"y": model.endog, "yhat": fitted.predict(data[evars])}).corr().iloc[0, 1]
+            ** 2
+        )
         imp_calc = imp_calc_reg  # specifying the function to use
         xlab = "Importance (R-square decrease)"
     else:
@@ -627,7 +663,10 @@ def vimp_plot_sk(model, rep=5, ax=None, ret=False):
         imp_calc = imp_calc_clf  # specifying the function to use
     else:
         baseline_fit = (
-            pd.DataFrame({"y": data[rvar], "yhat": model.predict(data[evars])["prediction"]}).corr().iloc[0, 1] ** 2
+            pd.DataFrame({"y": data[rvar], "yhat": model.predict(data[evars])["prediction"]})
+            .corr()
+            .iloc[0, 1]
+            ** 2
         )
         imp_calc = imp_calc_reg  # specifying the function to use
         xlab = "Importance (R-square decrease)"
@@ -642,7 +681,9 @@ def vimp_plot_sk(model, rep=5, ax=None, ret=False):
     for i in range(rep):
         for feature in evars:
             permuted[feature] = data[feature].sample(frac=1, random_state=i).reset_index(drop=True)
-            importance_values[feature] += imp_calc(baseline_fit, model.predict(permuted)["prediction"])
+            importance_values[feature] += imp_calc(
+                baseline_fit, model.predict(permuted)["prediction"]
+            )
             permuted[feature] = data[feature]  # reverting to original values
 
     importance_values = {k: [v / rep] for k, v in importance_values.items()}

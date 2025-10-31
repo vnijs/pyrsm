@@ -14,9 +14,9 @@
 
 ## select commands to run and use the Command Palette to send to open terminal
 # use python build to install locally testing
-conda activate msba
+# conda activate msba
 # conda activate pyrsm
-pip uninstall -y pyrsm
+uv remove pyrsm
 # pip uninstall -y pyrsm
 # sudo rm -rf ~/gh/pyrsm/dist
 # sudo rm -rf ~/gh/pyrsm/build/*
@@ -47,7 +47,7 @@ python -m twine upload --repository pypi dist/*
 # conda activate pyrsm
 pip uninstall -y pyrsm
 rm -rf ~/gh/pyrsm/dist
-pip install --user -e ~/gh/pyrsm
+uv pip install --user -e ~/gh/pyrsm
 
 
 pip install --user pyrsm --upgrade

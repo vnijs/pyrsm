@@ -1,5 +1,8 @@
 from typing import Literal
 
+import matplotlib
+
+matplotlib.use("Agg")  # Use non-interactive backend
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -16,7 +19,7 @@ from pyrsm.utils import check_dataframe, ifelse
 
 class compare_means:
     """
-    A class to perform comparison of means hypothesis testing. See the notebook 
+    A class to perform comparison of means hypothesis testing. See the notebook
     linked below for a worked example, including the web UI:
 
     https://github.com/vnijs/pyrsm/blob/main/examples/basics-compare-means.ipynb
@@ -164,8 +167,7 @@ class compare_means:
             if x.size == 0 or y.size == 0:  # address division by zero
                 return np.nan
             dof = (x.var() / x.size + y.var() / y.size) ** 2 / (
-                (x.var() / x.size) ** 2 / (x.size - 1)
-                + (y.var() / y.size) ** 2 / (y.size - 1)
+                (x.var() / x.size) ** 2 / (x.size - 1) + (y.var() / y.size) ** 2 / (y.size - 1)
             )
 
             return dof
@@ -200,9 +202,9 @@ class compare_means:
             v1, v2 = c.split(":")
             null_hyp = f"{v1} = {v2}"
             alt_hyp = f"{v1} {alt_hyp_sign} {v2}"
-            diff = np.nanmean(
-                self.data[self.data[self.var1] == v1][self.var2]
-            ) - np.nanmean(self.data[self.data[self.var1] == v2][self.var2])
+            diff = np.nanmean(self.data[self.data[self.var1] == v1][self.var2]) - np.nanmean(
+                self.data[self.data[self.var1] == v2][self.var2]
+            )
 
             x = self.data.loc[self.data[self.var1] == v1, self.var2]
             y = self.data.loc[self.data[self.var1] == v2, self.var2]
@@ -222,16 +224,12 @@ class compare_means:
                         alternative=self.alt_hyp,
                     )
                 else:
-                    result = stats.ttest_rel(
-                        x, y, nan_policy="omit", alternative=self.alt_hyp
-                    )
+                    result = stats.ttest_rel(x, y, nan_policy="omit", alternative=self.alt_hyp)
             elif self.test_type == "wilcox":
                 if self.sample_type == "independent":
                     result = stats.ranksums(x, y, alternative=self.alt_hyp)
                 else:
-                    result = stats.wilcoxon(
-                        x, y, correction=True, alternative=self.alt_hyp
-                    )
+                    result = stats.wilcoxon(x, y, correction=True, alternative=self.alt_hyp)
 
             t_val, p_val = result.statistic, result.pvalue
             se = diff / t_val
@@ -322,7 +320,9 @@ class compare_means:
         print(comp_stats.round(dec).to_string(index=False))
         print("\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1")
 
-    def plot(self, plots: Literal["scatter", "box", "density", "bar"] = "scatter", nobs: int = None) -> None:
+    def plot(
+        self, plots: Literal["scatter", "box", "density", "bar"] = "scatter", nobs: int = None
+    ) -> None:
         """
         Plots the results of the hypothesis test.
 
@@ -334,12 +334,7 @@ class compare_means:
             The number of observations to plot (default is None in which case all available data points will be used).
         """
         if plots == "scatter":
-            if (
-                nobs is not None
-                and nobs < self.data.shape[0]
-                and nobs != np.inf
-                and nobs != -1
-            ):
+            if nobs is not None and nobs < self.data.shape[0] and nobs != np.inf and nobs != -1:
                 data = self.data.copy().sample(nobs)
             else:
                 data = self.data.copy()

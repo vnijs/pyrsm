@@ -22,7 +22,7 @@ def ui_summary(self):
     return (
         ui.panel_conditional(
             "input.tabs == 'Summary'",
-            ui.panel_well(
+            ui.card(
                 ui.output_ui("ui_vars"),
                 ui.input_select(
                     id="method",
@@ -56,7 +56,7 @@ def ui_summary(self):
 
 
 def ui_plot(self):
-    return ui.panel_well(
+    return ui.card(
         ui.input_select(
             "nobs",
             "Number of data points plotted:",
@@ -113,9 +113,9 @@ class basics_correlation:
                 "Correlation example notebook",
             ),
             ru.ui_stop(),
-            title="Radiant for Python",
-            inverse=False,
             id="navbar_id",
+            title="Radiant for Python",
+            navbar_options=ui.navbar_options(theme="dark"),
         )
 
     def shiny_server(self, input: Inputs, output: Outputs, session: Session):
@@ -145,9 +145,7 @@ class basics_correlation:
 
         def estimation_code():
             data_name, code = (get_data()[k] for k in ["data_name", "code"])
-            vars = rsm.ifelse(
-                isinstance(input.vars(), tuple), list(input.vars()), input.vars()
-            )
+            vars = rsm.ifelse(isinstance(input.vars(), tuple), list(input.vars()), input.vars())
             args = {
                 "data": f"""{{"{data_name}": {data_name}}}""",
                 "vars": vars,
@@ -189,9 +187,7 @@ class basics_correlation:
 
         def plot_code():
             args = {"nobs": input.nobs()}
-            args_string = ru.drop_default_args(
-                args, rsm.basics.correlation.plot, ignore=["nobs"]
-            )
+            args_string = ru.drop_default_args(args, rsm.basics.correlation.plot, ignore=["nobs"])
             return f"""cr.plot({args_string})"""
 
         mu.make_plot(

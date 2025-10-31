@@ -27,9 +27,7 @@ def get_dfs(pkg=None, name=None, polars=False):
     obj = pd.DataFrame if not polars else pl.DataFrame
     data_dct = {k: v for k, v in globals().items() if isinstance(v, obj)}
     descriptions_dct = {
-        k: globals()[f"{k}_description"]
-        for k in data_dct
-        if f"{k}_description" in globals()
+        k: globals()[f"{k}_description"] for k in data_dct if f"{k}_description" in globals()
     }
     if len(data_dct) == 0 and name is not None:
         data, description = load_data(pkg=pkg, name=name, polars=polars)
@@ -80,9 +78,7 @@ def init(self, datasets, descriptions=None, state=None, code=True, navbar=None):
     datasets = ifelse(isinstance(datasets, dict), datasets, {"dataset": datasets})
     self.datasets = {k: check_dataframe(d) for k, d in datasets.items()}
     if descriptions is None:
-        self.descriptions = {
-            k: "## No data description provided" for k in self.datasets.keys()
-        }
+        self.descriptions = {k: "## No data description provided" for k in self.datasets.keys()}
     else:
         self.descriptions = ifelse(
             isinstance(descriptions, dict),
@@ -156,7 +152,9 @@ def code_formatter(code, self, input, session, id="copy"):
     cmd = self.stop_code = black.format_str(code, mode=black.Mode())
     copy_reset(input, session, id=id)
     return ui.TagList(
-        ui.HTML(f"<details {ifelse(self.code, 'open', '')}><summary>View generated Python code</summary>"),
+        ui.HTML(
+            f"<details {ifelse(self.code, 'open', '')}><summary>View generated Python code</summary>"
+        ),
         ui.div(
             {"class": "code-container", "style": "position: relative;"},
             copy_icon(cmd, id=id),
@@ -183,9 +181,7 @@ def drop_default_args(args, func, ignore=["data"]):
 
 def make_side_by_side(a, b):
     """Put two inputs side-by-side in the UI"""
-    return ui.tags.table(
-        ui.tags.td(a, width="50%"), ui.tags.td(b, width="50%"), width="100%"
-    )
+    return ui.tags.table(ui.tags.td(a, width="50%"), ui.tags.td(b, width="50%"), width="100%")
 
 
 def get_data(self, input):
@@ -195,9 +191,7 @@ def get_data(self, input):
     data_name = input.datasets()
     data = self.datasets[data_name]
     description = self.descriptions[data_name]
-    code = (
-        f"import pyrsm as rsm\n# {data_name} = pd.read_parquet('{data_name}.parquet')"
-    )
+    code = f"import pyrsm as rsm\n# {data_name} = pd.read_parquet('{data_name}.parquet')"
     if input.show_filter():
         code_sf = ""
         if not is_empty(input.data_filter()):
@@ -213,9 +207,7 @@ def get_data(self, input):
 
     types = {c: [data[c].dtype, data[c].nunique()] for c in data.columns}
     isNum = {
-        c: f"{c} ({t[0].name})"
-        for c, t in types.items()
-        if pd.api.types.is_numeric_dtype(t[0])
+        c: f"{c} ({t[0].name})" for c, t in types.items() if pd.api.types.is_numeric_dtype(t[0])
     }
     isBin = {c: f"{c} ({t[0].name})" for c, t in types.items() if t[1] == 2}
     isCat = {
@@ -243,9 +235,7 @@ def make_data_elements(self, input, output, session):
     @output(id="show_data_code")
     @render.ui
     def show_data_code():
-        return code_formatter(
-            get_data(self, input)["code"], self, input, session, id="copy_data"
-        )
+        return code_formatter(get_data(self, input)["code"], self, input, session, id="copy_data")
 
     @output(id="show_data")
     @render.data_frame
@@ -354,7 +344,7 @@ def iterms(vars, nway=2, sep=":"):
 
 
 def ui_view(self):
-    return ui.panel_well(
+    return ui.card(
         ui.input_select(
             "datasets",
             "Datasets:",
@@ -404,7 +394,7 @@ def ui_data(self):
 def ui_summary(*args):
     return ui.panel_conditional(
         "input.tabs == 'Summary'",
-        ui.panel_well(
+        ui.card(
             ui.input_action_button(
                 "run",
                 "Estimate model",
@@ -426,7 +416,7 @@ def ui_summary(*args):
 def ui_plot(self, choices, *args):
     return ui.panel_conditional(
         "input.tabs == 'Plot'",
-        ui.panel_well(
+        ui.card(
             ui.input_select(
                 id="plots",
                 label="Plots",
@@ -593,9 +583,7 @@ def ui_stop():
         #     ),
         # ),
         ui.nav_control(
-            ui.input_action_link(
-                "stop", "Stop", icon=icon_svg("stop"), onclick="window.close();"
-            ),
+            ui.input_action_link("stop", "Stop", icon=icon_svg("stop"), onclick="window.close();"),
         ),
     )
 

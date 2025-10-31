@@ -2,7 +2,9 @@ import os
 import re
 from math import ceil
 from typing import Optional, Union
+import matplotlib
 
+matplotlib.use("Agg")  # Use non-interactive backend
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
@@ -504,7 +506,7 @@ def model_fit(fitted, dec: int = 3, prn: bool = True) -> Union[str, pd.DataFrame
 Pseudo R-squared (McFadden adjusted): {mfit.pseudo_rsq_mcf_adj.values[0].round(dec)}
 Area under the RO Curve (AUC): {mfit.AUC.values[0].round(dec)}
 Log-likelihood: {mfit.log_likelihood.values[0].round(dec)}, AIC: {mfit.AIC.values[0].round(dec)}, BIC: {mfit.BIC.values[0].round(dec)}
-Chi-squared: {mfit.chisq.values[0].round(dec)}, df({mfit.chisq_df.values[0]}), p.value {np.where(mfit.chisq_pval.values[0] < 0.001, "< 0.001", mfit.chisq_pval.values[0].round(dec))} 
+Chi-squared: {mfit.chisq.values[0].round(dec)}, df({mfit.chisq_df.values[0]}), p.value {np.where(mfit.chisq_pval.values[0] < 0.001, "< 0.001", mfit.chisq_pval.values[0].round(dec))}
 Nr obs: {mfit.nobs.values[0]:,.0f}{nobs_dropped(fitted)}"""
         elif model_type == "regression":
             output = f"""R-squared: {mfit.rsq.values[0].round(dec)}, Adjusted R-squared: {mfit.rsq_adj.values[0].round(dec)}

@@ -1,6 +1,9 @@
 from typing import Optional, Literal
 import pandas as pd
 import polars as pl
+import matplotlib
+
+matplotlib.use("Agg")  # Use non-interactive backend
 import matplotlib.pyplot as plt
 from math import sqrt, log2
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
@@ -105,7 +108,9 @@ class rforest:
         # variables are only binary
         self.data_onehot = conditional_get_dummies(self.data[self.evar])
         self.n_features = [len(evar), self.data_onehot.shape[1]]
-        self.fitted = self.rf.fit(self.data_onehot, self.data[self.rvar], sample_weight=self.sample_weight)
+        self.fitted = self.rf.fit(
+            self.data_onehot, self.data[self.rvar], sample_weight=self.sample_weight
+        )
 
     def summary(self, dec=3) -> None:
         """
@@ -123,7 +128,9 @@ class rforest:
             print(f"Level                : {self.lev}")
         print(f"Explanatory variables: {', '.join(self.evar)}")
         print(f"OOB                  : {self.oob_score}")
-        print(f"Model type           : {ifelse(self.mod_type == 'classification', 'classification', 'regression')}")
+        print(
+            f"Model type           : {ifelse(self.mod_type == 'classification', 'classification', 'regression')}"
+        )
         if self.max_features == "sqrt":
             # round down
             nr = int(sqrt(self.n_features[1]))
@@ -136,7 +143,7 @@ class rforest:
             nr = int(self.max_features)
         print(f"Nr. of features      : ({self.n_features[0]}, {self.n_features[1]})")
         print(f"Nr. of observations  : {format(self.nobs, ',.0f')}{nobs_dropped(self)}")
-        print(f"max_features         : {self.max_features} ({int(nr)})"),
+        (print(f"max_features         : {self.max_features} ({int(nr)})"),)
         print(f"n_estimators         : {self.n_estimators}")
         print(f"min_samples_leaf     : {self.min_samples_leaf}")
         print(f"max_samples          : {self.max_samples}")
@@ -171,7 +178,12 @@ class rforest:
         """
         Predict probabilities or values for a random forest model
         """
-        if data is None and self.oob_score and (data_cmd is None or data_cmd == "") and (cmd is None or cmd == ""):
+        if (
+            data is None
+            and self.oob_score
+            and (data_cmd is None or data_cmd == "")
+            and (cmd is None or cmd == "")
+        ):
             data = self.data.loc[:, self.evar].copy()
             if self.mod_type == "classification":
                 pred = self.fitted.oob_decision_function_[:, 1]
@@ -290,7 +302,9 @@ class rforest:
                 figsize = (8, len(self.data_onehot.columns) * 2)
             fig, ax = plt.subplots(figsize=figsize)
             ax.set_title("Partial Dependence Plots")
-            fig = pdp.from_estimator(self.fitted, self.data_onehot, self.data_onehot.columns, ax=ax, n_cols=2)
+            fig = pdp.from_estimator(
+                self.fitted, self.data_onehot, self.data_onehot.columns, ax=ax, n_cols=2
+            )
 
         if "vimp" in plots or "pimp" in plots:
             return_vimp = vimp_plot_sk(

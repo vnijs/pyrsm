@@ -1,4 +1,8 @@
 from math import ceil, floor
+import matplotlib
+
+matplotlib.use("Agg")  # Use non-interactive backend
+import matplotlib.pyplot as plt
 
 
 def iround(x, dec):
@@ -13,8 +17,6 @@ def check(lb, ub, plb, pub):
 
 
 def make_barplot(ub, lb, x_range, y_range):
-    import matplotlib.pyplot as plt
-
     colors = make_colors_discrete(ub, lb, x_range)
     fig, ax = plt.subplots()
     ax.bar(x_range, y_range, color=colors, alpha=0.5)
@@ -39,8 +41,6 @@ def make_colors_discrete(ub, lb, x_range):
 
 
 def make_colors_continuous(ub, lb, x_range, y_range):
-    import matplotlib.pyplot as plt
-
     fig, ax = plt.subplots()
     ax.plot(x_range, y_range, "k")
     if ub is not None and lb is not None:

@@ -23,7 +23,7 @@ import multiprocessing as mp
 def ui_summary(self):
     return ui.panel_conditional(
         "input.tabs == 'Summary'",
-        ui.panel_well(
+        ui.card(
             ui.input_radio_buttons(
                 id="var_type",
                 label="Variable type:",
@@ -166,9 +166,9 @@ class basics_compare_means:
                 "Compare means example notebook",
             ),
             ru.ui_stop(),
-            title="Radiant for Python",
-            inverse=False,
             id="navbar_id",
+            title="Radiant for Python",
+            navbar_options=ui.navbar_options(theme="dark"),
         )
 
     def shiny_server(self, input: Inputs, output: Outputs, session: Session):
@@ -318,9 +318,7 @@ class basics_compare_means:
             args = {"plots": input.plots(), "nobs": input.nobs()}
             if input.plots() != "scatter":
                 args["nobs"] = None
-            args_string = ru.drop_default_args(
-                args, rsm.basics.compare_means.plot, ignore=["nobs"]
-            )
+            args_string = ru.drop_default_args(args, rsm.basics.compare_means.plot, ignore=["nobs"])
             return f"""cm.plot({args_string})"""
 
         mu.make_plot(

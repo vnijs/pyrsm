@@ -35,6 +35,10 @@ dependencies = [
     "pyarrow>=17.0.0",
     "xgboost>=2.1.1",
     "pytest>=8.4.2",
+    "anthropic>=0.71.0",
+    "google-generativeai>=0.8.5",
+    "mcp>=1.19.0",
+    "ipywidgets>=8.1.7",
 ]
 
 [project.urls]

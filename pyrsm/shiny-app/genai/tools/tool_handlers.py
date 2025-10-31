@@ -1,6 +1,10 @@
 import json
+
 # import pandas as pd
 # from shiny import App, ui, render, reactive
+import matplotlib
+
+matplotlib.use("Agg")  # Use non-interactive backend
 import matplotlib.pyplot as plt
 import io
 from contextlib import redirect_stdout
@@ -26,7 +30,7 @@ with open(f"{base_dir}/basics/salary_description.md", "r") as f:
 async def handle_single_mean(tool_call, chat):
     try:
         arguments = json.loads(tool_call.function.arguments)
-        arguments["data"] = f"{{\"{arguments['data']}\": {arguments['data']}}}"
+        arguments["data"] = f'{{"{arguments["data"]}": {arguments["data"]}}}'
 
         cmd = (
             f"single_mean("
@@ -83,7 +87,7 @@ async def handle_single_mean(tool_call, chat):
 async def handle_compare_means(tool_call, chat):
     try:
         arguments = json.loads(tool_call.function.arguments)
-        arguments["data"] = f"{{\"{arguments['data']}\": {arguments['data']}}}"
+        arguments["data"] = f'{{"{arguments["data"]}": {arguments["data"]}}}'
 
         cmd = (
             f"compare_means("
@@ -125,9 +129,9 @@ async def handle_compare_means(tool_call, chat):
         cmd = f"cm = {cmd}"
         cmd += f"\ncm.summary(extra={extra}, dec={dec})"
         if plots in ["scatter", "box"]:
-            cmd += f"\ncm.plot(plots=\"{plots}\", nobs={nobs})"
+            cmd += f'\ncm.plot(plots="{plots}", nobs={nobs})'
         else:
-            cmd += f"\ncm.plot(plots=\"{plots}\")"
+            cmd += f'\ncm.plot(plots="{plots}")'
 
         results = f"Generated code:\n```python\n{cmd}\n```\n"
         results += f"\nSummary output:\n```bash\n{buffer_summary.getvalue()}```\n"
@@ -145,7 +149,7 @@ async def handle_compare_means(tool_call, chat):
 async def handle_linear_regression(tool_call, chat):
     try:
         arguments = json.loads(tool_call.function.arguments)
-        arguments["data"] = f"{{\"{arguments['data']}\": {arguments['data']}}}"
+        arguments["data"] = f'{{"{arguments["data"]}": {arguments["data"]}}}'
         # Handle comma, space, or plus separated variables
         separators = [" ", "+"]
         for sep in separators:
@@ -157,7 +161,9 @@ async def handle_linear_regression(tool_call, chat):
             f"regress("
             + ", ".join(
                 [
-                    f"{k}={v}" if isinstance(v, (int, float)) or k in ["data", "evar"] else f'{k}="{v}"'
+                    f"{k}={v}"
+                    if isinstance(v, (int, float)) or k in ["data", "evar"]
+                    else f'{k}="{v}"'
                     for k, v in arguments.items()
                     if k not in ["dec", "extra", "plots", "nobs"]
                 ]

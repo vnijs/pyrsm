@@ -23,7 +23,7 @@ pc_dist = {v: k for k, v in pc.pc_dist.items()}
 
 
 def ui_type(self):
-    return ui.panel_well(
+    return ui.card(
         ui.input_radio_buttons(
             id="type",
             label="Input type:",
@@ -64,7 +64,7 @@ def ui_type(self):
 
 
 def ui_summary(self):
-    return ui.panel_well(
+    return ui.card(
         ui.input_select(
             id="dist",
             label="Distribution:",
@@ -138,9 +138,9 @@ class basics_probability_calculator:
                 "Probability calculator example notebook",
             ),
             ru.ui_stop(),
-            title="Radiant for Python",
-            inverse=False,
             id="navbar_id",
+            title="Radiant for Python",
+            navbar_options=ui.navbar_options(theme="dark"),
         )
 
     def shiny_server(self, input: Inputs, output: Outputs, session: Session):
@@ -178,7 +178,7 @@ class basics_probability_calculator:
         @output(id="ui_pc_disc")
         @render.ui
         def ui_pc_disc():
-            return ui.panel_well(
+            return ui.card(
                 ru.input_return_text_area(
                     "disc_values",
                     label="Values:",
@@ -368,8 +368,10 @@ class basics_probability_calculator:
 
         @reactive.Calc
         def gen_plot():
-            locals()["pc"] = estimate()
-            eval("""pc.plot()""")
+            # locals()["pc"] = estimate()
+            local_namespace = {"pc": estimate()}
+            # eval(summary_code(), globals(), local_namespace)
+            eval("""pc.plot()""", globals(), local_namespace)
             fig = plt.gcf()
             width, height = fig.get_size_inches()  # Get the size in inches
             return fig, width * 96, height * 96

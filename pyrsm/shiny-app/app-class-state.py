@@ -32,9 +32,7 @@ def dct_update(self, input):
 
 def radiant_navbar():
     return (
-        ui.nav_control(
-            ui.input_action_link("data", "Data", onclick='window.location.href = "/";')
-        ),
+        ui.nav_control(ui.input_action_link("data", "Data", onclick='window.location.href = "/";')),
         ui.nav_control(
             ui.input_action_link(
                 "sa",
@@ -72,9 +70,9 @@ class radiant_data:
                 ),
             ),
             radiant_navbar(),
-            title="Radiant for Python",
-            inverse=False,
             id="navbar_id",
+            title="Radiant for Python",
+            navbar_options=ui.navbar_options(theme="dark"),
         )
 
     def shiny_server(self, input, output, session):
@@ -139,9 +137,9 @@ class radiant_sub_app:
                 ),
             ),
             radiant_navbar(),
-            title="Radiant for Python",
-            inverse=False,
             id="navbar_id",
+            title="Radiant for Python",
+            navbar_options=ui.navbar_options(theme="dark"),
         )
 
     def shiny_server(self, input, output, session):

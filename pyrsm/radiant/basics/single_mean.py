@@ -20,7 +20,7 @@ def ui_summary(self):
     return (
         ui.panel_conditional(
             "input.tabs == 'Summary'",
-            ui.panel_well(
+            ui.card(
                 ui.output_ui("ui_var"),
                 ui.input_select(
                     id="alt_hyp",
@@ -91,9 +91,9 @@ class basics_single_mean:
                 "Single mean example notebook",
             ),
             ru.ui_stop(),
-            title="Radiant for Python",
-            inverse=False,
             id="navbar_id",
+            title="Radiant for Python",
+            navbar_options=ui.navbar_options(theme="dark"),
         )
 
     def shiny_server(self, input: Inputs, output: Outputs, session: Session):

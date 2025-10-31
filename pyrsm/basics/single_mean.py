@@ -1,5 +1,8 @@
 from typing import Literal
 
+import matplotlib
+
+matplotlib.use("Agg")  # Use non-interactive backend
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -59,6 +62,7 @@ class single_mean:
     plot()
         Plots the results of the hypothesis test.
     """
+
     def __init__(
         self,
         data: pd.DataFrame | pl.DataFrame | dict[str, pd.DataFrame | pl.DataFrame],

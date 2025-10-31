@@ -1,4 +1,9 @@
 import numpy as np
+import matplotlib
+
+matplotlib.use("Agg")  # Use non-interactive backend
+import matplotlib.pyplot as plt
+
 from .utils import iround, check, make_colors_discrete
 
 
@@ -185,7 +190,6 @@ def plot_prob_disc(dct, type="values"):
     else:
         lb, ub = dct.get("vlb", None), dct.get("vub", None)
     x_range, y_range = dct["v"], dct["p"]
-    import matplotlib.pyplot as plt
 
     colors = make_colors_discrete(ub, lb, x_range)
     fig, ax = plt.subplots()

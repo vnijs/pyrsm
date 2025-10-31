@@ -29,7 +29,7 @@ choices = {
 def ui_summary(self):
     return ui.panel_conditional(
         "input.tabs == 'Summary'",
-        ui.panel_well(
+        ui.card(
             ui.output_ui("ui_var1"),
             ui.output_ui("ui_var2"),
             ui.input_checkbox_group(
@@ -81,9 +81,9 @@ class basics_cross_tabs:
                 "Cross-tabs example notebook",
             ),
             ru.ui_stop(),
-            title="Radiant for Python",
-            inverse=False,
             id="navbar_id",
+            title="Radiant for Python",
+            navbar_options=ui.navbar_options(theme="dark"),
         )
 
     def shiny_server(self, input: Inputs, output: Outputs, session: Session):
@@ -100,9 +100,7 @@ class basics_cross_tabs:
             with reactive.isolate():
                 avoid = ["copy_reset"]  # because async?
                 input_keys = [
-                    k
-                    for k in input.__dict__["_map"].keys()
-                    if k[0] != "." and k not in avoid
+                    k for k in input.__dict__["_map"].keys() if k[0] != "." and k not in avoid
                 ]
                 # print(type(input.copy_reset())) # can't even run this without an error
                 self.state.update({k: input[k]() for k in input_keys})

@@ -1,6 +1,9 @@
 from typing import Optional, Literal
 import pandas as pd
 import polars as pl
+import matplotlib
+
+matplotlib.use("Agg")  # Use non-interactive backend
 import matplotlib.pyplot as plt
 from sklearn.neural_network import MLPClassifier, MLPRegressor
 from sklearn.inspection import PartialDependenceDisplay as pdp
@@ -12,7 +15,7 @@ from pyrsm.model.model import (
     convert_to_list,
     reg_dashboard,
     nobs_dropped,
-    get_dummies
+    get_dummies,
 )
 from pyrsm.model.perf import auc
 from pyrsm.stats import scale_df
@@ -133,7 +136,9 @@ class mlp:
                 **kwargs,
             )
 
-        self.data_std, self.means, self.stds = scale_df(self.data[[rvar] + self.evar], sf=1, stats=True)
+        self.data_std, self.means, self.stds = scale_df(
+            self.data[[rvar] + self.evar], sf=1, stats=True
+        )
         # use drop_first=True for one-hot encoding because NN models include a bias term
         self.data_onehot = get_dummies(self.data_std[self.evar])
         self.n_features = [len(evar), self.data_onehot.shape[1]]
@@ -162,7 +167,9 @@ class mlp:
         if self.mod_type == "classification":
             print(f"Level                : {self.lev}")
         print(f"Explanatory variables: {', '.join(self.evar)}")
-        print(f"Model type           : {ifelse(self.mod_type == 'classification', 'classification', 'regression')}")
+        print(
+            f"Model type           : {ifelse(self.mod_type == 'classification', 'classification', 'regression')}"
+        )
         print(f"Nr. of features      : ({self.n_features[0]}, {self.n_features[1]})")
         print(f"Nr. of weights       : {format(self.n_weights, ',.0f')}")
         print(f"Nr. of observations  : {format(self.nobs, ',.0f')}{nobs_dropped(self)}")
@@ -205,7 +212,9 @@ class mlp:
         print("\nEstimation data      :")
         print(self.data_onehot.head().to_string(index=False))
 
-    def predict(self, data=None, cmd=None, data_cmd=None, scale=True, means=None, stds=None) -> pd.DataFrame:
+    def predict(
+        self, data=None, cmd=None, data_cmd=None, scale=True, means=None, stds=None
+    ) -> pd.DataFrame:
         """
         Predict probabilities or values for the MLP model.
 
@@ -266,7 +275,9 @@ class mlp:
         if self.mod_type == "classification":
             data["prediction"] = self.fitted.predict_proba(data_onehot)[:, -1]
         else:
-            data["prediction"] = self.fitted.predict(data_onehot) * self.stds[self.rvar] + self.means[self.rvar]
+            data["prediction"] = (
+                self.fitted.predict(data_onehot) * self.stds[self.rvar] + self.means[self.rvar]
+            )
 
         return data
 
@@ -372,7 +383,9 @@ class mlp:
             ax.set_title("Partial Dependence Plots")
             # the below will fail in sklearn 1.6.0 and 1.6.1
             # use 1.5.2 or older for now
-            fig = pdp.from_estimator(self.fitted, self.data_onehot, self.data_onehot.columns, ax=ax, n_cols=2)
+            fig = pdp.from_estimator(
+                self.fitted, self.data_onehot, self.data_onehot.columns, ax=ax, n_cols=2
+            )
 
         if "vimp" in plots or "pimp" in plots:
             return_vimp = vimp_plot_sk(
