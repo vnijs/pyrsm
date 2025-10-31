@@ -20,6 +20,7 @@ class TestConditionalVisibility:
     def test_page_loads_successfully(self, page: Page, clear_local_storage):
         """Verify page loads correctly"""
         page.goto(PATTERN_URL)
+        page.evaluate("localStorage.clear()")  # Clear state before test
 
         expect(page).to_have_title("Conditional Visibility Example")
 
@@ -35,6 +36,7 @@ class TestConditionalVisibility:
     ):
         """Test that selecting test type shows conditional parameters"""
         page.goto(PATTERN_URL)
+        page.evaluate("localStorage.clear()")  # Clear state before test
         wait_for_alpine()
 
         # Parameters container should not be visible initially
@@ -59,6 +61,7 @@ class TestConditionalVisibility:
     ):
         """Test that different test types load different parameters"""
         page.goto(PATTERN_URL)
+        page.evaluate("localStorage.clear()")  # Clear state before test
         wait_for_alpine()
 
         test_select = page.locator("select").first
@@ -92,6 +95,7 @@ class TestConditionalVisibility:
     ):
         """Test that visibility status indicator updates correctly"""
         page.goto(PATTERN_URL)
+        page.evaluate("localStorage.clear()")  # Clear state before test
         wait_for_alpine()
 
         test_select = page.locator("select").first
@@ -103,7 +107,8 @@ class TestConditionalVisibility:
         # Check visibility indicator shows "Visible"
         alert = page.locator(".alert")
         expect(alert).to_contain_text("Visible")
-        expect(alert).to_have_class(/alert-info/)
+        # Check that alert has the info class
+        assert "alert-info" in alert.get_attribute("class")
 
         # Select test without conditional params (could add if needed)
         # For now, verify the pattern works
@@ -113,6 +118,7 @@ class TestConditionalVisibility:
     ):
         """Test that HTMX loading indicator works"""
         page.goto(PATTERN_URL)
+        page.evaluate("localStorage.clear()")  # Clear state before test
         wait_for_alpine()
 
         test_select = page.locator("select").first
@@ -128,13 +134,15 @@ class TestConditionalVisibility:
         page.wait_for_timeout(300)
 
         body = page.locator("body")
-        expect(body).not_to_have_class(/htmx-request/)
+        body_class = body.get_attribute("class") or ""
+        assert "htmx-request" not in body_class
 
     def test_parameter_values_save_on_change(
         self, page: Page, clear_local_storage, wait_for_alpine, wait_for_htmx, get_local_storage
     ):
         """Test that parameter values are saved when changed"""
         page.goto(PATTERN_URL)
+        page.evaluate("localStorage.clear()")  # Clear state before test
         wait_for_alpine()
 
         # Select test type
@@ -166,6 +174,7 @@ class TestConditionalVisibility:
     ):
         """Test that parameter values restore when switching back to test"""
         page.goto(PATTERN_URL)
+        page.evaluate("localStorage.clear()")  # Clear state before test
         wait_for_alpine()
 
         test_select = page.locator("select").first
@@ -198,6 +207,7 @@ class TestConditionalVisibility:
     ):
         """Test that full state restores after page reload"""
         page.goto(PATTERN_URL)
+        page.evaluate("localStorage.clear()")  # Clear state before test
         wait_for_alpine()
 
         # Set up state
@@ -230,6 +240,7 @@ class TestConditionalVisibility:
     ):
         """Test that Clear button resets everything"""
         page.goto(PATTERN_URL)
+        page.evaluate("localStorage.clear()")  # Clear state before test
         wait_for_alpine()
 
         # Set up state
@@ -259,6 +270,7 @@ class TestConditionalVisibility:
     ):
         """Test that Run Test button captures current parameter values"""
         page.goto(PATTERN_URL)
+        page.evaluate("localStorage.clear()")  # Clear state before test
         wait_for_alpine()
 
         # Set up test with parameters
@@ -303,6 +315,7 @@ class TestConditionalVisibility:
     ):
         """Test that parameters are saved before HTMX swaps DOM"""
         page.goto(PATTERN_URL)
+        page.evaluate("localStorage.clear()")  # Clear state before test
         wait_for_alpine()
 
         # Select test and set parameters
@@ -328,6 +341,7 @@ class TestConditionalVisibility:
     ):
         """Test that checkbox parameters save and restore correctly"""
         page.goto(PATTERN_URL)
+        page.evaluate("localStorage.clear()")  # Clear state before test
         wait_for_alpine()
 
         # Select chi-square test (has checkbox parameter)
@@ -367,6 +381,7 @@ class TestConditionalVisibilityEdgeCases:
     ):
         """Test rapid switching between test types"""
         page.goto(PATTERN_URL)
+        page.evaluate("localStorage.clear()")  # Clear state before test
         wait_for_alpine()
 
         test_select = page.locator("select").first
@@ -388,6 +403,7 @@ class TestConditionalVisibilityEdgeCases:
     ):
         """Test multiple parameter changes are all saved"""
         page.goto(PATTERN_URL)
+        page.evaluate("localStorage.clear()")  # Clear state before test
         wait_for_alpine()
 
         test_select = page.locator("select").first

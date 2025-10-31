@@ -19,6 +19,7 @@ This guide provides comprehensive testing procedures using **Playwright** for au
 ### Initial Setup
 
 ```bash
+cd mcp-server/examples/htmx-alpine-patterns
 make setup
 ```
 

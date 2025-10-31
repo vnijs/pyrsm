@@ -20,6 +20,9 @@ class TestDependentDropdowns:
     def test_page_loads_successfully(self, page: Page, clear_local_storage):
         """Verify page loads and Alpine component initializes"""
         page.goto(PATTERN_URL)
+        page.evaluate("localStorage.clear()")  # Clear state before test
+        # Clear localStorage after navigation
+        page.evaluate("localStorage.clear()")
 
         # Check page title
         expect(page).to_have_title("Dependent Dropdowns Example")
@@ -37,6 +40,7 @@ class TestDependentDropdowns:
     ):
         """Test that selecting dataset reveals X and Y variable dropdowns"""
         page.goto(PATTERN_URL)
+        page.evaluate("localStorage.clear()")  # Clear state before test
         wait_for_alpine()
 
         # Initially, variable dropdowns should be hidden
@@ -63,6 +67,7 @@ class TestDependentDropdowns:
     ):
         """Test that selecting X variable excludes it from Y dropdown"""
         page.goto(PATTERN_URL)
+        page.evaluate("localStorage.clear()")  # Clear state before test
         wait_for_alpine()
 
         # Select dataset
@@ -94,6 +99,7 @@ class TestDependentDropdowns:
     ):
         """Test that selecting Y variable excludes it from X dropdown"""
         page.goto(PATTERN_URL)
+        page.evaluate("localStorage.clear()")  # Clear state before test
         wait_for_alpine()
 
         # Select dataset
@@ -121,6 +127,7 @@ class TestDependentDropdowns:
     ):
         """Test mutual exclusion when both X and Y are selected"""
         page.goto(PATTERN_URL)
+        page.evaluate("localStorage.clear()")  # Clear state before test
         wait_for_alpine()
 
         page.locator("select").first.select_option("salary")
@@ -149,6 +156,7 @@ class TestDependentDropdowns:
     ):
         """Test that clearing a selection restores excluded options"""
         page.goto(PATTERN_URL)
+        page.evaluate("localStorage.clear()")  # Clear state before test
         wait_for_alpine()
 
         page.locator("select").first.select_option("salary")
@@ -178,6 +186,7 @@ class TestDependentDropdowns:
     ):
         """Test that selections are saved to localStorage"""
         page.goto(PATTERN_URL)
+        page.evaluate("localStorage.clear()")  # Clear state before test
         wait_for_alpine()
 
         # Make selections
@@ -204,6 +213,7 @@ class TestDependentDropdowns:
     ):
         """Test that state fully restores after page reload"""
         page.goto(PATTERN_URL)
+        page.evaluate("localStorage.clear()")  # Clear state before test
         wait_for_alpine()
 
         # Make selections
@@ -235,6 +245,7 @@ class TestDependentDropdowns:
     ):
         """Test that exclusions are correct after state restoration"""
         page.goto(PATTERN_URL)
+        page.evaluate("localStorage.clear()")  # Clear state before test
         wait_for_alpine()
 
         # Setup state
@@ -267,6 +278,7 @@ class TestDependentDropdowns:
     ):
         """Test that changing dataset clears variable selections"""
         page.goto(PATTERN_URL)
+        page.evaluate("localStorage.clear()")  # Clear state before test
         wait_for_alpine()
 
         # Select dataset and variables
@@ -295,6 +307,7 @@ class TestDependentDropdowns:
     ):
         """Test that Clear All button resets state completely"""
         page.goto(PATTERN_URL)
+        page.evaluate("localStorage.clear()")  # Clear state before test
         wait_for_alpine()
 
         # Make selections
@@ -322,6 +335,7 @@ class TestDependentDropdowns:
     ):
         """Test that analysis summary appears when both variables selected"""
         page.goto(PATTERN_URL)
+        page.evaluate("localStorage.clear()")  # Clear state before test
         wait_for_alpine()
 
         page.locator("select").first.select_option("salary")
@@ -352,6 +366,7 @@ class TestDependentDropdowns:
     ):
         """Test that component logs state management events"""
         page.goto(PATTERN_URL)
+        page.evaluate("localStorage.clear()")  # Clear state before test
         wait_for_alpine()
 
         page.locator("select").first.select_option("salary")
@@ -379,6 +394,7 @@ class TestDependentDropdownsEdgeCases:
     ):
         """Test rapid selection changes don't break exclusion logic"""
         page.goto(PATTERN_URL)
+        page.evaluate("localStorage.clear()")  # Clear state before test
         wait_for_alpine()
 
         page.locator("select").first.select_option("salary")
@@ -404,6 +420,7 @@ class TestDependentDropdownsEdgeCases:
     ):
         """Test that browser back button maintains state"""
         page.goto(PATTERN_URL)
+        page.evaluate("localStorage.clear()")  # Clear state before test
         wait_for_alpine()
 
         # Make selections

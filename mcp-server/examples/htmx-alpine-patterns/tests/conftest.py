@@ -15,11 +15,16 @@ def django_db_setup():
 @pytest.fixture(scope="function")
 def clear_local_storage(page: Page):
     """Clear localStorage before each test"""
+    # Note: localStorage can only be cleared after navigating to a page
+    # Tests should call this after page.goto()
     page.context.clear_cookies()
-    page.evaluate("localStorage.clear()")
     yield
-    # Cleanup after test
-    page.evaluate("localStorage.clear()")
+    # Cleanup after test - navigate to ensure we can clear
+    try:
+        if page.url and not page.url.startswith("about:blank"):
+            page.evaluate("localStorage.clear()")
+    except:
+        pass  # Ignore errors if page is closed
 
 
 @pytest.fixture(scope="function")
@@ -69,6 +74,31 @@ def set_local_storage(page: Page):
     def set(key: str, value: str):
         page.evaluate(f"localStorage.setItem('{key}', '{value}')")
     return set
+
+
+@pytest.fixture
+def clear_storage(page: Page):
+    """Helper to clear localStorage after page navigation"""
+    def clear():
+        try:
+            page.evaluate("localStorage.clear()")
+        except:
+            pass
+    return clear
+
+
+@pytest.fixture(autouse=True)
+def setup_page(page: Page):
+    """Auto-setup for each test - navigate and clear storage"""
+    # This fixture runs automatically before each test
+    # But doesn't do anything by default - tests control navigation
+    yield
+    # Cleanup
+    try:
+        if page.url and not page.url.startswith("about:blank"):
+            page.evaluate("localStorage.clear()")
+    except:
+        pass
 
 
 # Custom assertions
