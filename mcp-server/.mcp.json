@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "pyrsm-regression": {
-      "command": "/home/vnijs/gh/pyrsm/mcp-server/.venv/bin/python",
-      "args": ["/home/vnijs/gh/pyrsm/mcp-server/server_regression.py"]
-    }
-  }
-}
