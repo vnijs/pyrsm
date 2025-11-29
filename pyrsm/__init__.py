@@ -1,6 +1,6 @@
 __version__ = "1.6.2"
 
-from . import basics, model, multivariate
+from . import basics, model, multivariate, eda
 from .bins import *
 from .example_data import *
 from .notebook import *
@@ -53,4 +53,4 @@ for func_name in model_functions:
 for func_name in basics_functions:
     globals()[func_name] = _make_wrapper(func_name, "basics")
 
-__all__ = ["model", "basics", "multivariate"] + model_functions + basics_functions
+__all__ = ["model", "basics", "multivariate", "eda"] + model_functions + basics_functions

@@ -92,7 +92,7 @@ class mlp:
         self.rvar = rvar
         self.lev = lev
         self.evar = convert_to_list(evar)
-        self.mod_type = mod_type
+        # self.mod_type = mod_type
         self.hidden_layer_sizes = hidden_layer_sizes
         self.activation = activation
         self.solver = solver
@@ -101,16 +101,29 @@ class mlp:
         self.learning_rate_init = learning_rate_init
         self.max_iter = max_iter
         self.random_state = random_state
-        self.ml_model = {"model": "mlp", "mod_type": mod_type}
+        # self.ml_model = {"model": "mlp", "mod_type": mod_type}
         self.kwargs = kwargs
         self.nobs_all = self.data.shape[0]
         self.data = self.data[[rvar] + self.evar].dropna()
         self.nobs = self.data.shape[0]
         self.nobs_dropped = self.nobs_all - self.nobs
 
+        if mod_type == "classification" and lev is None:
+            if pd.api.types.is_numeric_dtype(self.data[self.rvar]):
+                raise Exception(
+                    f"Model type is set to 'Classification' but variable {self.rvar} is numeric and no value was set for 'lev' (level)."
+                )
+
+        self.mod_type = mod_type
+        self.ml_model = {"model": "mlp", "mod_type": mod_type}
+
         if self.mod_type == "classification":
             if self.lev is not None and self.rvar is not None:
                 self.data = check_binary(self.data, self.rvar, self.lev)
+            elif self.lev is None and pd.api.types.is_numeric_dtype(self.data[self.rvar]):
+                raise Exception(
+                    f"Model type is set to 'Classification' but variable {self.rvar} is numeric and no value was set for 'lev' (level)."
+                )
 
             self.mlp = MLPClassifier(
                 hidden_layer_sizes=self.hidden_layer_sizes,

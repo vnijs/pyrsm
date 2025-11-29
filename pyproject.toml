@@ -39,6 +39,8 @@ dependencies = [
     "google-generativeai>=0.8.5",
     "mcp>=1.19.0",
     "ipywidgets>=8.1.7",
+    "plotnine>=0.15.1",
+    "pillow>=11.2.1",
 ]
 
 [project.urls]

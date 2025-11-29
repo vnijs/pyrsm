@@ -1,0 +1,259 @@
+---
+title: Models > Neural Networks (MLP)
+jupyter: python3
+---
+
+
+<div class="alert alert-info">Estimate and tune a Multi-Layer Perceptron model for binary classification</div>
+
+
+```{python}
+import os
+import numpy as np
+import pandas as pd
+import pyrsm as rsm
+import matplotlib as mpl
+from sklearn.model_selection import GridSearchCV, StratifiedKFold
+
+# increase plot resolution
+mpl.rcParams["figure.dpi"] = 100
+```
+
+```{python}
+## setup pyrsm for autoreload
+%reload_ext autoreload
+%autoreload 2
+%aimport pyrsm
+```
+
+### Example
+
+As an example we will use a dataset that describes the survival status of individual passengers on the Titanic. The principal source for data about Titanic passengers is the Encyclopedia Titanic. One of the original sources is Eaton & Haas (1994) Titanic: Triumph and Tragedy, Patrick Stephens Ltd, which includes a passenger list created by many researchers and edited by Michael A. Findlay. Suppose we want to investigate which factors are most strongly associated with the chance of surviving the sinking of the Titanic. Lets focus on four variables in the database:
+
+- survived = a factor with levels `Yes` and `No`
+- pclass = Passenger Class (1st, 2nd, 3rd). This is a proxy for socio-economic status (SES) 1st ~ Upper; 2nd ~ Middle; 3rd ~ Lower
+- sex = Sex (female, male)
+- age = Age in years
+
+Select `survived` as the response variable and `Yes` in **Choose level**. Select `pclass`, `sex` and `age` as the explanatory variables. In contrast to Logistic Regression, a Machine Learning model like a Random Forest does not provide coefficients or odds-ratios that we can interpret. Instead, the model provides predictions that we need to evaluate for accuracy. We will also use different plots to better understand what the Random Forest model is telling us about the connection between the explanatory variables (i.e., features) and the response variable (i.e., target).
+
+```{python}
+titanic, titanic_description = rsm.load_data(pkg="data", name="titanic")
+titanic
+```
+
+```{python}
+rsm.md(titanic_description)
+```
+
+```{python}
+titanic.head()
+```
+
+```{python}
+titanic.columns
+```
+
+```{python}
+evar = list(titanic.columns[[0, 2, 3, 4, 5, 6]])
+evar
+```
+
+```{python}
+clf_nn = rsm.model.mlp(
+    {"titanic": titanic},
+    hidden_layer_sizes=(1,),
+    alpha=0.001,
+    rvar="survived",
+    lev="Yes",
+    evar=evar,
+)
+clf_nn.summary()
+```
+
+```{python}
+clf_nn.plot("pred")
+```
+
+```{python}
+clf_nn.plot(plots="pdp")
+```
+
+```{python}
+clf_nn.plot("vimp")
+```
+
+```{python}
+clf_nn.plot("vimp_sklearn")
+```
+
+```{python}
+clf_nn.predict(titanic)
+```
+
+```{python}
+rsm.model.distr_plot(clf_nn.predict(titanic).prediction)
+```
+
+In addition to the numerical output provided in the _Summary_ tab we can also evaluate the link between `survival`, `class`, `sex`, and `age` visually (see _Plot_ tab). 
+
+# Radiant for Python App: Multi-layer Perceptron (NN) - Classification
+
+All the output shown above can be reproduced using the Radiant-for-Python web interface. An example of what the code required to start the web interface is shown below. See if you can reproduce the result.
+
+> Note: The app will continue running until you press the `Stop` button in the app navigation bar or the stop button next to the notebook cell
+
+```{python}
+# uncomment the line below if you want to use the radiant web interface
+# rsm.radiant.model.mlp({"titanic": titanic}, {"titanic": titanic_description})
+```
+
+<p align="center">
+<img src="figures/mlp-classification-summary.png">
+</p>
+
+<p align="center">
+<img src="figures/mlp-classification-pred-plots.png">
+</p>
+
+## Tuning an MLP (NN) classification model
+
+When building an MLP (Neural Network) model, there are several hyperparameters that can be tuned to improve model performance. Two key parameters we'll focus on are:
+
+- `hidden_layer_sizes`: The number of hidden layers and the number of neurons in each hidden layer
+- `alpha`: The regularization parameter (L2 penalty)
+
+To find the optimal combination of these parameters, we'll:
+
+1. Split our data into training (70%) and test (30%) sets
+2. Use grid search with 5-fold cross validation to evaluate different parameter combinations
+3. Compare model performance with default vs tuned parameters
+
+First, let's create our train/test split:
+
+```{python}
+titanic["training"] = rsm.model.make_train(
+    titanic, strat_var="survived", test_size=0.3, random_state=1234
+)
+print(titanic.head())
+```
+
+```{python}
+clf_nn = rsm.model.mlp(
+    {"titanic (train)": titanic[titanic.training == 1]},
+    hidden_layer_sizes=(1,),
+    alpha=0.001,
+    rvar="survived",
+    lev="Yes",
+    evar=evar,
+)
+clf_nn.summary()
+```
+
+The initial model used default parameters. Let's evaluate different combinations of parameters using grid search cross validation. We'll try:
+
+- hidden_layer_sizes: 1 to 10 neurons in a single hidden layer
+- alpha: regularization parameter from 0.0 to 1.0 (in steps of 0.1)
+
+We'll use the AUC (Area Under the ROC Curve) metric to evaluate performance:
+
+```{python}
+hls = [(i,) for i in range(1, 11)]
+param_grid = {"hidden_layer_sizes": hls, "alpha": np.arange(0.0, 1.1, 0.1)}
+scoring = {"AUC": "roc_auc"}
+param_grid
+```
+
+```{python}
+cv_file = "cv-objects/clf-nn-cross-validation-object.pkl"
+if os.path.exists(cv_file):
+    cv = rsm.load_state(cv_file)["cv"]
+else:
+    stratified_k_fold = StratifiedKFold(n_splits=5, shuffle=True, random_state=1234)
+    cv = GridSearchCV(
+        clf_nn.fitted,
+        param_grid,
+        scoring=scoring,
+        cv=stratified_k_fold,
+        n_jobs=4,
+        refit=list(scoring.keys())[0],
+        verbose=5,
+    ).fit(clf_nn.data_onehot, clf_nn.data.survived)
+    if not os.path.exists("cv-objects"):
+        os.mkdir("cv-objects")
+    rsm.save_state({"cv": cv}, cv_file)
+```
+
+```{python}
+# same functionality as the cell above but less typing
+cv = rsm.model.cross_validation(clf_nn, "clf-nn", param_grid, scoring)
+```
+
+```{python}
+cv.best_params_
+```
+
+```{python}
+cv.best_score_
+```
+
+```{python}
+pd.DataFrame(cv.cv_results_).sort_values("rank_test_AUC").head()
+```
+
+After finding the optimal parameters, we can build a new model with these tuned parameters and compare its performance to our original model. Looking at the gains charts for both the training and test sets helps us evaluate overfitting while maintaining good predictive performance.
+
+The cross validation results show that slightly different parameter values perform best with this particular dataset compared to the defaults. This demonstrates the value of parameter tuning, though the magnitude of improvement will vary by application.
+
+```{python}
+clf_nncv = rsm.model.mlp(
+    data={"titanic train": titanic[titanic.training == 1]},
+    rvar="survived",
+    lev="Yes",
+    evar=evar,
+    random_state=1234,
+    **cv.best_params_,
+)
+clf_nncv.summary()
+```
+
+```{python}
+titanic["pred_nn"] = clf_nn.predict(titanic)["prediction"]
+titanic["pred_nncv"] = clf_nncv.predict(titanic)["prediction"]
+titanic
+```
+
+```{python}
+dct = {
+    "train": titanic[titanic.training == 1],
+    "test": titanic[titanic.training == 0],
+}
+fig = rsm.model.gains_plot(dct, rvar="survived", lev="Yes", pred="pred_nn")
+```
+
+```{python}
+dct = {
+    "train": titanic[titanic.training == 1],
+    "test": titanic[titanic.training == 0],
+}
+fig = rsm.model.gains_plot(dct, rvar="survived", lev="Yes", pred="pred_nncv")
+```
+
+```{python}
+fig = rsm.model.gains_plot(
+    {"train": titanic[titanic.training == 1]},
+    rvar="survived",
+    lev="Yes",
+    pred=["pred_nn", "pred_nncv"],
+)
+```
+
+```{python}
+fig = rsm.model.gains_plot(
+    {"test": titanic[titanic.training == 0]},
+    rvar="survived",
+    lev="Yes",
+    pred=["pred_nn", "pred_nncv"],
+)
+```
+

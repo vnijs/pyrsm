@@ -89,7 +89,7 @@ class compare_means:
         data: pd.DataFrame | pl.DataFrame | dict[str, pd.DataFrame | pl.DataFrame],
         var1: str,
         var2: str,
-        comb: list[tuple[str, str]] = [],
+        comb: list[str] = [],
         alt_hyp: Literal["two-sided", "greater", "less"] = "two-sided",
         conf: float = 0.95,
         sample_type: Literal["independent", "paired"] = "independent",
@@ -107,6 +107,8 @@ class compare_means:
             The first variable/column name to include in the test. This variable can be numeric or categorical. If it is categorical, the hypothesis test will be performed for each level of the variable.
         var2 : str
             The second variable/column name or names to include in the test. These variables must be numeric. If multiple variables are provided, the hypothesis test will be performed for each combination of variables. If var1 is categorical, only one variable can be provided.
+        comb : str or list of strings
+            Combinations of levels of var1 (e.g., "a:b" or ["a:b", "a:d"]) or combinations of var1 with variables in the var2 list (e.g., "x1:x2" or ["x1:x2", "x1:x4"]). If an empty list is provided (default) all combinations will be evaluated.
         alt_hyp : str, optional
             The alternative hypothesis ('two-sided', 'greater', 'less') (default is 'two-sided').
         conf : float, optional
@@ -128,7 +130,6 @@ class compare_means:
         self.data = check_dataframe(self.data)
         self.var1 = var1
         self.var2 = var2
-        self.comb = comb
 
         var1_series = self.data[self.var1]
         if pd.api.types.is_numeric_dtype(var1_series):
@@ -137,6 +138,10 @@ class compare_means:
                 [var2],
                 ifelse(isinstance(var2, tuple), list(var2), var2),
             )
+            for v in var2:
+                if not pd.api.types.is_numeric_dtype(self.data[v]):
+                    raise Exception(f"Variable {v} is not numeric.")
+
             if (
                 len(self.var2) > 1
                 or len([v for v in self.comb if self.var1 in v]) > 0
@@ -149,8 +154,10 @@ class compare_means:
         self.data[self.var1] = self.data[self.var1].astype("category")
         self.levels = list(self.data[self.var1].cat.categories)
 
-        if len(self.comb) == 0:
+        if len(comb) == 0:
             self.comb = ru.iterms(self.levels)
+        else:
+            self.comb = ifelse(isinstance(comb, str), [comb], comb)
 
         self.alt_hyp = alt_hyp
         self.conf = conf

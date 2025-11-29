@@ -1,0 +1,86 @@
+---
+title: "Single Mean Test - Plotting Examples"
+format: html
+jupyter: python3
+---
+
+## Single Mean Test with Multiple Plotting Backends
+
+This notebook demonstrates the new plotting capabilities in `pyrsm.basics.single_mean` with support for both static (plotnine) and interactive (plotly) visualizations.
+
+```{python}
+import numpy as np
+import pandas as pd
+from pyrsm.basics.single_mean import single_mean
+
+# Generate sample data
+np.random.seed(42)
+data = {"test_data": pd.DataFrame({"satisfaction": np.random.normal(7.5, 1.2, 200)})}
+```
+
+### Basic Summary
+
+```{python}
+sm = single_mean(data=data, var="satisfaction", comp_value=7.0, conf=0.95)
+sm.summary()
+```
+
+## Plotnine Backend (Static, Publication-Ready)
+
+### Modern Theme (Default)
+
+```{python}
+sm.plot(plots="hist", theme="modern", backend="plotnine")
+```
+
+### Publication Theme
+
+```{python}
+sm.plot(plots="hist", theme="publication", backend="plotnine")
+```
+
+### Minimal Theme
+
+```{python}
+sm.plot(plots="hist", theme="minimal", backend="plotnine")
+```
+
+### Classic Theme
+
+```{python}
+sm.plot(plots="hist", theme="classic", backend="plotnine")
+```
+
+## Plotly Backend (Interactive)
+
+The plotly backend creates interactive plots with hover tooltips and zoom capabilities. These work seamlessly in Quarto HTML output.
+
+```{python}
+# Note: Requires plotly to be installed (uv add plotly)
+sm.plot(plots="hist", backend="plotly")
+```
+
+## Interpretation
+
+The plots show:
+
+- **Red solid line**: Null hypothesis value (H₀ = 7.0)
+- **Black solid line**: Sample mean (~7.5)
+- **Black dashed lines**: 95% confidence interval bounds
+
+Since the null hypothesis value (red line) falls outside the confidence interval, we can reject H₀ and conclude that the true mean satisfaction is significantly different from 7.0 at the 95% confidence level.
+
+## Benefits of Each Backend
+
+### Plotnine
+- Clean, publication-ready aesthetics
+- Consistent ggplot2-style theming
+- Perfect for static reports and papers
+- Multiple theme options
+
+### Plotly
+- Interactive exploration with tooltips
+- Zoom and pan capabilities
+- Great for presentations and dashboards
+- Hover shows exact values
+- Works in Quarto HTML documents

@@ -334,11 +334,7 @@ def months_abb(start=1, nr=12, year=datetime.today().year):
     """
 
     rng = ceil((nr + (start - 1)) / 12)
-    mnths = [
-        date(year, m, 1).strftime("%B")[0:3]
-        for i in range(1, rng + 1)
-        for m in range(1, 13)
-    ]
+    mnths = [date(year, m, 1).strftime("%B")[0:3] for i in range(1, rng + 1) for m in range(1, 13)]
     start -= 1
     return mnths[start : (nr + start)]
 
@@ -430,10 +426,13 @@ def odir(obj, private: bool = False) -> dict:
 
 
 def check_dataframe(df):
-    if not isinstance(df, pd.core.frame.DataFrame):
-        return pd.DataFrame(df)
-    else:
+    if isinstance(df, pd.core.frame.DataFrame):
         return df.copy()
+    elif hasattr(df, "to_pandas"):
+        # Handle Polars DataFrames (and any other df with to_pandas method)
+        return df.to_pandas()
+    else:
+        return pd.DataFrame(df)
 
 
 def check_series(s):

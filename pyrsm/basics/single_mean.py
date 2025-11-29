@@ -1,14 +1,12 @@
 from typing import Literal
 
-import matplotlib
-
-matplotlib.use("Agg")  # Use non-interactive backend
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import polars as pl
+from plotnine import aes, geom_histogram, ggplot, labs, theme_set
 from scipy import stats
 
+import pyrsm.basics.plotting_utils as pu
 import pyrsm.basics.utils as bu
 from pyrsm.model.model import sig_stars
 from pyrsm.utils import check_dataframe, ifelse
@@ -173,7 +171,12 @@ class single_mean:
         print(table2.to_string(index=False))
         print("\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1")
 
-    def plot(self, plots: Literal["hist", "sim"] = "hist") -> None:
+    def plot(
+        self,
+        plots: Literal["hist", "sim"] = "hist",
+        theme: Literal["modern", "publication", "minimal", "classic"] = "modern",
+        backend: Literal["plotnine", "plotly"] = "plotnine",
+    ):
         """
         Plots the results of the hypothesis test. If the 'hist' is selected a histogram
         of the numeric variable will be shown. The solid black line in the histogram shows
@@ -187,24 +190,116 @@ class single_mean:
         ----------
         plots : str
             The type of plot to generate (default is 'hist').
+        theme : str
+            The plotnine theme to use ('modern', 'publication', 'minimal', 'classic').
+        backend : str
+            Plotting backend to use ('plotnine' or 'plotly').
 
+        Returns
+        -------
+        plotnine.ggplot or plotly.graph_objects.Figure
+            The plot object (if backend is specified).
         """
+        if backend == "plotly":
+            return self._plot_plotly(plots)
+
         if plots == "hist":
-            fig = self.data[self.var].plot.hist(title=self.var, color="slateblue")
-            plt.vlines(
-                x=(self.comp_value, self.ci[0], self.mean, self.ci[1]),
-                ymin=fig.get_ylim()[0],
-                ymax=fig.get_ylim()[1],
-                colors=("r", "k", "k", "k"),
-                linestyles=("solid", "dashed", "solid", "dashed"),
+            # Prepare data
+            plot_data = pd.DataFrame({self.var: self.data[self.var].dropna()})
+
+            # Create plotnine histogram
+            p = (
+                ggplot(plot_data, aes(x=self.var))
+                + geom_histogram(bins=10, fill=pu.PlotConfig.FILL)
+                + labs(x="", y="Frequency")
+                + pu.PlotConfig.theme()
             )
+
+            # Add reference lines
+            ref_lines = pu.ReferenceLine.ci_vlines(
+                self.mean, self.ci[0], self.ci[1], self.comp_value
+            )
+            for line in ref_lines:
+                p = p + line
+
+            return p
+
         elif plots == "sim":
             print("Plot type not available yet")
-            # self.data[self.var].plot.hist(title=self.var, color="slateblue")
-            # plt.vlines(
-            #     x=[self.comp_value, self.me, self.mean],
-            #     colors=["r", "k", "k"],
-            #     linestyles=["solid", "dashed", "dashed"],
-            # )
+            return None
         else:
             print("Invalid plot type")
+            return None
+
+    def _plot_plotly(self, plot_type: str):
+        """
+        Generate interactive plotly version of the plot.
+
+        Parameters
+        ----------
+        plot_type : str
+            The type of plot to generate.
+
+        Returns
+        -------
+        plotly.graph_objects.Figure
+            Interactive plotly figure.
+        """
+        try:
+            import plotly.graph_objects as go
+        except ImportError:
+            print("Plotly not installed. Install with: uv add plotly")
+            return None
+
+        if plot_type == "hist":
+            # Create histogram data
+            data_values = self.data[self.var].dropna()
+
+            fig = go.Figure()
+
+            # Add histogram
+            fig.add_trace(
+                go.Histogram(
+                    x=data_values,
+                    nbinsx=30,
+                    marker_color="slateblue",
+                    opacity=0.7,
+                    name=self.var,
+                )
+            )
+
+            # Add reference lines
+            fig.add_vline(
+                x=self.comp_value,
+                line_dash="solid",
+                line_color="red",
+                annotation_text=f"H₀: {self.comp_value}",
+                annotation_position="top",
+            )
+            fig.add_vline(
+                x=self.mean,
+                line_dash="solid",
+                line_color="black",
+                annotation_text=f"Mean: {self.mean:.2f}",
+                annotation_position="top",
+            )
+            fig.add_vline(
+                x=self.ci[0], line_dash="dash", line_color="black", opacity=0.7
+            )
+            fig.add_vline(
+                x=self.ci[1], line_dash="dash", line_color="black", opacity=0.7
+            )
+
+            # Update layout
+            fig.update_layout(
+                title=f"Distribution of {self.var}",
+                xaxis_title=self.var,
+                yaxis_title="Count",
+                showlegend=False,
+                hovermode="x unified",
+            )
+
+            return fig
+        else:
+            print(f"Plotly backend does not support plot type: {plot_type}")
+            return None

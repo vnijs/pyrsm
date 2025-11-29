@@ -30,7 +30,7 @@ class compare_props:
         var1: str,
         var2: str,
         lev: str,
-        comb: list[tuple[str, str]] = [],
+        comb: list[str] = [],
         alt_hyp: str = "two-sided",
         conf: float = 0.95,
         adjust: str = None,
@@ -46,7 +46,6 @@ class compare_props:
         self.var1 = var1
         self.var2 = var2
         self.lev = lev
-        # self.comb = comb
         self.alt_hyp = alt_hyp
         self.conf = conf
         self.alpha = 1 - self.conf
@@ -206,11 +205,7 @@ class compare_props:
             )
         elif plots == "dodge":
             data = self.data[[self.var1, self.var2]].copy()
-            pt = (
-                data.groupby(self.var1, observed=False)
-                .value_counts(normalize=True)
-                .reset_index()
-            )
+            pt = data.groupby(self.var1, observed=False).value_counts(normalize=True).reset_index()
             sns.barplot(
                 data=pt,
                 y="proportion",

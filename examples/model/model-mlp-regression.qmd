@@ -1,0 +1,480 @@
+---
+title: Models > Neural Networks (MLP)
+jupyter: python3
+---
+
+
+<div class="alert alert-info">Estimate and tune a Multi-Layer Perceptron model for reg_nnression</div>
+
+
+```{python}
+# install latest version of pyrsm
+# make sure to add --user
+# %pip install --user pyrsm --upgrade
+```
+
+```{python}
+#| tags: []
+import os
+import numpy as np
+import pandas as pd
+import pyrsm as rsm
+import matplotlib as mpl
+from sklearn.model_selection import GridSearchCV, KFold
+
+# increase plot resolution
+mpl.rcParams["figure.dpi"] = 100
+```
+
+```{python}
+rsm.__version__
+```
+
+```{python}
+## setup pyrsm for autoreload
+%reload_ext autoreload
+%autoreload 2
+%aimport pyrsm
+```
+
+### Example 1: Catalog sales
+
+We have access to data from a company selling men's and women's apparel through mail-order catalogs (dataset `catalog`). The company maintains a database on past and current customers' value and characteristics. Value is determined as the total \$ sales to the customer in the last year.
+
+The catalog company is interested in redesigning their Customer Relationship Management (CRM) strategy. We will proceed in two steps:
+
+1. Estimate a regression model using last year's sales total. Response variable: sales total for each of the 200 households; Explanatory variables: household income (measured in thousands of dollars), size of household, and age of the household head.
+2. Interpret each of the estimated coefficients. Also provide a statistical evaluation of the model as a whole.
+3. Which explanatory variables are significant predictors of customer value (use a 95% confidence level)?
+
+```{python}
+# load example data from the pyrsm library
+catalog, catalog_description = rsm.load_data(pkg="model", name="catalog")
+catalog
+```
+
+```{python}
+# format the data description
+rsm.md(catalog_description)
+```
+
+```{python}
+reg_nn = rsm.model.mlp({"catalog": catalog}, rvar="Sales", evar=["Income", "HH_size", "Age"], mod_type="regression")
+```
+
+```{python}
+reg_nn.summary()
+```
+
+### Example 2: Ideal data for regression
+
+The data `ideal` contains simulated data that is very useful to demonstrate what data for, and residuals from, a regression should ideally look like. The data has 1,000 observations on 4 variables. `y` is the response variable and `x1`, `x2`, and `x3` are explanatory variables. The plots shown below can be used as a bench mark for regressions on real world data
+
+```{python}
+ideal, ideal_description = rsm.load_data(pkg="model", name="ideal")
+ideal
+```
+
+```{python}
+rsm.md(ideal_description)
+```
+
+`y`, `x2`, and `x3` appear (roughly) normally distributed whereas `x1` appears (roughly) uniformly distributed. There are no indication of outliers or severely skewed distributions.
+
+```{python}
+reg_nn = rsm.model.mlp({"ideal": ideal}, rvar="y", evar=["x1", "x2", "x3"], mod_type="regression")
+```
+
+```{python}
+reg_nn.summary()
+```
+
+The dashboard of six residual plots looks excellent, as we might expect for these data. True values and predicted values from the regression form a straight line with random scatter, i.e., as the actual values of the response variable go up, so do the predicted values from the model. The residuals (i.e., the differences between the values of the response variable data and the values predicted by the regression) show no pattern and are randomly scattered around a horizontal line. Any pattern would suggest that the model is better (or worse) at predicting some parts of the data compared to others. If a pattern were visible in the Residual vs Row order plot we might be concerned about auto-correlation. Again, the residuals are nicely scattered about a horizontal axis. Note that auto-correlation is a problem we are really only concerned about when we have time-series data. The Q-Q plot shows a nice straight and diagonal line, evidence that the residuals are normally distributed. This conclusion is confirmed by the histogram of the residuals and the density plot of the residuals (green) versus the theoretical density of a normally distributed variable (blue line).
+
+```{python}
+reg_nn.plot("dashboard")
+```
+
+### Example 3: Linear or log-log regression?
+
+Both linear and log-log regressions are commonly applied to business data. In this example we will look for evidence in the data and residuals that may suggest which model specification is  appropriate for the available data.
+
+```{python}
+diamonds, diamonds_description = rsm.load_data(pkg="data", name="diamonds")
+diamonds
+```
+
+The data diamonds contains information on prices of 3,000 diamonds. A more complete description of the data and variables is available below.
+
+```{python}
+rsm.md(diamonds_description)
+```
+
+ Select the variable price as the response variable and carat and clarity as the explanatory variables. Before looking at the parameter estimates from the regression go to the Plots tab to take a look at the data and residuals. Below are the histograms for the variables in the model. Price and carat seem skewed to the right. Note that the direction of skew is determined by where the tail is.
+
+```{python}
+reg_nn = rsm.model.mlp({"diamonds": diamonds}, rvar="price", evar=["carat", "clarity"], mod_type="regression")
+```
+
+```{python}
+reg_nn.summary()
+```
+
+The dashboard of six residual plots looks less than stellar. The actual values and fitted (predicted) values from the regression show curvature. At higher actual and fitted values the spread of points around the line is wider, consistent with what we saw in the scatter plot of price versus carat. The residuals (i.e., the differences between the actual data and the values predicted by the regression) show an even more distinct pattern as they are clearly not randomly scattered around a horizontal axis. The Residual vs Row order plot looks perfectly straight indicating that auto-correlation is not a concern. Finally, while for the ideal data in Example 2 the Q-Q plot showed a nice straight diagonal line, here dots clearly separate from the line at the right extreme. Evidence that the residuals are not normally distributed. This conclusions is confirmed by the histogram and density plots of the residuals that show a more spiked appearance than a normally distributed variable would.
+
+```{python}
+reg_nn.plot("dashboard")
+```
+
+The final diagnostic we will discuss is a set of plots of the residuals versus the explanatory variables (or predictors). The residuals fan-out from left to right in the plot of residuals vs carats. The scatter plot of `clarity` versus residuals shows outliers with strong negative values for lower levels of `clarity` and outliers with strong positive values for diamonds with higher levels of `clarity`.
+
+```{python}
+diamonds = diamonds.assign(price_ln=np.log(diamonds.price), carat_ln=np.log(diamonds.carat))
+```
+
+```{python}
+reg_nn = rsm.model.mlp({"diamonds": diamonds}, rvar="price_ln", evar=["carat_ln", "clarity"], mod_type="regression")
+reg_nn.summary()
+```
+
+We will apply a (natural) log (or ln) transformation to both price and carat and rerun the analysis to see if the log-log specification is more appropriate for the available data. This transformation can be done in Data > Transform. Select the variables price and carat. Choose Transform from the Transformation type drop-down and choose Ln (natural log) from the Apply function drop-down. Make sure to click the Store button so the new variables are added to the dataset. Note that we cannot apply a log transformation to clarity because it is a categorical variable.
+
+Specify `price_ln` as the response variable and `carat_ln` and `clarity` as the explanatory variables. Before looking at the parameter estimates from the regression lets take a look at the data and residuals. Below are the histograms for the variables in the model. Note that `price_ln` and `carat_ln` are no longer right skewed, a good sign.
+
+The dashboard of six residual plots looks much better than for the linear model. The true values and predicted values from the regression (almost) form a straight line. Although at higher and lower actual and predicted values the line is perhaps still very slightly curved. The residuals are much closer to a random scatter around a horizontal line. The Residual vs Row order plot still looks perfectly straight indicating that auto-correlation is not a concern. Finally, the Q-Q plot shows a nice straight and diagonal line, just like we saw for the ideal data in Example 2. Evidence that the residuals are now normally distributed. This conclusion is confirmed by the histogram and density plot of the residuals.
+
+```{python}
+reg_nn.plot("dashboard")
+```
+
+The final diagnostic we will discuss is a set of plots of the residuals versus the explanatory variables (or predictors). The residuals look much closer to random scatter around a horizontal line compared to the linear model. Although for low (high) values of carat_ln the residuals may be a bit higher (lower).
+
+```{python}
+reg_nn.plot("vimp")
+```
+
+```{python}
+reg_nn.plot("vimp_sklearn")
+```
+
+```{python}
+vimp_values = reg_nn.plot("vimp", ret=True)
+vimp_values
+```
+
+```{python}
+reg_nn.plot("vimp_sklearn", ret=True)
+```
+
+```{python}
+reg_nn.predict().round(3)
+```
+
+# Radiant for Python App
+
+All the output shown above can be reproduced using the Radiant-for-Python web interface. An example of what the code required to start the web interface is shown below. See if you can reproduce the result.
+
+> Note: The app will continue running until you press the `Stop` button in the app navigation bar or the stop button next to the notebook cell
+
+```{python}
+#| tags: []
+# uncomment the line below if you want to use the radiant web interface
+# rsm.radiant.model.mlp({"diamonds": diamonds}, {"diamonds": diamonds_description})
+```
+
+<p align="center">
+<img src="figures/mlp-regression-summary.png">
+</p>
+
+## Tuning a Neural Network (MLP) model
+
+When building an MLP (Neural Network) model, there are several hyperparameters that can be tuned to improve model performance. Two key parameters we'll focus on are:
+
+- `hidden_layer_sizes`: The number of hidden layers and the number of neurons in each hidden layer
+- `alpha`: The regularization parameter (L2 penalty)
+
+To find the optimal combination of these parameters, we'll:
+
+1. Split our data into training (70%) and test (30%) sets
+2. Use grid search with 5-fold cross validation to evaluate different parameter combinations
+3. Compare model performance with default vs tuned parameters
+
+First, let's create our train/test split:
+
+```{python}
+diamonds["training"] = rsm.model.make_train(diamonds, test_size=0.3, random_state=1234)
+```
+
+```{python}
+reg_nn = rsm.model.mlp(
+    data={"diamonds (train)": diamonds[diamonds.training == 1]},
+    rvar="price",
+    evar=["carat", "clarity", "cut", "color"],
+    mod_type="regression",
+)
+reg_nn.summary()
+```
+
+```{python}
+diamonds["pred_nn"] = reg_nn.predict(diamonds)["prediction"]
+diamonds
+```
+
+The initial model used default parameters. Let's evaluate different combinations of parameters using grid search cross validation. We'll try:
+
+- hidden_layer_sizes: 1 to 10 neurons in a single hidden layer
+- alpha: regularization parameter from 0.0 to 1.0 (in steps of 0.1)
+
+We'll use the R-squared to evaluate performance:
+
+```{python}
+hls = [(i,) for i in range(1, 11)]
+param_grid = {"hidden_layer_sizes": hls, "alpha": np.arange(0.0, 1.1, 0.1)}
+scoring = {"r2": "r2"}
+param_grid
+```
+
+```{python}
+cv_file = "cv-objects/reg-nn-cross-validation-object.pkl"
+if os.path.exists(cv_file):
+    cv = rsm.load_state(cv_file)["cv"]
+else:
+    folds = KFold(n_splits=5, shuffle=True, random_state=1234)
+    cv = GridSearchCV(
+        reg_nn.fitted,
+        param_grid,
+        scoring=scoring,
+        cv=folds,
+        n_jobs=4,
+        refit=list(scoring.keys())[0],
+        verbose=1,
+    ).fit(reg_nn.data_onehot, reg_nn.data.price)
+    if not os.path.exists("cv-objects"):
+        os.mkdir("cv-objects")
+    rsm.save_state({"cv": cv}, cv_file)
+```
+
+```{python}
+cv.best_params_
+```
+
+```{python}
+cv.best_score_
+```
+
+```{python}
+pd.DataFrame(cv.cv_results_).sort_values("rank_test_r2").head()
+```
+
+After finding the optimal parameters, we can build a new model with these tuned parameters and compare its performance to our original model. Looking at the gains charts for both the training and test sets helps us evaluate overfitting while maintaining good predictive performance.
+
+The cross validation results show that slightly different parameter values perform best with this particular dataset compared to the defaults. This demonstrates the value of parameter tuning, though the magnitude of improvement will vary by application.
+
+```{python}
+cv.best_params_
+```
+
+```{python}
+reg_nncv = rsm.model.mlp(
+    data={"diamonds (train)": diamonds[diamonds.training == 1]},
+    rvar="price",
+    evar=["carat", "clarity", "cut", "color"],
+    random_state=1234,
+    mod_type="regression",
+    **cv.best_params_
+)
+reg_nncv.summary()
+```
+
+```{python}
+diamonds["training"] = rsm.model.make_train(diamonds, test_size=0.3, random_state=1234)
+```
+
+```{python}
+diamonds["training"] = rsm.model.make_train(diamonds, test_size=0.3, random_state=1234)
+```
+
+```{python}
+reg_nn = rsm.model.mlp(
+    data={"diamonds (train)": diamonds[diamonds.training == 1]},
+    rvar="price",
+    evar=["carat", "clarity", "cut", "color"],
+    mod_type="regression",
+)
+reg_nn.summary()
+```
+
+```{python}
+diamonds["pred_nn"] = reg_nn.predict(diamonds)["prediction"]
+diamonds
+```
+
+The initial model used default parameters. Let's evaluate different combinations of parameters using grid search cross validation. We'll try:
+
+- hidden_layer_sizes: 1 to 10 neurons in a single hidden layer
+- alpha: regularization parameter from 0.0 to 1.0 (in steps of 0.1)
+
+We'll use the R-squared to evaluate performance:
+
+```{python}
+hls = [(i,) for i in range(1, 11)]
+param_grid = {"hidden_layer_sizes": hls, "alpha": np.arange(0.0, 1.1, 0.1)}
+scoring = {"r2": "r2"}
+param_grid
+```
+
+```{python}
+cv_file = "cv-objects/reg-nn-cross-validation-object.pkl"
+if os.path.exists(cv_file):
+    cv = rsm.load_state(cv_file)["cv"]
+else:
+    folds = KFold(n_splits=5, shuffle=True, random_state=1234)
+    cv = GridSearchCV(
+        reg_nn.fitted,
+        param_grid,
+        scoring=scoring,
+        cv=folds,
+        n_jobs=4,
+        refit=list(scoring.keys())[0],
+        verbose=1,
+    ).fit(reg_nn.data_onehot, reg_nn.data.price)
+    if not os.path.exists("cv-objects"):
+        os.mkdir("cv-objects")
+    rsm.save_state({"cv": cv}, cv_file)
+```
+
+```{python}
+# same functionality as the cell above but less typing
+cv = rsm.model.cross_validation(reg_nn, "reg-nn", param_grid, scoring)
+```
+
+```{python}
+cv.best_params_
+```
+
+```{python}
+cv.best_score_
+```
+
+```{python}
+pd.DataFrame(cv.cv_results_).sort_values("rank_test_r2").head()
+```
+
+After finding the optimal parameters, we can build a new model with these tuned parameters and compare its performance to our original model. Looking at the gains charts for both the training and test sets helps us evaluate overfitting while maintaining good predictive performance.
+
+The cross validation results show that slightly different parameter values perform best with this particular dataset compared to the defaults. This demonstrates the value of parameter tuning, though the magnitude of improvement will vary by application.
+
+```{python}
+cv.best_params_
+```
+
+```{python}
+if rsm.__version__ < "1.4.0":
+    raise ValueError("Update pyrsm to 1.4.0 or higher")
+
+# cross_validation function simplifies the process of cross-validation
+# on pyrsm ml models
+# use ?rsm.model.cross_validation for more details
+cv = rsm.model.cross_validation(reg_nn, "reg-nn", param_grid)
+```
+
+```{python}
+reg_nncv = rsm.model.mlp(
+    data={"diamonds (train)": diamonds[diamonds.training == 1]},
+    rvar="price",
+    evar=["carat", "clarity", "cut", "color"],
+    random_state=1234,
+    mod_type="regression",
+    **cv.best_params_
+)
+reg_nncv.summary()
+```
+
+```{python}
+reg_nn = rsm.model.mlp(
+    data={"diamonds (train)": diamonds[diamonds.training == 1]},
+    rvar="price",
+    evar=["carat", "clarity", "cut", "color"],
+    mod_type="regression",
+)
+reg_nn.summary()
+```
+
+```{python}
+diamonds["pred_nn"] = reg_nn.predict(diamonds)["prediction"]
+diamonds
+```
+
+The initial model used default parameters. Let's evaluate different combinations of parameters using grid search cross validation. We'll try:
+
+- hidden_layer_sizes: 1 to 10 neurons in a single hidden layer
+- alpha: regularization parameter from 0.0 to 1.0 (in steps of 0.1)
+
+We'll use the R-squared to evaluate performance:
+
+```{python}
+hls = [(i,) for i in range(1, 11)]
+param_grid = {"hidden_layer_sizes": hls, "alpha": np.arange(0.0, 1.1, 0.1)}
+scoring = {"r2": "r2"}
+param_grid
+```
+
+```{python}
+cv_file = "cv-objects/reg-nn-cross-validation-object.pkl"
+if os.path.exists(cv_file):
+    cv = rsm.load_state(cv_file)["cv"]
+else:
+    folds = KFold(n_splits=5, shuffle=True, random_state=1234)
+    cv = GridSearchCV(
+        reg_nn.fitted,
+        param_grid,
+        scoring=scoring,
+        cv=folds,
+        n_jobs=4,
+        refit=list(scoring.keys())[0],
+        verbose=1,
+    ).fit(reg_nn.data_onehot, reg_nn.data.price)
+    if not os.path.exists("cv-objects"):
+        os.mkdir("cv-objects")
+    rsm.save_state({"cv": cv}, cv_file)
+```
+
+```{python}
+cv.best_params_
+```
+
+```{python}
+cv.best_score_
+```
+
+```{python}
+pd.DataFrame(cv.cv_results_).sort_values("rank_test_r2").head()
+```
+
+After finding the optimal parameters, we can build a new model with these tuned parameters and compare its performance to our original model. Looking at the gains charts for both the training and test sets helps us evaluate overfitting while maintaining good predictive performance.
+
+The cross validation results show that slightly different parameter values perform best with this particular dataset compared to the defaults. This demonstrates the value of parameter tuning, though the magnitude of improvement will vary by application.
+
+```{python}
+cv.best_params_
+```
+
+```{python}
+# cross_validation function simplifies the process of cross-validation
+# on pyrsm ml models
+# use ?rsm.model.cross_validation for more details
+cv = rsm.model.cross_validation(reg_nn, "reg-nn", param_grid)
+```
+
+```{python}
+reg_nncv = rsm.model.mlp(
+    data={"diamonds (train)": diamonds[diamonds.training == 1]},
+    rvar="price",
+    evar=["carat", "clarity", "cut", "color"],
+    random_state=1234,
+    mod_type="regression",
+    **cv.best_params_
+)
+reg_nncv.summary()
+```
+

@@ -172,6 +172,9 @@ class model_regress:
         @reactive.Effect
         @reactive.event(input.stop, ignore_none=True)
         async def stop_app():
+            # Write stop_code to temp file for Jupyter to read
+            # temp_file = Path(tempfile.gettempdir()) / ".radiant_stop_code.py"
+            # temp_file.write_text(self.stop_code)
             rsm.md(f"```python\n{self.stop_code}\n```")
             await session.app.stop()
             os.kill(os.getpid(), signal.SIGINT)

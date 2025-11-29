@@ -159,3 +159,5 @@ examples/model/cv-objects
 
 mcp-testing/
 .ruff_cache/
+
+old/
