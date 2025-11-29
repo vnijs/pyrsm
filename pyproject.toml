@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = "Python package used in the MSBA program the Rady School of Management @ UCSD"
 readme = "README.md"
 license = "AGPL-3.0-only"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.14"
 authors = [
     {name = "Vincent Nijs", email = "vnijs@ucsd.edu"},
     {name = "Vikram Jambulapati", email = "vikjam@ucsd.edu"},
@@ -41,6 +41,7 @@ dependencies = [
     "ipywidgets>=8.1.7",
     "plotnine>=0.15.1",
     "pillow>=11.2.1",
+    "scikit-misc>=0.5.1",
 ]
 
 [project.urls]

@@ -1,4 +1,4 @@
-__version__ = "1.6.2"
+__version__ = "1.7.0"
 
 from . import basics, model, multivariate, eda
 from .bins import *

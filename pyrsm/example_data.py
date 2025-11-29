@@ -4,7 +4,7 @@ import pandas as pd
 import polars as pl
 
 
-def load_data(pkg=None, name=None, dct=None, polars=False):
+def load_data(pkg=None, name=None, dct=None, polars=True):
     """
     Load example data included in the pyrsm package
 
@@ -60,28 +60,18 @@ def load_data(pkg=None, name=None, dct=None, polars=False):
                     file_path = os.path.join(package_path, file_name)
                     key = file_name.replace(".parquet", "")
                     data[key] = load_data(file_path)
-                    description[key] = load_description(
-                        file_path.replace(".parquet", "")
-                    )
+                    description[key] = load_description(file_path.replace(".parquet", ""))
         return data, description
 
     if pkg is None and name is None:
         data, description = mkdct(
-            [
-                d
-                for d in os.listdir(base_path)
-                if not d.startswith("__") and not d.startswith(".")
-            ]
+            [d for d in os.listdir(base_path) if not d.startswith("__") and not d.startswith(".")]
         )
     elif pkg is not None and name is None:
         data, description = mkdct([pkg])
     elif pkg is None and name is not None:
         data, description = mkdct(
-            [
-                d
-                for d in os.listdir(base_path)
-                if not d.startswith("__") and not d.startswith(".")
-            ]
+            [d for d in os.listdir(base_path) if not d.startswith("__") and not d.startswith(".")]
         )
         if dct is None:
             data = data[name]
