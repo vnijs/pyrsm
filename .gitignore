@@ -161,3 +161,5 @@ mcp-testing/
 .ruff_cache/
 
 old/
+images/
+.claude/
