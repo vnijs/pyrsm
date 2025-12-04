@@ -1,6 +1,6 @@
 import numpy as np
 from scipy import stats
-from .utils import iround, check, make_colors_continuous
+from .utils import iround, check, plot_continuous
 
 
 def prob_unif(min, max, lb=None, ub=None, plb=None, pub=None):
@@ -104,9 +104,7 @@ def plot_prob_unif(dct, type="values"):
         lb, ub = dct["lb"], dct["ub"]
     else:
         lb, ub = dct["v_lb"], dct["v_ub"]
-    min, max = dct["min"], dct["max"]
-    x_range = np.linspace(min, max, 1000)
-    y_range = stats.uniform.pdf(x_range, min, max - min)
-    ax = make_colors_continuous(ub, lb, x_range, y_range)
-    ax.axvline(min, ymin=0.048, ymax=0.952, color="black", linewidth=1)
-    ax.axvline(max, ymin=0.048, ymax=0.952, color="black", linewidth=1)
+    min_val, max_val = dct["min"], dct["max"]
+    x_range = np.linspace(min_val, max_val, 1000)
+    y_range = stats.uniform.pdf(x_range, min_val, max_val - min_val)
+    return plot_continuous(x_range, y_range, lb, ub, title="Uniform Distribution")

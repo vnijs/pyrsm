@@ -10,7 +10,8 @@ Provides clean Python API for common EDA operations:
 
 from .explore import explore
 from .pivot import pivot
+from .unpivot import unpivot
 from .combine import combine
 from .visualize import visualize
 
-__all__ = ["explore", "pivot", "combine", "visualize"]
+__all__ = ["explore", "pivot", "unpivot", "combine", "visualize"]

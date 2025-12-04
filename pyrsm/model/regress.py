@@ -1,10 +1,12 @@
 import re
 from typing import Optional
 
+import numpy as np
 import pandas as pd
 import polars as pl
 import statsmodels.formula.api as smf
 
+from pyrsm.basics import display_utils as du
 from pyrsm.basics.correlation import correlation
 from pyrsm.model.model import (
     coef_ci,
@@ -19,6 +21,7 @@ from pyrsm.model.model import (
     scatter_plot,
     sig_stars,
     sim_prediction,
+    to_pandas_with_categories,
 )
 from pyrsm.model.model import vif as calc_vif
 from pyrsm.model.visualize import distr_plot, pred_plot_sm, vimp_plot_sm
@@ -88,16 +91,21 @@ class regress:
             self.name = list(data.keys())[0]
             self.data = data[self.name]
         else:
-            self.data = data  # needed with pandas
+            self.data = data
             self.name = "Not provided"
+
+        # Store as polars internally
         self.data = check_dataframe(self.data)
         self.rvar = rvar
         self.evar = convert_to_list(evar)
         self.ivar = convert_to_list(ivar)
         self.form = form
 
+        # Convert to pandas only for statsmodels fitting
+        data_pd = self.data.to_pandas()
+
         if self.form:
-            self.fitted = smf.ols(formula=self.form, data=self.data).fit()
+            self.fitted = smf.ols(formula=self.form, data=data_pd).fit()
             self.evar = extract_evars(self.fitted.model, self.data.columns)
             self.rvar = extract_rvar(self.fitted.model, self.data.columns)
         else:
@@ -107,77 +115,68 @@ class regress:
                 self.form = f"{self.rvar} ~ {' + '.join(self.evar)}"
             if self.ivar:
                 self.form += f" + {' + '.join(self.ivar)}"
-            self.fitted = smf.ols(self.form, data=self.data).fit()
+            self.fitted = smf.ols(self.form, data=data_pd).fit()
 
-        self.fitted.nobs_dropped = self.data.shape[0] - self.fitted.nobs
-        df = pd.DataFrame(self.fitted.params, columns=["coefficient"]).dropna()
-        df["std.error"] = self.fitted.params / self.fitted.tvalues
-        df["t.value"] = self.fitted.tvalues
-        df["p.value"] = self.fitted.pvalues
-        df["  "] = sig_stars(self.fitted.pvalues)
-        self.coef = df.reset_index()
+        self.fitted.nobs_dropped = self.data.height - self.fitted.nobs
+
+        # Build coefficient table as polars DataFrame
+        self.coef = pl.DataFrame(
+            {
+                "index": self.fitted.params.index.tolist(),
+                "coefficient": self.fitted.params.values,
+                "std.error": (self.fitted.params / self.fitted.tvalues).values,
+                "t.value": self.fitted.tvalues.values,
+                "p.value": self.fitted.pvalues.values,
+                "  ": sig_stars(self.fitted.pvalues.values),
+            }
+        ).drop_nulls(subset=["coefficient"])
 
     def summary(
         self,
-        main=True,
-        fit=True,
-        ci=False,
+        vif=False,
         ssq=False,
         rmse=False,
-        vif=False,
-        test: Optional[str] = None,
+        test: str | None = None,
+        ci=False,
         dec: int = 3,
+        plain: bool = True,
     ) -> None:
         """
         Summarize the linear regression model output
 
         Parameters
         ----------
-        main : bool, default True
-            Print the main summary. Can be useful to turn off (i.e., False) when the focus is on other metrics (e.g., VIF).
-        fit : bool, default True
-            Print the fit statistics. Can be useful to turn off (i.e., False) when the focus is on other metrics (e.g., VIF).
-        ci : bool, default False
-            Print the confidence intervals for the coefficients.
+        vif : bool, default False
+            Print the generalized variance inflation factors.
         ssq : bool, default False
             Print the sum of squares.
         rmse : bool, default False
             Print the root mean square error.
-        vif : bool, default False
-            Print the generalized variance inflation factors.
         test : list[str] or None, optional
             List of variable names used in the model to test using a Chi-Square test or None if no tests are performed.
+        ci : bool, default False
+            Print the confidence intervals for the coefficients.
         dec : int, default 3
             Number of decimal places to round to.
+        plain : bool, default False
+            Force plain text output (useful for non-notebook environments like Shiny).
         """
-        if main:
-            print("Linear regression (OLS)")
-            print("Data                 :", self.name)
-            print("Response variable    :", self.rvar)
-            print("Explanatory variables:", ", ".join(self.evar))
-            print(f"Null hyp.: the effect of x on {self.rvar} is zero")
-            print(f"Alt. hyp.: the effect of x on {self.rvar} is not zero")
 
-            df = self.coef.copy()
-            df["coefficient"] = df["coefficient"].round(dec)
-            df["std.error"] = df["std.error"].round(dec)
-            df["t.value"] = df["t.value"].round(dec)
-            df["p.value"] = ifelse(
-                df["p.value"] < 0.001, "< .001", df["p.value"].round(dec)
-            )
-            df["index"] = df["index"].str.replace("[T.", "[", regex=False)
-            df = df.set_index("index")
-            df.index.name = None
-            print(f"\n{df.to_string()}")
-            print("\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1")
+        self._summary_header()
+        if not plain and du.is_notebook():
+            self._summary_styled(dec)
+        else:
+            self._summary_plain(dec)
+        du.print_sig_codes()
 
-        if fit:
-            print(f"\n{model_fit(self.fitted, dec=dec)}")
+        print(f"\n{model_fit(self.fitted, dec=dec)}")
 
-        if ci:
-            print("\nConfidence intervals:")
-            df = coef_ci(self.fitted, dec=dec)
-            print(f"\n{df.to_string()}")
+        if vif:
+            if self.evar is None or len(self.evar) < 2:
+                print("\nVariance Inflation Factors cannot be calculated")
+            else:
+                print("\nVariance inflation factors:")
+                print(f"\n{calc_vif(self.fitted).to_string()}")
 
         if ssq:
             print("\nSum of squares:")
@@ -202,22 +201,69 @@ class regress:
 
         if rmse:
             print("\nRoot Mean Square Error (RMSE):")
-            rmse = (self.fitted.ssr / self.fitted.nobs) ** 0.5
-            print(round(rmse, dec))
-
-        if vif:
-            if self.evar is None or len(self.evar) < 2:
-                print("\nVariance Inflation Factors cannot be calculated")
-            else:
-                print("\nVariance inflation factors:")
-                print(f"\n{calc_vif(self.fitted).to_string()}")
+            rmse_val = (self.fitted.ssr / self.fitted.nobs) ** 0.5
+            print(round(rmse_val, dec))
 
         if test is not None and len(test) > 0:
             self.f_test(test=test, dec=dec)
 
+        if ci:
+            print("\nConfidence intervals:")
+            df = coef_ci(self.fitted, dec=dec)
+            print(f"\n{df.to_string()}")
+
+    def _summary_header(self) -> None:
+        """Print the summary header."""
+        print("Linear regression (OLS)")
+        print("Data                 :", self.name)
+        print("Response variable    :", self.rvar)
+        print("Explanatory variables:", ", ".join(self.evar))
+        print(f"Null hyp.: the effect of x on {self.rvar} is zero")
+        print(f"Alt. hyp.: the effect of x on {self.rvar} is not zero\n")
+
+    def _summary_plain(self, dec: int = 3) -> None:
+        """Print plain text coefficient table."""
+        df = self.coef.clone()
+        df = df.with_columns(
+            [
+                pl.col("coefficient").round(dec),
+                pl.col("std.error").round(dec),
+                pl.col("t.value").round(dec),
+                pl.when(pl.col("p.value") < 0.001)
+                .then(pl.lit("< .001"))
+                .otherwise(pl.col("p.value").round(dec).cast(pl.Utf8))
+                .alias("p.value"),
+                pl.col("index").str.replace("[T.", "[", literal=True),
+            ]
+        )
+        du.print_plain_tables(df)
+
+    def _summary_styled(self, dec: int = 3) -> None:
+        """Display styled coefficient table in notebooks."""
+        from IPython.display import display
+
+        df = self.coef.clone()
+        df = df.with_columns(
+            [
+                pl.col("index").str.replace("[T.", "[", literal=True),
+                pl.col("p.value").map_elements(
+                    lambda p: du.format_pval(p, dec), return_dtype=pl.Utf8
+                ),
+            ]
+        )
+
+        gt = du.style_table(
+            df,
+            title="Coefficient Estimates",
+            subtitle=f"Response: {self.rvar}",
+            number_cols=["coefficient", "std.error", "t.value"],
+            dec=dec,
+        )
+        display(gt)
+
     def predict(
-        self, data=None, cmd=None, data_cmd=None, ci=False, conf=0.95
-    ) -> pd.DataFrame:
+        self, data=None, cmd=None, data_cmd=None, ci=False, conf=0.95, dec=None
+    ) -> pl.DataFrame:
         """
         Generate predictions using the fitted model.
 
@@ -233,23 +279,30 @@ class regress:
             Calculate confidence intervals for the predictions.
         conf : float, default 0.95
             Confidence level for the intervals.
+        dec : int, optional
+            Number of decimal places to round float columns in the output.
+            If None (default), no rounding is applied.
 
         Returns
         -------
-        pd.DataFrame
+        pl.DataFrame
             DataFrame containing the predictions and the data used to make those predictions.
         """
         if data is None:
-            data = self.data
+            pred_data = self.data.select(self.evar)
         else:
             data = check_dataframe(data)
-        data = data.loc[:, self.evar].copy()
+            pred_data = data.select(self.evar)
+
         if data_cmd is not None:
-            for k, v in data_cmd.items():
-                data[k] = v
+            # Apply data_cmd values to pred_data
+            pred_data = pred_data.with_columns([pl.lit(v).alias(k) for k, v in data_cmd.items()])
         elif cmd is not None:
             cmd = {k: ifelse(isinstance(v, str), [v], v) for k, v in cmd.items()}
-            data = sim_prediction(data=data, vary=cmd)
+            pred_data = sim_prediction(data=pred_data, vary=cmd)
+
+        # Convert to pandas for statsmodels (patsy requires consistent categorical levels)
+        pred_data_pd = to_pandas_with_categories(pred_data, self.data.select(self.evar))
 
         if ci:
             if data_cmd is not None:
@@ -257,11 +310,23 @@ class regress:
                     "Confidence intervals not available when using the Data & Command option"
                 )
             else:
-                return pd.concat(
-                    [data, predict_ci(self.fitted, data, conf=conf)], axis=1
-                )
+                # predict_ci returns pandas, convert result to polars
+                ci_result = predict_ci(self.fitted, pred_data_pd, conf=conf)
+                pred = pl.concat([pred_data, pl.from_pandas(ci_result)], how="horizontal")
         else:
-            return data.assign(prediction=self.fitted.predict(data))
+            # Get predictions from statsmodels (needs pandas), add to polars DataFrame
+            predictions = self.fitted.predict(pred_data_pd)
+            pred = pred_data.with_columns(pl.lit(predictions.values).alias("prediction"))
+
+        if dec is not None:
+            pred = pred.with_columns(
+                [
+                    pl.col(c).round(dec)
+                    for c in pred.columns
+                    if pred[c].dtype in [pl.Float64, pl.Float32]
+                ]
+            )
+        return pred
 
     def plot(
         self,
@@ -279,7 +344,6 @@ class regress:
         minq=0.025,
         maxq=0.975,
         figsize=None,
-        ax=None,
         ret=None,
     ) -> None:
         """
@@ -309,8 +373,6 @@ class regress:
             Maximum quantile of the explanatory variable values to use to calculate and plot predictions.
         figsize : tuple[int, int], default None
             Figure size for the plots in inches (e.g., "(3, 6)"). Relevant for 'corr', 'scatter', 'residual', and 'coef' plots.
-        ax : plt.Axes, optional
-            Axes object to plot on.
         ret : bool, optional
             Whether to return the variable (permutation) importance scores for a "vimp" plot.
         """
@@ -320,27 +382,32 @@ class regress:
         incl_int = convert_to_list(incl_int)
 
         if data is None:
-            data = self.data
+            plot_data = self.data
         else:
-            data = check_dataframe(data)
-        if self.rvar in data.columns:
-            data = data[[self.rvar] + self.evar].copy()
+            plot_data = check_dataframe(data)
+
+        # Select relevant columns
+        if self.rvar in plot_data.columns:
+            plot_data = plot_data.select([self.rvar] + self.evar)
         else:
-            data = data[self.evar].copy()
+            plot_data = plot_data.select(self.evar)
+
+        # Convert to pandas for plotting (seaborn/matplotlib)
+        data = plot_data.to_pandas()
 
         if "dist" in plots:
-            distr_plot(data)
+            return distr_plot(data)
         if "corr" in plots:
             cr = correlation(data)
-            cr.plot(nobs=nobs, figsize=figsize)
+            return cr.plot(nobs=nobs, figsize=figsize)
         if "scatter" in plots:
-            scatter_plot(self.fitted, data, nobs=nobs, figsize=figsize)
+            return scatter_plot(self.fitted, data, nobs=nobs, figsize=figsize)
         if "dashboard" in plots:
-            reg_dashboard(self.fitted, nobs=nobs)
+            return reg_dashboard(self.fitted, nobs=nobs)
         if "residual" in plots:
-            residual_plot(self.fitted, data, nobs=nobs, figsize=figsize)
+            return residual_plot(self.fitted, data, nobs=nobs, figsize=figsize)
         if "pred" in plots:
-            pred_plot_sm(
+            return pred_plot_sm(
                 self.fitted,
                 data=data[self.evar],
                 incl=incl,
@@ -353,17 +420,17 @@ class regress:
                 maxq=maxq,
             )
         if "vimp" in plots or "pimp" in plots:
-            return_vimp = vimp_plot_sm(
+            (return_vimp, p) = vimp_plot_sm(
                 self.fitted,
                 data=data,
                 rep=10,
-                ax=ax,
                 ret=ret,
             )
             if ret:
                 return return_vimp
+            return p
         if "coef" in plots:
-            coef_plot(
+            return coef_plot(
                 self.fitted,
                 alpha=alpha,
                 intercept=intercept,

@@ -1,6 +1,6 @@
 import numpy as np
 from scipy import stats
-from .utils import iround, check, make_barplot
+from .utils import iround, check, plot_discrete
 
 
 def prob_pois(lamb, lb=None, ub=None, plb=None, pub=None):
@@ -131,11 +131,11 @@ def plot_prob_pois(dct, type="values"):
     else:
         lb, ub = dct["v_lb"], dct["v_ub"]
     lmb = dct["lamb"]
-    x_range = list(range(int(stats.poisson.ppf(1 - 0.00001, lmb))))
+    x_range = list(range(int(stats.poisson.ppf(1 - 0.00001, lmb)) + 1))
     y_range = [stats.poisson.pmf(k, lmb) for k in x_range]
     x_array = np.array(x_range)
     y_array = np.array(y_range)
     mask = y_array > 0.00001
     x_filtered = x_array[mask]
     y_filtered = y_array[mask]
-    make_barplot(ub, lb, x_filtered, y_filtered)
+    return plot_discrete(x_filtered, y_filtered, lb, ub, title="Poisson Distribution")

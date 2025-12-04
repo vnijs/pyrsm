@@ -1,11 +1,7 @@
 import numpy as np
 from scipy import stats
-import matplotlib
 
-matplotlib.use("Agg")  # Use non-interactive backend
-import matplotlib.pyplot as plt
-
-from .utils import iround, check, make_colors_continuous, ceil, floor
+from .utils import iround, check, plot_continuous, ceil, floor
 
 
 def prob_chisq(df, lb=None, ub=None, plb=None, pub=None):
@@ -54,7 +50,7 @@ def plot_prob_chisq(dct, type="values"):
         floor(stats.chi2.ppf(0.001, df)), ceil(stats.chi2.ppf(1 - 0.001, df)), 1000
     )
     y_range = stats.chi2.pdf(x_range, df)
-    make_colors_continuous(ub, lb, x_range, y_range)
+    return plot_continuous(x_range, y_range, lb, ub, title="Chi-square Distribution")
 
 
 def summary_prob_chisq(dct, type="values", dec=3, ret=False):

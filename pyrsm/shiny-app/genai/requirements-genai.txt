@@ -109,7 +109,6 @@ rpds-py==0.17.1
 rpy2==3.5.16
 scikit-learn==1.5.2
 scipy==1.14.1
-seaborn==0.13.2
 shiny==1.2.0
 shinyswatch==0.8.0
 six @ file:///home/conda/feedstock_root/build_artifacts/six_1620240208055/work

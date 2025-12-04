@@ -49,21 +49,25 @@ dct = {"var1": ["a", "b"], "var2": [1, 2]}
 
 
 def test_level_list():
-    assert levels_list(df) == dct, "Levels list created incorrect dictionary"
+    result = levels_list(df)
+    # Check keys match
+    assert set(result.keys()) == set(dct.keys()), "Levels list keys incorrect"
+    # Check values match (order-independent)
+    assert set(result["var1"]) == set(dct["var1"]), "var1 levels incorrect"
+    assert set(result["var2"]) == set(dct["var2"]), "var2 levels incorrect"
 
 
 def test_expand_grid():
     edf = expand_grid(dct)
-    assert list(edf.loc[1].values) == ["a", 2], "Expand grid row 1 incorrect"
-    assert list(edf.loc[2].values) == ["b", 1], "Expand grid row 3 incorrect"
+    assert edf.row(1) == ("a", 2), "Expand grid row 1 incorrect"
+    assert edf.row(2) == ("b", 1), "Expand grid row 2 incorrect"
 
 
 def test_table2data():
     t2d = table2data(df.assign(freq=[3, 4, 5]), "freq")
-    assert t2d.size == 36, "Number of rows from table2data is incorrect"
-    assert (
-        t2d["var1"] == "a"
-    ).sum() == 8, "Number of 'a' values incorrect in table2data"
+    # 3 + 4 + 5 = 12 rows, 2 columns = 24 cells (freq column excluded)
+    assert t2d.height * t2d.width == 24, "Number of cells from table2data is incorrect"
+    assert (t2d["var1"] == "a").sum() == 8, "Number of 'a' values incorrect in table2data"
 
 
 def test_setdiff():

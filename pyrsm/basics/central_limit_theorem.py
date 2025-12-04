@@ -1,12 +1,18 @@
 from typing import Optional
 
-import matplotlib
-
-matplotlib.use("Agg")  # Use non-interactive backend
-import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
-import seaborn as sns
+import polars as pl
+from plotnine import (
+    aes,
+    geom_density,
+    geom_histogram,
+    ggplot,
+    ggtitle,
+    labs,
+    theme_bw,
+)
+
+import pyrsm.basics.plotting_utils as pu
 
 
 class central_limit_theorem:
@@ -80,45 +86,57 @@ class central_limit_theorem:
 
         self.plot_distribution(samples)
 
-    def plot_distribution(self, samples: list[np.ndarray]) -> None:
+    def plot_distribution(self, samples: list[np.ndarray]):
+        """
+        Create plots showing the CLT demonstration.
+
+        Returns a dictionary of ggplot objects:
+        - 'sample1': Histogram of first sample
+        - 'sample_n': Histogram of last sample
+        - 'means_hist': Histogram of sample means
+        - 'means_density': Density of sample means
+        """
         sample_means = [np.mean(sample) for sample in samples]
 
-        _, axes = plt.subplots(2, 2, figsize=self.figsize)
-        plt.subplots_adjust(wspace=0.2, hspace=0.2)
-
-        plt.axes(axes[0][0])
-        self._plot_distribution(x=samples[0], x_label="Histogram of sample #1").plot()
-
-        plt.axes(axes[0][1])
-        self._plot_distribution(
-            x=samples[-1], x_label="Histogram of sample #" + str(self.num_samples)
-        ).plot()
-
-        plt.axes(axes[1][0])
-        self._plot_distribution(x=sample_means, x_label="Histogram of sample means").plot()
-
-        plt.axes(axes[1][1])
-        axes[1][1].set_ylabel("y")
-        self._plot_distribution(
-            x=sample_means, x_label="Density of sample means", density_plot=True
-        ).plot()
+        plots = {
+            'sample1': self._plot_distribution(
+                x=samples[0], title="Histogram of sample #1"
+            ),
+            'sample_n': self._plot_distribution(
+                x=samples[-1], title=f"Histogram of sample #{self.num_samples}"
+            ),
+            'means_hist': self._plot_distribution(
+                x=sample_means, title="Histogram of sample means"
+            ),
+            'means_density': self._plot_distribution(
+                x=sample_means, title="Density of sample means", density_plot=True
+            ),
+        }
+        return plots
 
     def _plot_distribution(
-        self, x: list[np.ndarray], x_label: str, density_plot: bool = False
-    ) -> matplotlib.axes.Axes:
-        stat = "count"
-        data = {x_label: x}
+        self, x: list[np.ndarray], title: str, density_plot: bool = False
+    ):
+        """Create a single histogram or density plot."""
+        data = pl.DataFrame({"value": x})
 
-        data = pd.DataFrame(data)
         if density_plot:
-            return sns.kdeplot(data=data, x=x_label, fill=True)
-
-        return sns.histplot(
-            data=data,
-            x=x_label,
-            stat=stat,
-            bins=self.num_bins,
-        )
+            p = (
+                ggplot(data, aes(x="value"))
+                + geom_density(fill=pu.PlotConfig.FILL, alpha=0.5)
+                + labs(x="Value", y="Density")
+                + ggtitle(title)
+                + theme_bw()
+            )
+        else:
+            p = (
+                ggplot(data, aes(x="value"))
+                + geom_histogram(bins=self.num_bins, fill=pu.PlotConfig.FILL, alpha=0.7)
+                + labs(x="Value", y="Count")
+                + ggtitle(title)
+                + theme_bw()
+            )
+        return p
 
 
 if __name__ == "__main__":

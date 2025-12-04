@@ -2,11 +2,21 @@ from cmath import sqrt
 from typing import Union
 
 import numpy as np
-import pandas as pd
 import polars as pl
 from scipy import stats
+from plotnine import (
+    aes,
+    geom_col,
+    ggplot,
+    ggtitle,
+    labs,
+    scale_y_continuous,
+    theme_bw,
+)
 
 import pyrsm.basics.utils as bu
+import pyrsm.basics.display_utils as du
+import pyrsm.basics.plotting_utils as pu
 from pyrsm.model.model import sig_stars
 from pyrsm.utils import check_dataframe, ifelse
 
@@ -14,7 +24,7 @@ from pyrsm.utils import check_dataframe, ifelse
 class single_prop:
     def __init__(
         self,
-        data: pd.DataFrame | pl.DataFrame | dict[str, pd.DataFrame | pl.DataFrame],
+        data: pl.DataFrame | dict[str, pl.DataFrame],
         var: str,
         lev: str = None,
         alt_hyp: str = "two-sided",
@@ -39,9 +49,9 @@ class single_prop:
         self.alpha = 1 - self.conf
         self.comp_value = comp_value
         self.test_type = test_type
-        self.ns = len(self.data[self.data[self.var] == self.lev])
-        self.n_missing = self.data[self.var].isna().sum()
-        self.n = len(self.data) - self.n_missing
+        self.ns = self.data.filter(pl.col(self.var) == self.lev).height
+        self.n_missing = self.data[self.var].null_count()
+        self.n = self.data.height - self.n_missing
         self.p = self.ns / self.n
         self.sd = sqrt(self.p * (1 - self.p)).real
         self.se = (self.sd / sqrt(self.n)).real
@@ -73,36 +83,27 @@ class single_prop:
             self.p_val = result.pvalue
         else:
             self.z_score = (self.p - self.comp_value) / self.se_p0
-            # self.z_score = (self.p - self.comp_value) / self.se_p
             p_val = stats.norm.cdf(self.z_score)
             if self.alt_hyp == "two-sided":
                 self.p_val = p_val * 2
-                # traditional CI calculation
-                # me = self.z_critical * self.se
-                # self.ci = [self.p - me, self.p + me]
                 self.ci = wilson_ci(self.z_critical)
             elif self.alt_hyp == "less":
                 self.p_val = p_val
-                # traditional CI calculation
-                # z_critical = stats.norm.ppf(self.conf)
-                # me = z_critical * self.se
-                # self.ci = [0, self.p + me]
                 self.ci = [0, wilson_ci(stats.norm.ppf(self.conf))[1]]
             else:
                 self.p_val = 1 - p_val
-                # traditional CI calculation
-                # z_critical = stats.norm.ppf(self.conf)
-                # me = z_critical * self.se
-                # self.ci = [self.p - me, 1]
                 self.ci = [wilson_ci(stats.norm.ppf(self.conf))[0], 1]
 
-            # can't replicate R's z.value with statsmodels
-            # var_p0 = self.comp_value * (1 - self.comp_value)
-            # self.z_score, self.p_val = proportion.proportions_ztest(
-            #     self.ns, self.n, self.comp_value, prop_var=var_p0
-            # )
-
     def summary(self, dec=3) -> None:
+        display = du.SummaryDisplay(
+            header_func=self._summary_header,
+            plain_func=lambda extra, d: self._summary_plain(d),
+            styled_func=lambda extra, d: self._style_tables(d),
+        )
+        display.display(extra=False, dec=dec)
+
+    def _summary_header(self) -> None:
+        """Print the summary header."""
         print(
             f'Single proportion ({ifelse(self.test_type=="binomial", "binomial exact", "z-test")})'
         )
@@ -121,50 +122,129 @@ class single_prop:
         else:
             alt_hyp = "greater than"
 
-        cl = bu.ci_label(self.alt_hyp, self.conf, dec=dec)
-
         print(
             f'Alt. hyp. : the proportion of "{self.lev}" in {self.var} {alt_hyp} {self.comp_value}\n'
         )
 
-        stats_df = pd.DataFrame(
-            {
-                "p": [self.p],
-                "ns": [self.ns],
-                "n": [self.n],
-                "n_missing": [self.n_missing],
-                "sd": [self.sd],
-                "se": [self.se],
-                "me": [self.me],
-            }
-        ).round(dec)
+    def _summary_plain(self, dec: int = 3) -> None:
+        """Print plain text tables."""
+        cl = bu.ci_label(self.alt_hyp, self.conf, dec=dec)
 
-        statistic = [
-            ifelse(self.test_type == "binomial", "ns", "z.value"),
-            ifelse(self.test_type == "binomial", [self.ns], [self.z_score]),
-        ]
-        test_df = pd.DataFrame(
-            {
-                "diff": [self.diff],
-                statistic[0]: statistic[1],
-                "p.value": [ifelse(self.p_val < 0.001, "< .001", self.p_val)],
-                cl[0]: [self.ci[0]],
-                cl[1]: [self.ci[1]],
-                "": [sig_stars([self.p_val])[0]],
-            }
-        ).round(dec)
+        stats_df = pl.DataFrame({
+            "p": [round(self.p, dec)],
+            "ns": [self.ns],
+            "n": [self.n],
+            "n_missing": [self.n_missing],
+            "sd": [round(self.sd, dec)],
+            "se": [round(self.se, dec)],
+            "me": [round(self.me, dec)],
+        })
 
-        print(stats_df.to_string(index=False), "\n")
-        print(test_df.to_string(index=False))
-        print("\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1")
+        statistic_name = ifelse(self.test_type == "binomial", "ns", "z.value")
+        statistic_val = ifelse(
+            self.test_type == "binomial",
+            self.ns,
+            round(self.z_score, dec) if self.z_score is not None else None
+        )
+        p_val_str = ifelse(self.p_val < 0.001, "< .001", round(self.p_val, dec))
 
-    def plot(self, plots: str = "bar") -> None:
+        test_df = pl.DataFrame({
+            "diff": [round(self.diff, dec)],
+            statistic_name: [statistic_val],
+            "p.value": [p_val_str],
+            cl[0]: [round(self.ci[0], dec)],
+            cl[1]: [round(self.ci[1], dec)],
+            "": [sig_stars([self.p_val])[0]],
+        })
+
+        du.print_plain_tables(stats_df, test_df)
+
+    def _style_tables(self, dec: int = 3) -> None:
+        """Display styled tables using great_tables in Jupyter."""
+        from IPython.display import display
+
+        cl = bu.ci_label(self.alt_hyp, self.conf, dec=dec)
+
+        stats_df = pl.DataFrame({
+            "p": [self.p],
+            "ns": [self.ns],
+            "n": [self.n],
+            "n_missing": [self.n_missing],
+            "sd": [self.sd],
+            "se": [self.se],
+            "me": [self.me],
+        })
+
+        statistic_name = ifelse(self.test_type == "binomial", "ns", "z.value")
+        statistic_val = ifelse(
+            self.test_type == "binomial",
+            self.ns,
+            self.z_score if self.z_score is not None else None
+        )
+
+        test_df = pl.DataFrame({
+            "diff": [self.diff],
+            statistic_name: [statistic_val],
+            "p.value": [du.format_pval(self.p_val, dec)],
+            cl[0]: [self.ci[0]],
+            cl[1]: [self.ci[1]],
+            "": [sig_stars([self.p_val])[0]],
+        })
+
+        gt1 = du.style_table(
+            stats_df,
+            title="Descriptive Statistics",
+            subtitle=f'Level: "{self.lev}" in {self.var}',
+            number_cols=["p", "sd", "se", "me"],
+            integer_cols=["ns", "n", "n_missing"],
+            dec=dec,
+        )
+
+        number_cols = ["diff", cl[0], cl[1]]
+        if statistic_name == "z.value":
+            number_cols.append("z.value")
+
+        gt2 = du.style_table(
+            test_df,
+            title="Hypothesis Test",
+            subtitle=f"Comparison value: {self.comp_value}",
+            number_cols=number_cols,
+            integer_cols=["ns"] if statistic_name == "ns" else None,
+            dec=dec,
+        )
+
+        display(gt1)
+        display(gt2)
+
+    def plot(self, plots: str = "bar"):
+        """
+        Plot proportions for single proportion test.
+
+        Parameters
+        ----------
+        plots : str
+            Plot type (default "bar")
+
+        Returns
+        -------
+        plotnine.ggplot
+            A plotnine ggplot object
+        """
         if plots == "bar":
-            proportion_data = self.data[self.var].value_counts(normalize=True)
-            ax = proportion_data.plot(kind="bar", alpha=0.5)
-            ax.set_ylabel("")
-            ax.set_title(f'Single proportion: "{self.lev}" in {self.var}')
-            ax.yaxis.set_major_formatter(lambda x, _: "{:.0%}".format(x))
+            # Get value counts as proportions using polars
+            counts = self.data.group_by(self.var).len().sort(self.var)
+            total = counts["len"].sum()
+            proportions = counts.with_columns((pl.col("len") / total).alias("proportion"))
+
+            p = (
+                ggplot(proportions, aes(x=self.var, y="proportion"))
+                + geom_col(fill=pu.PlotConfig.FILL, alpha=0.7)
+                + scale_y_continuous(labels=lambda x: [f"{v:.0%}" for v in x])
+                + labs(x=self.var, y="")
+                + ggtitle(f'Single proportion: "{self.lev}" in {self.var}')
+                + theme_bw()
+            )
+            return p
 
 
 if __name__ == "__main__":

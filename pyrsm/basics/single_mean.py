@@ -1,13 +1,13 @@
 from typing import Literal
 
 import numpy as np
-import pandas as pd
 import polars as pl
 from plotnine import aes, geom_histogram, ggplot, labs, theme_set
 from scipy import stats
 
 import pyrsm.basics.plotting_utils as pu
 import pyrsm.basics.utils as bu
+import pyrsm.basics.display_utils as du
 from pyrsm.model.model import sig_stars
 from pyrsm.utils import check_dataframe, ifelse
 
@@ -18,8 +18,8 @@ class single_mean:
 
     Attributes
     ----------
-    data : pd.DataFrame | pl.DataFrame
-        The input data for the hypothesis test as a Pandas or Polars DataFrame. If a dictionary is provided, the key should be the name of the dataframe.
+    data : pl.DataFrame
+        The input data for the hypothesis test as a Polars DataFrame. If a dictionary is provided, the key should be the name of the dataframe.
     var : str
         The variable/column name to test.
     alt_hyp : str
@@ -63,7 +63,7 @@ class single_mean:
 
     def __init__(
         self,
-        data: pd.DataFrame | pl.DataFrame | dict[str, pd.DataFrame | pl.DataFrame],
+        data: pl.DataFrame | dict[str, pl.DataFrame],
         var: str,
         alt_hyp: str = "two-sided",
         conf: float = 0.95,
@@ -74,8 +74,8 @@ class single_mean:
 
         Parameters
         ----------
-        data : pd.DataFrame | pl.DataFrame | dict[str, pd.DataFrame | pl.DataFrame]
-            The input data for the hypothesis test as a Pandas or Polars DataFrame.
+        data : pl.DataFrame | dict[str, pl.DataFrame]
+            The input data for the hypothesis test as a Polars DataFrame.
         var : str
             The variable/column name to test.
         alt_hyp : str, optional
@@ -87,19 +87,22 @@ class single_mean:
         """
         if isinstance(data, dict):
             self.name = list(data.keys())[0]
-            self.data = data[self.name]
+            incoming = data[self.name]
         else:
-            self.data = data
+            incoming = data
             self.name = "Not provided"
 
-        self.data = check_dataframe(self.data)
+        self.data = check_dataframe(incoming)
         self.var = var
         self.alt_hyp = alt_hyp
         self.conf = conf
         self.comp_value = comp_value
 
+        series = self.data[self.var]
+        values = series.to_numpy()
+
         result = stats.ttest_1samp(
-            a=self.data[self.var],
+            a=values,
             popmean=self.comp_value,
             nan_policy="omit",
             alternative=self.alt_hyp,
@@ -108,17 +111,18 @@ class single_mean:
         self.t_val, self.p_val = result.statistic, result.pvalue
         self.ci = result.confidence_interval(confidence_level=conf)
 
-        self.mean = np.nanmean(self.data[self.var])
-        self.n = len(self.data[self.var])
-        self.n_missing = self.data[self.var].isna().sum()
+        self.mean = np.nanmean(values)
+        self.n = len(values)
+        self.n_missing = int(series.null_count())
 
-        self.sd = self.data[self.var].std()
-        self.se = self.data[self.var].sem()
-        tscore = stats.t.ppf((1 + self.conf) / 2, self.n - 1)
+        self.sd = series.std(ddof=1)
+        n_eff = self.n - self.n_missing
+        self.se = self.sd / np.sqrt(n_eff) if n_eff > 0 else np.nan
+        tscore = stats.t.ppf((1 + self.conf) / 2, n_eff - 1) if n_eff > 1 else np.nan
 
         self.me = (tscore * self.se).real
         self.diff = self.mean - self.comp_value
-        self.df = self.n - 1
+        self.df = n_eff - 1
 
     def summary(self, dec: int = 3) -> None:
         """
@@ -129,6 +133,15 @@ class single_mean:
         dec : int, optional
             The number of decimal places to display (default is 3).
         """
+        display = du.SummaryDisplay(
+            header_func=self._summary_header,
+            plain_func=lambda extra, d: self._summary_plain(d),
+            styled_func=lambda extra, d: self._style_tables(d),
+        )
+        display.display(extra=False, dec=dec)
+
+    def _summary_header(self) -> None:
+        """Print the summary header."""
         print("Single mean test")
         print(f"Data      : {self.name}")
         print(f"Variables : {self.var}")
@@ -143,33 +156,81 @@ class single_mean:
         else:
             alt_hyp = "greater than"
 
-        cl = bu.ci_label(self.alt_hyp, self.conf, dec=dec)
-
         print(f"Alt. hyp. : the mean of {self.var} is {alt_hyp} {self.comp_value}\n")
 
-        row1 = [[self.mean, self.n, self.n_missing, self.sd, self.se, self.me]]
-        row2 = [
-            [
-                self.diff,
-                self.se,
-                self.t_val,
-                ifelse(self.p_val < 0.001, "< .001", self.p_val),
-                self.df,
-                self.ci[0],
-                self.ci[1],
-                sig_stars([self.p_val])[0],
-            ]
-        ]
+    def _summary_plain(self, dec: int = 3) -> None:
+        """Print plain text tables."""
+        cl = bu.ci_label(self.alt_hyp, self.conf, dec=dec)
 
-        col_names1 = ["mean", "n", "n_missing", "sd", "se", "me"]
-        col_names2 = ["diff", "se", "t.value", "p.value", "df", cl[0], cl[1], ""]
+        table1 = pl.DataFrame({
+            "mean": [round(self.mean, dec)],
+            "n": [self.n],
+            "n_missing": [self.n_missing],
+            "sd": [round(self.sd, dec)],
+            "se": [round(self.se, dec)],
+            "me": [round(self.me, dec)],
+        })
 
-        table1 = pd.DataFrame(row1, columns=col_names1).round(dec)
-        table2 = pd.DataFrame(row2, columns=col_names2).round(dec)
+        p_val_str = ifelse(self.p_val < 0.001, "< .001", round(self.p_val, dec))
+        table2 = pl.DataFrame({
+            "diff": [round(self.diff, dec)],
+            "se": [round(self.se, dec)],
+            "t.value": [round(self.t_val, dec)],
+            "p.value": [p_val_str],
+            "df": [self.df],
+            cl[0]: [round(self.ci[0], dec)],
+            cl[1]: [round(self.ci[1], dec)],
+            "": [sig_stars([self.p_val])[0]],
+        })
 
-        print(table1.to_string(index=False))
-        print(table2.to_string(index=False))
-        print("\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1")
+        du.print_plain_tables(table1, table2)
+
+    def _style_tables(self, dec: int = 3) -> None:
+        """Display styled tables using great_tables in Jupyter."""
+        from IPython.display import display
+
+        cl = bu.ci_label(self.alt_hyp, self.conf, dec=dec)
+
+        table1 = pl.DataFrame({
+            "mean": [self.mean],
+            "n": [self.n],
+            "n_missing": [self.n_missing],
+            "sd": [self.sd],
+            "se": [self.se],
+            "me": [self.me],
+        })
+
+        table2 = pl.DataFrame({
+            "diff": [self.diff],
+            "se": [self.se],
+            "t.value": [self.t_val],
+            "p.value": [du.format_pval(self.p_val, dec)],
+            "df": [self.df],
+            cl[0]: [self.ci[0]],
+            cl[1]: [self.ci[1]],
+            "": [sig_stars([self.p_val])[0]],
+        })
+
+        gt1 = du.style_table(
+            table1,
+            title="Descriptive Statistics",
+            subtitle=f"Variable: {self.var}",
+            number_cols=["mean", "sd", "se", "me"],
+            integer_cols=["n", "n_missing"],
+            dec=dec,
+        )
+
+        gt2 = du.style_table(
+            table2,
+            title="Hypothesis Test",
+            subtitle=f"Comparison value: {self.comp_value}",
+            number_cols=["diff", "se", "t.value", cl[0], cl[1]],
+            integer_cols=["df"],
+            dec=dec,
+        )
+
+        display(gt1)
+        display(gt2)
 
     def plot(
         self,
@@ -204,8 +265,8 @@ class single_mean:
             return self._plot_plotly(plots)
 
         if plots == "hist":
-            # Prepare data
-            plot_data = pd.DataFrame({self.var: self.data[self.var].dropna()})
+            # Prepare data - convert polars to pandas for plotnine
+            plot_data = self.data.select(self.var).drop_nulls().to_pandas()
 
             # Create plotnine histogram
             p = (
@@ -252,8 +313,8 @@ class single_mean:
             return None
 
         if plot_type == "hist":
-            # Create histogram data
-            data_values = self.data[self.var].dropna()
+            # Create histogram data - convert polars to numpy for plotly
+            data_values = self.data.select(self.var).drop_nulls().to_series().to_numpy()
 
             fig = go.Figure()
 

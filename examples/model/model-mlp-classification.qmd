@@ -95,7 +95,7 @@ clf_nn.predict(titanic)
 rsm.model.distr_plot(clf_nn.predict(titanic).prediction)
 ```
 
-In addition to the numerical output provided in the _Summary_ tab we can also evaluate the link between `survival`, `class`, `sex`, and `age` visually (see _Plot_ tab). 
+In addition to the numerical output provided in the _Summary_ tab we can also evaluate the link between `survival`, `class`, `sex`, and `age` visually (see _Plot_ tab).
 
 # Radiant for Python App: Multi-layer Perceptron (NN) - Classification
 
@@ -140,7 +140,7 @@ print(titanic.head())
 
 ```{python}
 clf_nn = rsm.model.mlp(
-    {"titanic (train)": titanic[titanic.training == 1]},
+    {"titanic (train)": titanic.filter(pl.col("training") == 1)},
     hidden_layer_sizes=(1,),
     alpha=0.001,
     rvar="survived",
@@ -207,7 +207,7 @@ The cross validation results show that slightly different parameter values perfo
 
 ```{python}
 clf_nncv = rsm.model.mlp(
-    data={"titanic train": titanic[titanic.training == 1]},
+    data={"titanic train": titanic.filter(pl.col("training") == 1)},
     rvar="survived",
     lev="Yes",
     evar=evar,
@@ -225,23 +225,23 @@ titanic
 
 ```{python}
 dct = {
-    "train": titanic[titanic.training == 1],
-    "test": titanic[titanic.training == 0],
+    "train": titanic.filter(pl.col("training") == 1),
+    "test": titanic.filter(pl.col("training") == 0),
 }
 fig = rsm.model.gains_plot(dct, rvar="survived", lev="Yes", pred="pred_nn")
 ```
 
 ```{python}
 dct = {
-    "train": titanic[titanic.training == 1],
-    "test": titanic[titanic.training == 0],
+    "train": titanic.filter(pl.col("training") == 1),
+    "test": titanic.filter(pl.col("training") == 0),
 }
 fig = rsm.model.gains_plot(dct, rvar="survived", lev="Yes", pred="pred_nncv")
 ```
 
 ```{python}
 fig = rsm.model.gains_plot(
-    {"train": titanic[titanic.training == 1]},
+    {"train": titanic.filter(pl.col("training") == 1)},
     rvar="survived",
     lev="Yes",
     pred=["pred_nn", "pred_nncv"],
@@ -250,10 +250,9 @@ fig = rsm.model.gains_plot(
 
 ```{python}
 fig = rsm.model.gains_plot(
-    {"test": titanic[titanic.training == 0]},
+    {"test": titanic.filter(pl.col("training") == 0)},
     rvar="survived",
     lev="Yes",
     pred=["pred_nn", "pred_nncv"],
 )
 ```
-

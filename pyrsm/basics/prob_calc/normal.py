@@ -1,10 +1,7 @@
 import numpy as np
 from scipy import stats
-import matplotlib
 
-matplotlib.use("Agg")  # Use non-interactive backend
-import matplotlib.pyplot as plt
-from .utils import iround, check, make_colors_continuous, ceil, floor
+from .utils import iround, check, plot_continuous, ceil, floor
 
 
 def prob_norm(mean, stdev, lb=None, ub=None, plb=None, pub=None):
@@ -53,7 +50,7 @@ def plot_prob_norm(dct, type="values"):
     stdev = dct["stdev"]
     x_range = np.linspace(floor(mean - 4 * stdev), ceil(mean + 4 * stdev), 1000)
     y_range = stats.norm.pdf(x_range, mean, stdev)
-    make_colors_continuous(ub, lb, x_range, y_range)
+    return plot_continuous(x_range, y_range, lb, ub, title="Normal Distribution")
 
 
 def summary_prob_norm(dct, type="values", dec=3, ret=False):

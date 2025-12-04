@@ -1,9 +1,7 @@
 from typing import Optional, Literal
 import pandas as pd
 import polars as pl
-import matplotlib
 
-matplotlib.use("Agg")  # Use non-interactive backend
 import matplotlib.pyplot as plt
 from sklearn.neural_network import MLPClassifier, MLPRegressor
 from sklearn.inspection import PartialDependenceDisplay as pdp
@@ -88,11 +86,12 @@ class mlp:
         else:
             self.data = data
             self.name = "Not provided"
+
+        # Store as polars internally
         self.data = check_dataframe(self.data)
         self.rvar = rvar
         self.lev = lev
         self.evar = convert_to_list(evar)
-        # self.mod_type = mod_type
         self.hidden_layer_sizes = hidden_layer_sizes
         self.activation = activation
         self.solver = solver
@@ -101,26 +100,27 @@ class mlp:
         self.learning_rate_init = learning_rate_init
         self.max_iter = max_iter
         self.random_state = random_state
-        # self.ml_model = {"model": "mlp", "mod_type": mod_type}
         self.kwargs = kwargs
-        self.nobs_all = self.data.shape[0]
-        self.data = self.data[[rvar] + self.evar].dropna()
-        self.nobs = self.data.shape[0]
-        self.nobs_dropped = self.nobs_all - self.nobs
-
-        if mod_type == "classification" and lev is None:
-            if pd.api.types.is_numeric_dtype(self.data[self.rvar]):
-                raise Exception(
-                    f"Model type is set to 'Classification' but variable {self.rvar} is numeric and no value was set for 'lev' (level)."
-                )
+        self.nobs_all = self.data.height
 
         self.mod_type = mod_type
         self.ml_model = {"model": "mlp", "mod_type": mod_type}
 
+        # Apply binary conversion on polars DataFrame
         if self.mod_type == "classification":
             if self.lev is not None and self.rvar is not None:
                 self.data = check_binary(self.data, self.rvar, self.lev)
-            elif self.lev is None and pd.api.types.is_numeric_dtype(self.data[self.rvar]):
+
+        # Drop nulls and get training data
+        training_data = self.data.select([rvar] + self.evar).drop_nulls()
+        self.nobs = training_data.height
+        self.nobs_dropped = self.nobs_all - self.nobs
+
+        # Convert to pandas for sklearn
+        training_pd = training_data.to_pandas()
+
+        if self.mod_type == "classification":
+            if self.lev is None and pd.api.types.is_numeric_dtype(training_pd[self.rvar]):
                 raise Exception(
                     f"Model type is set to 'Classification' but variable {self.rvar} is numeric and no value was set for 'lev' (level)."
                 )
@@ -150,13 +150,34 @@ class mlp:
             )
 
         self.data_std, self.means, self.stds = scale_df(
-            self.data[[rvar] + self.evar], sf=1, stats=True
+            training_pd[[rvar] + self.evar], sf=1, stats=True
         )
-        # use drop_first=True for one-hot encoding because NN models include a bias term
-        self.data_onehot = get_dummies(self.data_std[self.evar])
-        self.n_features = [len(evar), self.data_onehot.shape[1]]
 
-        self.fitted = self.mlp.fit(self.data_onehot, self.data_std[self.rvar])
+        # Identify categorical columns for one-hot encoding
+        cat_cols = [
+            c
+            for c in self.evar
+            if self.data_std[c].dtype == "object" or self.data_std[c].dtype.name == "category"
+        ]
+
+        # use drop_first=True for one-hot encoding because NN models include a bias term
+        # get_dummies returns polars DataFrame
+        self.data_onehot = get_dummies(self.data_std[self.evar])
+        self.n_features = [len(evar), self.data_onehot.width]
+
+        # Derive categories from dummy column names (after drop_first)
+        self.categories = {}
+        for col in cat_cols:
+            prefix = f"{col}_"
+            self.categories[col] = [
+                c.replace(prefix, "") for c in self.data_onehot.columns if c.startswith(prefix)
+            ]
+
+        # Store feature order for prediction
+        self.feature_names = self.data_onehot.columns
+
+        # .to_pandas() at sklearn call site
+        self.fitted = self.mlp.fit(self.data_onehot.to_pandas(), self.data_std[self.rvar])
         self.n_weights = sum(weight_matrix.size for weight_matrix in self.fitted.coefs_) + sum(
             [len(i) for i in self.fitted.intercepts_]
         )
@@ -196,7 +217,7 @@ class mlp:
         print(f"random_state         : {self.random_state}")
         if self.mod_type == "classification":
             print(
-                f"AUC                  : {round(auc(self.data[self.rvar], self.fitted.predict_proba(self.data_onehot)[:, -1]), dec)}"
+                f"AUC                  : {round(auc(self.data[self.rvar], self.fitted.predict_proba(self.data_onehot.to_pandas())[:, -1]), dec)}"
             )
         else:
             print("Model fit            :")
@@ -204,12 +225,13 @@ class mlp:
                 evalreg(
                     pd.DataFrame().assign(
                         rvar=self.data_std[[self.rvar]],
-                        prediction=self.fitted.predict(self.data_onehot),
+                        prediction=self.fitted.predict(self.data_onehot.to_pandas()),
                     ),
                     "rvar",
                     "prediction",
                     dec=dec,
                 )
+                .to_pandas()
                 .T[2:]
                 .rename(columns={0: " "})
                 .T.to_string()
@@ -220,20 +242,20 @@ class mlp:
             print(f"Extra arguments      : {', '.join(kwargs_list)}")
 
         print("\nRaw data             :")
-        print(self.data[self.evar].head().to_string(index=False))
+        print(self.data.select(self.evar).head())
 
         print("\nEstimation data      :")
-        print(self.data_onehot.head().to_string(index=False))
+        print(self.data_onehot.head())
 
     def predict(
-        self, data=None, cmd=None, data_cmd=None, scale=True, means=None, stds=None
-    ) -> pd.DataFrame:
+        self, data=None, cmd=None, data_cmd=None, scale=True, means=None, stds=None, dec=None
+    ) -> pl.DataFrame:
         """
         Predict probabilities or values for the MLP model.
 
         Parameters
         ----------
-        data : pd.DataFrame, optional
+        data : pd.DataFrame or pl.DataFrame, optional
             The data to predict. If None, uses the training data.
         cmd : dict, optional
             Command dictionary to simulate predictions.
@@ -245,10 +267,13 @@ class mlp:
             Means of the training data features for scaling. Will use the means used during estimation if not provided.
         stds : pd.Series, optional
             Standard deviations of the training data features for scaling. Will use the standard deviations used during estimation if not provided.
+        dec : int, optional
+            Number of decimal places to round float columns in the output.
+            If None (default), no rounding is applied.
 
         Returns
         -------
-        pd.DataFrame
+        pl.DataFrame
             DataFrame with predictions.
 
         Examples
@@ -256,43 +281,56 @@ class mlp:
         >>> predictions = model.predict(new_data)
         """
         if data is None:
-            data = self.data.loc[:, self.evar].copy()
+            pred_data = self.data.select(self.evar)
         else:
-            data = data.loc[:, self.evar].copy()
+            pred_data = check_dataframe(data).select(self.evar)
 
         if data_cmd is not None and data_cmd != "":
-            for k, v in data_cmd.items():
-                data[k] = v
-
+            pred_data = pred_data.with_columns([pl.lit(v).alias(k) for k, v in data_cmd.items()])
         elif cmd is not None and cmd != "":
             cmd = {k: ifelse(isinstance(v, str), [v], v) for k, v in cmd.items()}
-            data = sim_prediction(data=data, vary=cmd)
+            pred_data = sim_prediction(data=pred_data, vary=cmd)
+
+        # Convert to pandas for scaling
+        pred_data_pd = pred_data.to_pandas()
 
         if scale or (means is not None and stds is not None):
             if means is not None and stds is not None:
-                data_std = scale_df(data, sf=1, means=means, stds=stds)
+                data_std = scale_df(pred_data_pd, sf=1, means=means, stds=stds)
             else:
                 # scaling the full dataset by the means used during estimation
-                data_std = scale_df(data, sf=1, means=self.means, stds=self.stds)
+                data_std = scale_df(pred_data_pd, sf=1, means=self.means, stds=self.stds)
 
-            data_onehot = get_dummies(data_std, drop_nonvarying=False)
+            # Use categories to preserve all levels
+            data_onehot = get_dummies(data_std, drop_nonvarying=False, categories=self.categories)
         else:
-            data_onehot = get_dummies(data, drop_nonvarying=False)
-
-        # adding back levels for categorical variables is they were removed
-        if data_onehot.shape[1] != self.data_onehot.shape[1]:
-            for k in setdiff(self.data_onehot.columns, data_onehot.columns):
-                data_onehot[k] = False
-            data_onehot = data_onehot[self.data_onehot.columns]
-
-        if self.mod_type == "classification":
-            data["prediction"] = self.fitted.predict_proba(data_onehot)[:, -1]
-        else:
-            data["prediction"] = (
-                self.fitted.predict(data_onehot) * self.stds[self.rvar] + self.means[self.rvar]
+            data_onehot = get_dummies(
+                pred_data_pd, drop_nonvarying=False, categories=self.categories
             )
 
-        return data
+        # Reorder columns to match training feature order
+        data_onehot = data_onehot.select(self.feature_names)
+
+        # .to_pandas() at sklearn call site
+        if self.mod_type == "classification":
+            predictions = self.fitted.predict_proba(data_onehot.to_pandas())[:, -1]
+        else:
+            predictions = (
+                self.fitted.predict(data_onehot.to_pandas()) * self.stds[self.rvar]
+                + self.means[self.rvar]
+            )
+
+        pred = pred_data.with_columns(pl.lit(predictions).alias("prediction"))
+
+        if dec is not None:
+            pred = pred.with_columns(
+                [
+                    pl.col(c).round(dec)
+                    for c in pred.columns
+                    if pred[c].dtype in [pl.Float64, pl.Float32]
+                ]
+            )
+        return pred
 
     def plot(
         self,
@@ -340,8 +378,6 @@ class mlp:
             Maximum quantile for the prediction plot.
         figsize : tuple[int, int], default None
             Figure size for the plots in inches.
-        ax : plt.Axes, optional
-            Axes object to plot on.
         ret : bool, optional
             Whether to return the variable (permutation) importance scores for a "vimp" plot.
 
@@ -359,23 +395,23 @@ class mlp:
         if "pred" in plots:
             if data is None:
                 data_dct = {
-                    "data": self.data[self.evar + [self.rvar]],
+                    "data": self.data.select(self.evar + [self.rvar]),
                     "means": self.means,
                     "stds": self.stds,
                 }
             else:
-                if self.rvar in data.columns:
-                    vars = self.evar + [self.rvar]
+                plot_data = check_dataframe(data)
+                if self.rvar in plot_data.columns:
+                    cols = self.evar + [self.rvar]
                 else:
-                    vars = self.evar
-                    rvar = None
+                    cols = self.evar
                 data_dct = {
-                    "data": data[vars],
+                    "data": plot_data.select(cols),
                     "means": self.means,
                     "stds": self.stds,
                 }
 
-            pred_plot_sk(
+            return pred_plot_sk(
                 self.fitted,
                 data=data_dct,
                 rvar=self.rvar,
@@ -387,6 +423,7 @@ class mlp:
                 nnv=nnv,
                 minq=minq,
                 maxq=maxq,
+                ret=ret,
             )
 
         if "pdp" in plots:
@@ -394,39 +431,40 @@ class mlp:
                 figsize = (8, len(self.data_onehot.columns) * 2)
             fig, ax = plt.subplots(figsize=figsize)
             ax.set_title("Partial Dependence Plots")
-            # the below will fail in sklearn 1.6.0 and 1.6.1
-            # use 1.5.2 or older for now
-            fig = pdp.from_estimator(
-                self.fitted, self.data_onehot, self.data_onehot.columns, ax=ax, n_cols=2
+            pdp.from_estimator(
+                self.fitted, self.data_onehot.to_pandas(), self.data_onehot.columns, ax=ax, n_cols=2
             )
+            plt.show()
+            plt.close()
 
         if "vimp" in plots or "pimp" in plots:
-            return_vimp = vimp_plot_sk(
+            (p, return_vimp) = vimp_plot_sk(
                 self,
                 rep=5,
-                ax=ax,
                 ret=ret,
             )
 
             if ret:
-                return return_vimp
+                return (p, return_vimp)
+            return p
 
         if "vimp_sklearn" in plots or "pimp_sklearn" in plots:
-            return_vimp = vimp_plot_sklearn(
+            (p, return_vimp) = vimp_plot_sklearn(
                 self.fitted,
-                self.data_onehot,
+                self.data_onehot.to_pandas(),
                 self.data[self.rvar],
                 rep=5,
-                ax=ax,
                 ret=ret,
             )
 
             if ret:
-                return return_vimp
+                return (p, return_vimp)
+            return p
 
         if "dashboard" in plots and self.mod_type == "regression":
             model = self.fitted
-            model.fittedvalues = self.predict()["prediction"]
-            model.resid = self.data[self.rvar] - model.fittedvalues
-            model.model = pd.DataFrame({"endog": self.data[self.rvar]})
-            reg_dashboard(model, nobs=nobs)
+            pred_df = self.predict()
+            model.fittedvalues = pred_df["prediction"]
+            model.resid = self._rvar.values - model.fittedvalues
+            model.model = pl.DataFrame({"endog": self._rvar})
+            return reg_dashboard(model, nobs=nobs)

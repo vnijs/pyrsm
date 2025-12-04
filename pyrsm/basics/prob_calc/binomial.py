@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import stats
 
-from .utils import check, iround, make_barplot
+from .utils import check, iround, plot_discrete
 
 
 def prob_binom(n: int, p: float, lb=None, ub=None, plb=None, pub=None):
@@ -194,9 +194,9 @@ def plot_prob_binom(dct, type="values"):
     else:
         lb, ub = dct["vlb"], dct["vub"]
     n, p = dct["n"], dct["p"]
-    x_range = np.arange(0, n)
+    x_range = np.arange(0, n + 1)
     y_range = stats.binom.pmf(x_range, n, p)
     mask = y_range > 0.00001
     x_filtered = x_range[mask]
     y_filtered = y_range[mask]
-    make_barplot(ub, lb, x_filtered, y_filtered)
+    return plot_discrete(x_filtered, y_filtered, lb, ub, title="Binomial Distribution")

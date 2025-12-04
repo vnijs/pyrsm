@@ -2,18 +2,39 @@ import os
 import re
 from math import ceil
 from typing import Optional, Union
-import matplotlib
 
-matplotlib.use("Agg")  # Use non-interactive backend
-import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
 import numpy as np
 import pandas as pd
 import polars as pl
-import seaborn as sns
 import statsmodels as sm
 import statsmodels.api as sma
 import statsmodels.formula.api as smf
+from plotnine import (
+    aes,
+    coord_flip,
+    element_text,
+    geom_density,
+    geom_errorbarh,
+    geom_histogram,
+    geom_hline,
+    geom_jitter,
+    geom_line,
+    geom_point,
+    geom_segment,
+    geom_smooth,
+    geom_vline,
+    ggplot,
+    ggtitle,
+    labs,
+    scale_x_continuous,
+    scale_x_log10,
+    scale_y_discrete,
+    stat_function,
+    stat_qq,
+    stat_qq_line,
+    theme,
+    theme_bw,
+)
 from scipy import stats
 from scipy.special import expit
 from sklearn import metrics
@@ -27,8 +48,36 @@ from pyrsm.utils import check_dataframe, expand_grid, ifelse
 from .perf import auc
 
 
+def to_pandas_with_categories(pred_data: pl.DataFrame, original_data: pl.DataFrame) -> pd.DataFrame:
+    """
+    Convert polars DataFrame to pandas, preserving categorical levels from original data.
+
+    Required for patsy/statsmodels which checks categorical levels match between
+    training and prediction data.
+
+    Parameters
+    ----------
+    pred_data : pl.DataFrame
+        The prediction data to convert
+    original_data : pl.DataFrame
+        The original training data with full categorical levels
+
+    Returns
+    -------
+    pd.DataFrame with categorical columns having correct levels
+    """
+    pred_pd = pred_data.to_pandas()
+    orig_pd = original_data.to_pandas()
+
+    for col in pred_pd.columns:
+        if col in orig_pd.columns and hasattr(orig_pd[col], "cat"):
+            pred_pd[col] = pd.Categorical(pred_pd[col], categories=orig_pd[col].cat.categories)
+
+    return pred_pd
+
+
 def make_train(
-    data: pd.DataFrame | pl.DataFrame | dict[str, pd.DataFrame | pl.DataFrame],
+    data: pl.DataFrame | pd.DataFrame | dict[str, pd.DataFrame | pl.DataFrame],
     strat_var: str | list[str] = None,
     test_size: float = 0.2,
     random_state: int = 1234,
@@ -39,14 +88,16 @@ def make_train(
     data = check_dataframe(data)
 
     if strat_var:
-        training_var = np.zeros(data.shape[0])
+        training_var = np.zeros(data.height)
+        # StratifiedShuffleSplit needs pandas/numpy
+        strat_values = data.select(strat_var).to_numpy().ravel()
         splits = StratifiedShuffleSplit(n_splits=1, test_size=test_size, random_state=random_state)
-        for train_index, test_index in splits.split(data, data[strat_var]):
+        for train_index, test_index in splits.split(training_var, strat_values):
             training_var[train_index] = 1
     else:
-        training_var = np.random.choice([0, 1], size=data.shape[0], p=[test_size, 1 - test_size])
+        training_var = np.random.choice([0, 1], size=data.height, p=[test_size, 1 - test_size])
 
-    return training_var
+    return pl.Series(training_var).cast(int)
 
 
 def extract_evars(model, cn):
@@ -79,66 +130,212 @@ def convert_to_list(v):
 
 
 def convert_binary(data, rvar, lev):
-    cb = ifelse(data[rvar] == lev, 1, ifelse(data[rvar].isna(), np.nan, 0))
-    data = data.drop(columns=rvar).copy()
-    data.loc[:, rvar] = cb
-    return data
+    """Convert response variable to binary (0/1) based on level. Works with polars DataFrame."""
+    cb = pl.when(pl.col(rvar) == lev).then(1).when(pl.col(rvar).is_null()).then(None).otherwise(0)
+    return data.with_columns(cb.alias(rvar))
 
 
 def is_binary(series):
     """
     Efficiently check if a series has more than 2 unique values.
-    Stops checking as soon as it finds a third unique value.
+    Works with both polars Series and pandas Series.
     """
-    seen = set()
-    series = series.dropna()
-    for val in series:
-        seen.add(val)
-        if len(seen) > 2:
-            return True
-    return False
+    if isinstance(series, pl.Series):
+        return series.drop_nulls().n_unique() > 2
+    else:
+        # pandas Series
+        return series.dropna().nunique() > 2
 
 
 def check_binary(data, rvar, lev):
-    unique_levels = data[rvar].unique()
+    """Check and convert binary response variable. Works with polars DataFrame."""
+    unique_levels = data[rvar].unique().to_list()
     data = convert_binary(data, rvar, lev)
     rvar_sum = data[rvar].sum()
-    if rvar_sum == 0 or rvar_sum == data.shape[0]:
+    if rvar_sum == 0 or rvar_sum == data.height:
         raise ValueError(
-            f"All converted response values are {1 if rvar_sum == data.shape[0] else 0}. "
+            f"All converted response values are {1 if rvar_sum == data.height else 0}. "
             f"Available levels in {rvar}: {unique_levels} and '{lev}' was selected."
         )
     else:
         return data
 
 
-def conditional_get_dummies(df, drop_nonvarying=True):
-    for column in df.select_dtypes(include=["object", "category"]).columns:
-        if not is_binary(df[column]):
-            dummies = pd.get_dummies(df[column], prefix=column, drop_first=True)
+def get_dummies(
+    df: pd.DataFrame | pl.DataFrame,
+    drop_first: bool = True,
+    drop_nonvarying: bool = True,
+    categories: dict[str, list] | None = None,
+) -> pl.DataFrame:
+    """
+    Create dummy variables matching pandas get_dummies behavior.
+
+    Categories are sorted alphabetically and the first is dropped (when drop_first=True).
+    Numeric columns are placed first, dummy columns appended at end.
+
+    Parameters
+    ----------
+    df : DataFrame
+        Input data (pandas or polars)
+    drop_first : bool
+        Drop first category alphabetically (default True)
+    drop_nonvarying : bool
+        If False, preserve all categories even if not present in data.
+        Requires categories dict to know which categories to preserve.
+    categories : dict[str, list] | None
+        Category lists per column from training. Used during prediction.
+
+    Returns
+    -------
+    pl.DataFrame with dummy columns appended after non-categorical columns
+    """
+    if isinstance(df, pd.DataFrame):
+        df = pl.from_pandas(df)
+
+    cat_cols = [c for c in df.columns if df[c].dtype == pl.Utf8 or df[c].dtype == pl.Categorical]
+
+    if not cat_cols:
+        return df
+
+    # Get non-categorical columns (keep at front, like pandas)
+    non_cat_cols = [c for c in df.columns if c not in cat_cols]
+    result = df.select(non_cat_cols) if non_cat_cols else pl.DataFrame()
+
+    # When categories provided (prediction mode), create dummies directly
+    if categories:
+        for col in cat_cols:
+            if col in categories:
+                # Create dummy columns for each category in stored list
+                for cat in categories[col]:
+                    col_name = f"{col}_{cat}"
+                    dummy_col = (df[col].cast(pl.Utf8) == cat).cast(pl.UInt8).alias(col_name)
+                    result = result.with_columns(dummy_col)
+            else:
+                # Column not in categories - create dummies with alphabetical sorting
+                cats_sorted = sorted(df[col].cast(pl.Utf8).unique().drop_nulls().to_list())
+                cats_to_use = cats_sorted[1:] if drop_first else cats_sorted
+                for cat in cats_to_use:
+                    col_name = f"{col}_{cat}"
+                    dummy_col = (df[col].cast(pl.Utf8) == cat).cast(pl.UInt8).alias(col_name)
+                    result = result.with_columns(dummy_col)
+        return result
+
+    # Training mode: create dummies with alphabetical sorting (like pandas)
+    for col in cat_cols:
+        cats_sorted = sorted(df[col].cast(pl.Utf8).unique().drop_nulls().to_list())
+        cats_to_use = cats_sorted[1:] if drop_first else cats_sorted
+        for cat in cats_to_use:
+            col_name = f"{col}_{cat}"
+            dummy_col = (df[col].cast(pl.Utf8) == cat).cast(pl.UInt8).alias(col_name)
+            result = result.with_columns(dummy_col)
+
+    return result
+
+
+def conditional_get_dummies(
+    df: pd.DataFrame | pl.DataFrame,
+    drop_nonvarying: bool = True,
+    categories: dict[str, list] | None = None,
+) -> pl.DataFrame:
+    """
+    Create dummy variables conditionally (drop_first only for 3+ categories).
+
+    Parameters
+    ----------
+    df : DataFrame
+        Input data (pandas or polars)
+    drop_nonvarying : bool
+        If False, preserve all categories even if not present in data.
+        Requires categories dict to know which categories to preserve.
+    categories : dict[str, list] | None
+        Full category lists per column. Used when drop_nonvarying=False.
+
+    Returns
+    -------
+    pl.DataFrame with dummy columns replacing categorical columns
+    """
+    if isinstance(df, pd.DataFrame):
+        df = pl.from_pandas(df)
+
+    cat_cols = [c for c in df.columns if df[c].dtype == pl.Utf8 or df[c].dtype == pl.Categorical]
+
+    if not cat_cols:
+        return df
+
+    # Split into binary (keep all) and non-binary (drop first)
+    binary_cols = []
+    nonbinary_cols = []
+    for col in cat_cols:
+        n_cats = df[col].n_unique()
+        if n_cats <= 2:
+            binary_cols.append(col)
         else:
-            dummies = pd.get_dummies(df[column], prefix=column)
-        if not drop_nonvarying and len(dummies.columns) == 0:
-            dummies = pd.get_dummies(df[column], prefix=column, drop_first=False)
+            nonbinary_cols.append(col)
 
-        df = pd.concat([df.drop(column, axis=1), dummies], axis=1)
-    return df
+    # Get non-categorical columns
+    non_cat_cols = [c for c in df.columns if c not in cat_cols]
+    result = df.select(non_cat_cols) if non_cat_cols else pl.DataFrame()
+
+    # Process binary columns (keep all categories)
+    if binary_cols:
+        binary_result = get_dummies(
+            df.select(binary_cols),
+            drop_first=False,
+            drop_nonvarying=drop_nonvarying,
+            categories={k: v for k, v in (categories or {}).items() if k in binary_cols},
+        )
+        result = (
+            pl.concat([result, binary_result], how="horizontal")
+            if result.width > 0
+            else binary_result
+        )
+
+    # Process non-binary columns (drop first)
+    if nonbinary_cols:
+        nonbinary_result = get_dummies(
+            df.select(nonbinary_cols),
+            drop_first=True,
+            drop_nonvarying=drop_nonvarying,
+            categories={k: v for k, v in (categories or {}).items() if k in nonbinary_cols},
+        )
+        result = (
+            pl.concat([result, nonbinary_result], how="horizontal")
+            if result.width > 0
+            else nonbinary_result
+        )
+
+    return result
 
 
-def get_dummies(df, drop_first=True, drop_nonvarying=True):
-    for column in df.select_dtypes(include=["object", "category"]).columns:
-        dummies = pd.get_dummies(df[column], prefix=column, drop_first=drop_first)
-        if not drop_nonvarying and len(dummies.columns) == 0:
-            dummies = pd.get_dummies(df[column], prefix=column, drop_first=False)
-        df = pd.concat([df.drop(column, axis=1), dummies], axis=1)
-    return df
+# def sig_stars(pval):
+#     pval = np.nan_to_num(pval, nan=1.0)
+#     cutpoints = np.array([0.001, 0.01, 0.05, 0.1, np.inf])
+#     symbols = np.array(["***", "**", "*", ".", " "])
+#     return [symbols[p < cutpoints][0] for p in pval]
 
 
-def sig_stars(pval):
-    pval = np.nan_to_num(pval, nan=1.0)
-    cutpoints = np.array([0.001, 0.01, 0.05, 0.1, np.inf])
-    symbols = np.array(["***", "**", "*", ".", " "])
-    return [symbols[p < cutpoints][0] for p in pval]
+def sig_stars(pval) -> pl.Series:
+    """
+    pval: list of floats/None or a pl.Series
+    returns: pl.Series of significance symbols (strings)
+    """
+    # Build a DataFrame so we can use the expression API
+    df = pl.DataFrame({"pval": pval}).fill_nan(1)
+
+    # NaN -> 1.0 (like np.nan_to_num(..., nan=1.0)), null stays null
+    # Then map to significance stars using when/then/otherwise
+    return df.with_columns(
+        pl.when(pl.col("pval") < 0.001)
+        .then(pl.lit("***"))
+        .when(pl.col("pval") < 0.01)
+        .then(pl.lit("**"))
+        .when(pl.col("pval") < 0.05)
+        .then(pl.lit("*"))
+        .when(pl.col("pval") < 0.1)
+        .then(pl.lit("."))
+        .otherwise(pl.lit(" "))
+        .alias("sig")
+    )["sig"]
 
 
 def get_mfit(fitted) -> tuple[Optional[dict], Optional[str]]:
@@ -241,7 +438,7 @@ def or_ci(fitted, alpha=0.05, intercept=False, importance=False, data=None, dec=
         if sum(weights) > len(weights):
 
             def wmean(x):
-                return weighted_mean(x, weights)
+                return weighted_mean(pd.DataFrame(x), weights)[0]
 
             def wstd(x):
                 return weighted_sd(pd.DataFrame(x), weights)[0]
@@ -301,19 +498,23 @@ def or_plot(fitted, alpha=0.05, intercept=False, incl=None, excl=None, figsize=N
         df = df[~excl]
 
     low, high = [100 * alpha / 2, 100 * (1 - (alpha / 2))]
-    err = [df["OR"] - df[f"{low}%"], df[f"{high}%"] - df["OR"]]
 
-    fig = plt.figure(figsize=figsize)
-    ax = fig.add_subplot()
-    ax.axvline(1, ls="dashdot")
-    ax.errorbar(x="OR", y="index", data=df, xerr=err, fmt="none")
-    ax.scatter(x="OR", y="index", data=df)
-    ax.set_xscale("log")
-    ax.xaxis.set_minor_formatter(ticker.NullFormatter())
-    ax.xaxis.set_major_locator(ticker.LogLocator(subs=[0.1, 0.2, 0.5, 1, 2, 5, 10]))
-    ax.xaxis.set_major_formatter(ticker.StrMethodFormatter("{x:.1f}"))
-    ax.set(xlabel="Odds-ratio")
-    return ax
+    # Add columns for error bar bounds
+    df["xmin"] = df[f"{low}%"]
+    df["xmax"] = df[f"{high}%"]
+
+    # Create ordered categorical for y-axis (maintain row order)
+    df["index"] = pd.Categorical(df["index"], categories=df["index"].tolist(), ordered=True)
+
+    return (
+        ggplot(df, aes(x="OR", y="index"))
+        + geom_vline(xintercept=1, linetype="dashdot", color="gray")
+        + geom_errorbarh(aes(xmin="xmin", xmax="xmax"), height=0.2)
+        + geom_point()
+        + scale_x_log10()
+        + labs(x="Odds-ratio", y="")
+        + theme_bw()
+    )
 
 
 def vif(fitted, dec=3):
@@ -571,15 +772,22 @@ def coef_plot(
 
     low, high = [100 * alpha / 2, 100 * (1 - (alpha / 2))]
     df.columns = ["index", f"{low}%", f"{high}%", "coefficient"]
-    err = [df["coefficient"] - df[f"{low}%"], df[f"{high}%"] - df["coefficient"]]
 
-    fig = plt.figure(figsize=figsize)
-    ax = fig.add_subplot()
-    ax.axvline(0, ls="dashdot")
-    ax.errorbar(x="coefficient", y="index", data=df, xerr=err, fmt="none")
-    ax.scatter(x="coefficient", y="index", data=df)
-    ax.set(xlabel="Coefficient")
-    return ax
+    # Add columns for error bar bounds
+    df["xmin"] = df[f"{low}%"]
+    df["xmax"] = df[f"{high}%"]
+
+    # Create ordered categorical for y-axis (maintain row order)
+    df["index"] = pd.Categorical(df["index"], categories=df["index"].tolist(), ordered=True)
+
+    return (
+        ggplot(df, aes(x="coefficient", y="index"))
+        + geom_vline(xintercept=0, linetype="dashdot", color="gray")
+        + geom_errorbarh(aes(xmin="xmin", xmax="xmax"), height=0.2)
+        + geom_point()
+        + labs(x="Coefficient", y="")
+        + theme_bw()
+    )
 
 
 def coef_ci(fitted, alpha: float = 0.05, intercept: bool = True, dec: int = 3):
@@ -625,7 +833,7 @@ def evalreg(df, rvar: str, pred: str, dec: int = 3):
 
     Parameters
     ----------
-    df : Pandas DataFrame or a dictionary of DataFrames with keys to show results for
+    df : DataFrame (polars or pandas) or a dictionary of DataFrames with keys to show results for
         multiple model predictions and datasets (training and test)
     rvar : str
         Name of the response variable column in df
@@ -634,29 +842,35 @@ def evalreg(df, rvar: str, pred: str, dec: int = 3):
     dec : int
         Number of decimal places to use in rounding
 
-    Examples
-    --------
+    Returns
+    -------
+    pl.DataFrame
+        Polars DataFrame with evaluation metrics
     """
 
     dct = ifelse(isinstance(df, dict), df, {"All": df})
     pred = ifelse(isinstance(pred, str), [pred], pred)
 
     def calculate_metrics(key, dfm, pm):
-        return pd.DataFrame().assign(
-            Type=[key],
-            predictor=[pm],
-            n=[dfm.shape[0]],
-            r2=[metrics.r2_score(dfm[rvar], dfm[pm])],
-            mse=[metrics.mean_squared_error(dfm[rvar], dfm[pm])],
-            mae=[metrics.mean_absolute_error(dfm[rvar], dfm[pm])],
+        dfm = check_dataframe(dfm)
+        n = dfm.height
+        y_true = dfm[rvar].to_numpy()
+        y_pred = dfm[pm].to_numpy()
+        return pl.DataFrame(
+            {
+                "Type": [key],
+                "predictor": [pm],
+                "n": [n],
+                "r2": [metrics.r2_score(y_true, y_pred)],
+                "mse": [metrics.mean_squared_error(y_true, y_pred)],
+                "mae": [metrics.mean_absolute_error(y_true, y_pred)],
+            }
         )
 
-    result = pd.concat(
-        [calculate_metrics(key, val, p) for key, val in dct.items() for p in pred],
-        axis=0,
-    )
-    result.index = range(result.shape[0])
-    return result.round(dec)
+    result = pl.concat([calculate_metrics(key, val, p) for key, val in dct.items() for p in pred])
+    # Round numeric columns
+    numeric_cols = [c for c in result.columns if result[c].dtype == pl.Float64]
+    return result.with_columns([pl.col(c).round(dec) for c in numeric_cols])
 
 
 def reg_dashboard(fitted, nobs: int = 1000):
@@ -672,62 +886,102 @@ def reg_dashboard(fitted, nobs: int = 1000):
         The Residuals vs Order plot will only be valid
         if all observations are plotted
     """
-    fig, axes = plt.subplots(3, 2, figsize=(10, 10))
-    plt.subplots_adjust(wspace=0.25, hspace=0.4)
+    if hasattr(fitted.model, "endog"):
+        endog = fitted.model.endog
+    else:
+        endog = fitted.model["endog"]
 
-    data = pd.DataFrame().assign(
-        fitted=fitted.fittedvalues,
-        actual=fitted.model.endog,
-        resid=fitted.resid,
-        std_resid=fitted.resid / np.std(fitted.resid),
-        order=np.arange(fitted.model.endog.shape[0]),
+    data = pl.DataFrame(
+        {
+            "fitted": fitted.fittedvalues,
+            "actual": endog,
+            "resid": fitted.resid,
+            "std_resid": fitted.resid / fitted.resid.std(),
+            "order": np.arange(endog.shape[0]),
+        }
     )
 
-    if (nobs != -1 and nobs is not None) and (nobs < data.shape[0]):
-        data = data.sample(nobs)
+    if (nobs != -1 and nobs is not None) and (nobs < data.height):
+        data = data.sample(nobs, seed=1234)
 
-    sns.regplot(x="fitted", y="actual", data=data, ax=axes[0, 0]).set(
-        title="Actual vs Fitted values", xlabel="Fitted values", ylabel="Actual values"
+    # Plot 1: Actual vs Fitted values
+    p1 = (
+        ggplot(data, aes(x="fitted", y="actual"))
+        + geom_point(alpha=0.5)
+        + geom_smooth(method="lm", color="blue")
+        + labs(x="Fitted values", y="Actual values")
+        + ggtitle("Actual vs Fitted values")
+        + theme_bw()
     )
-    sns.regplot(x="fitted", y="resid", data=data, ax=axes[0, 1]).set(
-        title="Residuals vs Fitted values", xlabel="Fitted values", ylabel="Residuals"
-    )
-    sns.lineplot(x="order", y="resid", data=data, ax=axes[1, 0]).set(
-        title="Residuals vs Row order", ylabel="Residuals", xlabel=None
-    )
-    sma.qqplot(data.resid, line="s", ax=axes[1, 1])
-    axes[1, 1].title.set_text("Normal Q-Q plot")
-    pdp = data.resid.plot.hist(
-        ax=axes[2, 0],
-        title="Histogram of residuals",
-        xlabel="Residuals",
-        rot=0,
-        color="slateblue",
-    )
-    pdp.set_xlabel("Residuals")
-    sns.kdeplot(data.std_resid, color="green", fill=True, ax=axes[2, 1], common_norm=True)
 
-    # from https://stackoverflow.com/a/52925509/1974918
-    norm_x = np.arange(-3, +3, 0.01)
-    norm_y = stats.norm.pdf(norm_x)
-    sns.lineplot(x=norm_x, y=norm_y, lw=1, ax=axes[2, 1]).set(
-        title="Residuals vs Normal density", xlabel="Residuals"
+    # Plot 2: Residuals vs Fitted values
+    p2 = (
+        ggplot(data, aes(x="fitted", y="resid"))
+        + geom_point(alpha=0.5)
+        + geom_smooth(method="lm", color="blue")
+        + geom_hline(yintercept=0, linetype="dashed", color="gray")
+        + labs(x="Fitted values", y="Residuals")
+        + ggtitle("Residuals vs Fitted values")
+        + theme_bw()
     )
+
+    # Plot 3: Residuals vs Row order
+    p3 = (
+        ggplot(data, aes(x="order", y="resid"))
+        + geom_line()
+        + geom_hline(yintercept=0, linetype="dashed", color="gray")
+        + labs(x="Row order", y="Residuals")
+        + ggtitle("Residuals vs Row order")
+        + theme_bw()
+    )
+
+    # Plot 4: Q-Q plot
+    p4 = (
+        ggplot(data, aes(sample="std_resid"))
+        + stat_qq()
+        + stat_qq_line()
+        + labs(x="Theoretical quantiles", y="Sample quantiles")
+        + ggtitle("Normal Q-Q plot")
+        + theme_bw()
+    )
+
+    # Plot 5: Histogram of residuals
+    p5 = (
+        ggplot(data, aes(x="resid"))
+        + geom_histogram(fill="slateblue", color="white", bins=30)
+        + labs(x="Residuals", y="Count")
+        + ggtitle("Histogram of residuals")
+        + theme_bw()
+    )
+
+    # Plot 6: Residuals vs Normal density
+    p6 = (
+        ggplot(data, aes(x="std_resid"))
+        + geom_density(fill="green", alpha=0.5)
+        + stat_function(fun=stats.norm.pdf, color="black", size=1)
+        + labs(x="Standardized residuals", y="Density")
+        + ggtitle("Residuals vs Normal density")
+        + theme_bw()
+    )
+
+    # Compose into 3x2 grid and set figure size
+    dashboard = (p1 | p2) / (p3 | p4) / (p5 | p6) + theme(figure_size=(10, 12))
+    return dashboard
 
 
 def sim_prediction(
-    data: pd.DataFrame,
+    data: pd.DataFrame | pl.DataFrame,
     vary: list = [],
     nnv: int = 5,
     minq: float = 0,
     maxq: float = 1,
-) -> pd.DataFrame:
+) -> pl.DataFrame:
     """
     Simulate data for prediction
 
     Parameters
     ----------
-    data : Pandas DataFrame
+    data : DataFrame (polars or pandas)
     vary : List of column names or Dictionary with keys and values to use
     nnv : int
         Number of values to use to simulate the effect of a numeric variable
@@ -738,17 +992,23 @@ def sim_prediction(
 
     Returns:
     ----------
-    Pandas DataFrame with values to use for estimation
+    pl.DataFrame with values to use for prediction
     """
+    # Convert to polars
+    if isinstance(data, pd.DataFrame):
+        data = pl.from_pandas(data)
 
-    def fix_value(s):
-        if pd.api.types.is_numeric_dtype(s.dtype):
-            return s.mean()
+    def fix_value(col_name):
+        col = data[col_name]
+        if col.dtype.is_numeric():
+            return col.mean()
         else:
-            return s.value_counts().idxmax()
+            # Get most common value
+            return col.value_counts().sort("count", descending=True)[0, col_name]
 
-    dct = {c: [fix_value(data[c])] for c in data.columns}
-    dt = data.dtypes
+    dct = {c: [fix_value(c)] for c in data.columns}
+    schema = {c: data[c].dtype for c in data.columns}
+
     if isinstance(vary, dict):
         # user provided values and ranges
         for key, val in vary.items():
@@ -757,20 +1017,19 @@ def sim_prediction(
         # auto derived values and ranges
         vary = ifelse(isinstance(vary, str), [vary], vary)
         for v in vary:
-            if pd.api.types.is_numeric_dtype(data[v].dtype):
-                nu = data[v].nunique()
+            col = data[v]
+            if col.dtype.is_numeric():
+                nu = col.n_unique()
                 if nu > 2:
-                    dct[v] = np.linspace(
-                        np.quantile(data[v], minq),
-                        np.quantile(data[v], maxq),
-                        min([nu, nnv]),
-                    )
+                    min_val = col.quantile(minq)
+                    max_val = col.quantile(maxq)
+                    dct[v] = np.linspace(min_val, max_val, min([nu, nnv])).tolist()
                 else:
-                    dct[v] = [data[v].min(), data[v].max()]
+                    dct[v] = [col.min(), col.max()]
             else:
-                dct[v] = data[v].unique()
+                dct[v] = col.unique().to_list()
 
-    return expand_grid(dct, dt)
+    return expand_grid(dct, schema)
 
 
 def scatter_plot(fitted, df, nobs: int = 1000, figsize: tuple = None, resid=False) -> None:
@@ -780,79 +1039,93 @@ def scatter_plot(fitted, df, nobs: int = 1000, figsize: tuple = None, resid=Fals
     Parameters
     ----------
     fitted : A fitted linear regression model
-    df : Pandas DataFrame
+    df : DataFrame (polars or pandas)
         Data frame with explanatory and response variables
     nobs : int
         Number of observations to use for the scatter plots. The default
         value is 1,000. To use all observations in the plots, use nobs=-1
     figsize : tuple
-        A tuple that determines the figure size. If None, size is
-        determined based on the number of variables in the model
+        A tuple that determines the figure size (ignored, kept for compatibility)
     resid : bool
         If True, use residuals as the response variable
     """
+    # Convert to polars
+    if isinstance(df, pd.DataFrame):
+        df = pl.from_pandas(df)
 
     exog_names = extract_evars(fitted.model, df.columns)
 
     if resid:
-        endog = fitted.resid
         endog_name = "residuals"
-        if df.shape[0] != endog.shape[0]:
+        if df.height != len(fitted.resid):
             raise ValueError(
                 "The number of observations in the fitted model and the data frame must be the same"
             )
-        else:
-            df = pd.concat(
-                [
-                    pd.DataFrame({endog_name: endog}),
-                    df[exog_names].copy().reset_index(drop=True),
-                ],
-                axis=1,
-            )
+        df = df.select(exog_names).with_columns(pl.Series(endog_name, fitted.resid))
     else:
         endog_name = extract_rvar(fitted.model, df.columns)
-        df = df[[endog_name] + exog_names].copy()
+        df = df.select([endog_name] + exog_names)
 
-    nr_plots = len(exog_names)
-    if figsize is None:
-        figsize = (10, 2 * max(nr_plots, 4))
+    if nobs < df.height and nobs != np.inf and nobs != -1:
+        df = df.sample(nobs, seed=1234)
 
-    fig, ax = plt.subplots(max(ceil(nr_plots / 2), 2), 2, figsize=figsize)
-    plt.subplots_adjust(wspace=0.25, hspace=0.25)
-
-    idx = 0
-
-    if nobs < df.shape[0] and nobs != np.inf and nobs != -1:
-        df = df.copy().sample(nobs)
-
-    while idx < nr_plots:
-        row = idx // 2
-        col = idx % 2
-        exog_name = exog_names[idx]
-        if pd.api.types.is_numeric_dtype(df[exog_name].dtype):
-            fig = sns.scatterplot(x=exog_name, y=endog_name, data=df, ax=ax[row, col])
+    plots = []
+    for exog_name in exog_names:
+        col = df[exog_name]
+        if col.dtype.is_numeric():
+            # Scatter plot for numeric variables
+            p = (
+                ggplot(df, aes(x=exog_name, y=endog_name))
+                + geom_point(alpha=0.5)
+                + labs(x=exog_name, y=endog_name)
+                + theme_bw()
+            )
         else:
-            fig = sns.stripplot(x=exog_name, y=endog_name, data=df, ax=ax[row, col])
-            means = df.groupby(exog_name, observed=False)[endog_name].mean()
-            levels = list(means.index)
-            # Loop over categories
-            for pos, cat in enumerate(levels):
-                # Add a line for the mean
-                ax[row, col].plot(
-                    [pos - 0.5, pos + 0.5],
-                    [means.iloc[pos], means.iloc[pos]],
+            # Jitter plot for categorical variables with mean lines
+            means_df = df.group_by(exog_name).agg(pl.col(endog_name).mean().alias("mean"))
+
+            p = (
+                ggplot(df, aes(x=exog_name, y=endog_name))
+                + geom_jitter(alpha=0.5, width=0.2)
+                + geom_point(
+                    data=means_df,
+                    mapping=aes(x=exog_name, y="mean"),
                     color="blue",
+                    size=3,
                 )
+                + geom_segment(
+                    data=means_df,
+                    mapping=aes(x=exog_name, xend=exog_name, y="mean", yend="mean"),
+                    color="blue",
+                    size=2,
+                )
+                + labs(x=exog_name, y=endog_name)
+                + theme_bw()
+            )
+        plots.append(p)
 
-        idx += 1
+    # Compose plots into a grid (2 columns)
+    if len(plots) == 1:
+        result = plots[0]
+    else:
+        # Build rows of 2 plots each
+        rows = []
+        for i in range(0, len(plots), 2):
+            if i + 1 < len(plots):
+                rows.append(plots[i] | plots[i + 1])
+            else:
+                rows.append(plots[i])
 
-    if nr_plots < 3:
-        ax[-1, -1].remove()
-        ax[-1, 0].remove()
-        if nr_plots == 1:
-            ax[0, -1].remove()
-    elif nr_plots % 2 == 1:
-        ax[-1, -1].remove()
+        # Stack rows vertically
+        result = rows[0]
+        for row in rows[1:]:
+            result = result / row
+
+        # Set figure size for composition
+        nr_rows = len(rows)
+        result = result + theme(figure_size=(10, 3 * nr_rows))
+
+    return result
 
 
 def residual_plot(
@@ -875,7 +1148,7 @@ def residual_plot(
         determined based on the number of variables in the model
     """
 
-    scatter_plot(fitted, df, nobs=nobs, figsize=figsize, resid=True)
+    return scatter_plot(fitted, df, nobs=nobs, figsize=figsize, resid=True)
 
 
 def cross_validation(
@@ -964,3 +1237,6 @@ def cross_validation(
         )
 
     return cv
+
+
+# %%

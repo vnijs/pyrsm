@@ -1,9 +1,7 @@
 from typing import Optional, Literal
 import pandas as pd
 import polars as pl
-import matplotlib
 
-matplotlib.use("Agg")  # Use non-interactive backend
 import matplotlib.pyplot as plt
 from math import sqrt, log2
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
@@ -64,6 +62,8 @@ class rforest:
         else:
             self.data = data
             self.name = "Not provided"
+
+        # Store as polars internally
         self.data = check_dataframe(self.data)
         self.rvar = rvar
         self.lev = lev
@@ -78,15 +78,19 @@ class rforest:
         self.ml_model = {"model": "rforest", "mod_type": mod_type}
         self.sample_weight = sample_weight
         self.kwargs = kwargs
-        self.nobs_all = self.data.shape[0]
-        self.data = self.data[[self.rvar] + self.evar].dropna()
-        self.nobs = self.data.shape[0]
-        self.nobs_dropped = self.nobs_all - self.nobs
+        self.nobs_all = self.data.height
 
+        # Apply binary conversion on polars DataFrame
         if self.mod_type == "classification":
             if self.lev is not None and self.rvar is not None:
                 self.data = check_binary(self.data, self.rvar, self.lev)
 
+        # Drop nulls and get training data
+        training_data = self.data.select([self.rvar] + self.evar).drop_nulls()
+        self.nobs = training_data.height
+        self.nobs_dropped = self.nobs_all - self.nobs
+
+        if self.mod_type == "classification":
             self.rf = RandomForestClassifier(
                 n_estimators=self.n_estimators,
                 min_samples_leaf=self.min_samples_leaf,
@@ -104,12 +108,33 @@ class rforest:
                 random_state=self.random_state,
                 **kwargs,
             )
-        # only use drop_first=True for a decision tree where the categorical
-        # variables are only binary
-        self.data_onehot = conditional_get_dummies(self.data[self.evar])
-        self.n_features = [len(evar), self.data_onehot.shape[1]]
+
+        # Convert to pandas for sklearn
+        training_pd = training_data.to_pandas()
+
+        # Identify categorical columns for one-hot encoding
+        cat_cols = [
+            c
+            for c in self.evar
+            if training_pd[c].dtype == "object" or training_pd[c].dtype.name == "category"
+        ]
+
+        # conditional_get_dummies returns polars DataFrame
+        self.data_onehot = conditional_get_dummies(training_pd[self.evar])
+        self.n_features = [len(evar), self.data_onehot.width]
+
+        # Derive categories from dummy column names (after conditional drop_first)
+        self.categories = {}
+        for col in cat_cols:
+            prefix = f"{col}_"
+            self.categories[col] = [
+                c.replace(prefix, "") for c in self.data_onehot.columns if c.startswith(prefix)
+            ]
+        self._rvar = training_pd[self.rvar]  # Store response for summary/oob
+
+        # .to_pandas() at sklearn call site
         self.fitted = self.rf.fit(
-            self.data_onehot, self.data[self.rvar], sample_weight=self.sample_weight
+            self.data_onehot.to_pandas(), self._rvar, sample_weight=self.sample_weight
         )
 
     def summary(self, dec=3) -> None:
@@ -150,19 +175,20 @@ class rforest:
         print(f"random_state         : {self.random_state}")
         if self.mod_type == "classification":
             cpred = self.fitted.oob_decision_function_[:, 1]
-            print(f"AUC                  : {round(auc(self.data[self.rvar], cpred), dec)}")
+            print(f"AUC                  : {round(auc(self._rvar, cpred), dec)}")
         else:
             print("Model fit            :")
             print(
                 evalreg(
                     pd.DataFrame().assign(
-                        rvar=self.data[[self.rvar]],
+                        rvar=self._rvar,
                         prediction=self.fitted.oob_prediction_,
                     ),
                     "rvar",
                     "prediction",
                     dec=dec,
                 )
+                .to_pandas()
                 .T[2:]
                 .rename(columns={0: " "})
                 .T.to_string()
@@ -172,11 +198,22 @@ class rforest:
             kwargs_list = [f"{k}={v}" for k, v in self.kwargs.items()]
             print(f"Extra arguments      : {', '.join(kwargs_list)}")
         print("\nEstimation data      :")
-        print(self.data_onehot.head().to_string(index=False))
+        print(self.data_onehot.head())
 
-    def predict(self, data=None, cmd=None, data_cmd=None) -> pd.DataFrame:
+    def predict(self, data=None, cmd=None, data_cmd=None, dec=None) -> pl.DataFrame:
         """
         Predict probabilities or values for a random forest model
+
+        Parameters
+        ----------
+        dec : int, optional
+            Number of decimal places to round float columns in the output.
+            If None (default), no rounding is applied.
+
+        Returns
+        -------
+        pl.DataFrame
+            DataFrame containing the predictions and the data used to make those predictions.
         """
         if (
             data is None
@@ -184,39 +221,52 @@ class rforest:
             and (data_cmd is None or data_cmd == "")
             and (cmd is None or cmd == "")
         ):
-            data = self.data.loc[:, self.evar].copy()
+            pred_data = self.data.select(self.evar)
             if self.mod_type == "classification":
-                pred = self.fitted.oob_decision_function_[:, 1]
+                predictions = self.fitted.oob_decision_function_[:, 1]
             else:
-                pred = self.fitted.oob_prediction_
+                predictions = self.fitted.oob_prediction_
 
-            return data.assign(prediction=pred)
-        elif data is None:
-            data = self.data.loc[:, self.evar].copy()
+            pred = pred_data.with_columns(pl.lit(predictions).alias("prediction"))
         else:
-            data = data.loc[:, self.evar].copy()
+            if data is None:
+                pred_data = self.data.select(self.evar)
+            else:
+                pred_data = check_dataframe(data).select(self.evar)
 
-        if data_cmd is not None and data_cmd != "":
-            for k, v in data_cmd.items():
-                data[k] = v
-        elif cmd is not None and cmd != "":
-            cmd = {k: ifelse(isinstance(v, str), [v], v) for k, v in cmd.items()}
-            data = sim_prediction(data=data, vary=cmd)
+            if data_cmd is not None and data_cmd != "":
+                pred_data = pred_data.with_columns(
+                    [pl.lit(v).alias(k) for k, v in data_cmd.items()]
+                )
+            elif cmd is not None and cmd != "":
+                cmd = {k: ifelse(isinstance(v, str), [v], v) for k, v in cmd.items()}
+                pred_data = sim_prediction(data=pred_data, vary=cmd)
 
-        # only dropping the first level for binary categorical variables
-        data_onehot = conditional_get_dummies(data, drop_nonvarying=False)
+            # Convert to pandas for sklearn
+            pred_data_pd = pred_data.to_pandas()
 
-        # adding back levels for categorical variables is they were removed
-        if data_onehot.shape[1] != self.data_onehot.shape[1]:
-            for k in setdiff(self.data_onehot.columns, data_onehot.columns):
-                data_onehot[k] = False
-            data_onehot = data_onehot[self.data_onehot.columns]
+            # Use categories to preserve all levels
+            data_onehot = conditional_get_dummies(
+                pred_data_pd, drop_nonvarying=False, categories=self.categories
+            )
 
-        if self.mod_type == "classification":
-            return data.assign(prediction=self.fitted.predict_proba(data_onehot)[:, -1])
+            # .to_pandas() at sklearn call site
+            if self.mod_type == "classification":
+                predictions = self.fitted.predict_proba(data_onehot.to_pandas())[:, -1]
+            else:
+                predictions = self.fitted.predict(data_onehot.to_pandas())
 
-        else:
-            return data.assign(prediction=self.fitted.predict(data_onehot))
+            pred = pred_data.with_columns(pl.lit(predictions).alias("prediction"))
+
+        if dec is not None:
+            pred = pred.with_columns(
+                [
+                    pl.col(c).round(dec)
+                    for c in pred.columns
+                    if pred[c].dtype in [pl.Float64, pl.Float32]
+                ]
+            )
+        return pred
 
     def plot(
         self,
@@ -232,7 +282,6 @@ class rforest:
         minq=0.025,
         maxq=0.975,
         figsize=None,
-        ax=None,
         ret=None,
     ) -> None:
         """
@@ -262,8 +311,6 @@ class rforest:
             Maximum quantile of the explanatory variable values to use to calculate and plot predictions.
         figsize : tuple[int, int], default None
             Figure size for the plots in inches (e.g., "(3, 6)"). Relevant for 'corr', 'scatter', 'residual', and 'coef' plots.
-        ax : plt.Axes, optional
-            Axes object to plot on.
         ret : bool, optional
             Whether to return the variable (permutation) importance scores for a "vimp" plot.
 
@@ -274,16 +321,21 @@ class rforest:
         incl_int = convert_to_list(incl_int)
 
         if data is None:
-            data = self.data
+            plot_data = self.data
         else:
-            data = check_dataframe(data)
-        if self.rvar in data.columns:
-            data = data[[self.rvar] + self.evar].copy()
+            plot_data = check_dataframe(data)
+
+        # Select relevant columns
+        if self.rvar in plot_data.columns:
+            plot_data = plot_data.select([self.rvar] + self.evar)
         else:
-            data = data[self.evar].copy()
+            plot_data = plot_data.select(self.evar)
+
+        # Convert to pandas for plotting (seaborn/matplotlib)
+        data = plot_data.to_pandas()
 
         if "pred" in plots:
-            pred_plot_sk(
+            return pred_plot_sk(
                 self.fitted,
                 data=data,
                 rvar=self.rvar,
@@ -302,37 +354,40 @@ class rforest:
                 figsize = (8, len(self.data_onehot.columns) * 2)
             fig, ax = plt.subplots(figsize=figsize)
             ax.set_title("Partial Dependence Plots")
-            fig = pdp.from_estimator(
-                self.fitted, self.data_onehot, self.data_onehot.columns, ax=ax, n_cols=2
+            pdp.from_estimator(
+                self.fitted, self.data_onehot.to_pandas(), self.data_onehot.columns, ax=ax, n_cols=2
             )
+            plt.show()
+            plt.close()
 
         if "vimp" in plots or "pimp" in plots:
-            return_vimp = vimp_plot_sk(
+            (return_vimp, p) = vimp_plot_sk(
                 self,
                 rep=5,
-                ax=ax,
                 ret=ret,
             )
 
             if ret:
                 return return_vimp
+            return p
 
         if "vimp_sklearn" in plots or "pimp_sklearn" in plots:
-            return_vimp = vimp_plot_sklearn(
+            (p, return_vimp) = vimp_plot_sklearn(
                 self.fitted,
-                self.data_onehot,
-                self.data[self.rvar],
+                self.data_onehot.to_pandas(),
+                self._rvar,
                 rep=5,
-                ax=ax,
                 ret=ret,
             )
 
             if ret:
                 return return_vimp
+            return p
 
         if "dashboard" in plots and self.mod_type == "regression":
             model = self.fitted
-            model.fittedvalues = self.predict()["prediction"]
-            model.resid = self.data[self.rvar] - model.fittedvalues
-            model.model = pd.DataFrame({"endog": self.data[self.rvar]})
-            reg_dashboard(model, nobs=nobs)
+            pred_df = self.predict()
+            model.fittedvalues = pred_df["prediction"]
+            model.resid = self._rvar.values - model.fittedvalues
+            model.model = pl.DataFrame({"endog": self._rvar})
+            return reg_dashboard(model, nobs=nobs)

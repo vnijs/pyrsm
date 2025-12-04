@@ -26,11 +26,14 @@ EXPLORE_FUNCTIONS = {
     "median": lambda col: pl.col(col).median(),
     "sum": lambda col: pl.col(col).sum(),
     "std": lambda col: pl.col(col).std(),
+    "sd": lambda col: pl.col(col).std(),  # Alias for std (R-style)
     "var": lambda col: pl.col(col).var(),
     "min": lambda col: pl.col(col).min(),
     "max": lambda col: pl.col(col).max(),
     "count": lambda col: pl.col(col).count(),
+    "n": lambda col: pl.col(col).count(),  # Alias for count
     "n_unique": lambda col: pl.col(col).n_unique(),
+    "n_missing": lambda col: pl.col(col).null_count(),  # Alias for null_count
     "null_count": lambda col: pl.col(col).null_count(),
 }
 
@@ -106,8 +109,18 @@ def explore(
 
     # Execute with or without grouping
     if by:
-        result = lf.group_by(by).agg(exprs)
+        result = lf.group_by(by).agg(exprs).collect()
     else:
-        result = lf.select(exprs)
+        # Without grouping: transpose to have stats as rows, variables as columns
+        wide_result = lf.select(exprs).collect()
 
-    return result.collect()
+        # Build transposed table: rows = stats, columns = variables
+        rows = []
+        for fun in funs:
+            row = {"statistic": fun}
+            for col in cols:
+                row[col] = wide_result[f"{col}_{fun}"][0]
+            rows.append(row)
+        result = pl.DataFrame(rows)
+
+    return result

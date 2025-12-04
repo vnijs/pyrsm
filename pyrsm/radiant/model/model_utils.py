@@ -2,9 +2,7 @@ import io
 import sys
 from contextlib import redirect_stderr, redirect_stdout
 
-import matplotlib
 
-matplotlib.use("Agg")  # Use non-interactive backend
 import matplotlib.pyplot as plt
 
 import numpy as np
@@ -351,6 +349,9 @@ def make_summary(self, input, output, session, show_code, estimate, ret, sum_fun
             ):
                 args["test"] = list(input.evar_test())
 
+            # Force plain text output for Shiny (styled tables don't render in text output)
+            args["plain"] = True
+
             args_string = ru.drop_default_args(args, sum_fun)
             return f"""{ret}.summary({args_string})"""
 
@@ -425,7 +426,7 @@ def make_predict(self, input, output, session, show_code, estimate, ret, pred_fu
                 pred = pred[:100_000]
                 summary += " (100K rows shown)"
 
-            return render.DataTable(pred.round(3), summary=summary)
+            return render.DataTable(pred, summary=summary)
         else:
             return None
 
@@ -466,10 +467,23 @@ def make_plot(self, input, output, session, show_code, estimate, ret, pc=None):
     def gen_plot():
         local_namespace = {ret: estimate()}
 
-        eval(f"""{plot_code()}""", globals(), local_namespace)
-        fig = plt.gcf()
-        width, height = fig.get_size_inches()  # Get the size in inches
-        return fig, width * 96, height * 96
+        p = eval(f"""{plot_code()}""", globals(), local_namespace)
+
+        # Handle plotnine objects - need to draw() to get matplotlib figure
+        if hasattr(p, "draw"):
+            # Plotnine ggplot object - draw to create matplotlib figure
+            fig = p.draw()
+            width, height = fig.get_size_inches()
+        elif hasattr(p, "figure"):
+            # Object with figure attribute
+            fig = p.figure
+            width, height = fig.get_size_inches()
+        else:
+            # Matplotlib figure or fallback
+            fig = plt.gcf()
+            width, height = fig.get_size_inches()
+
+        return p, width * 96, height * 96
 
     @output(id="plot")
     @render.plot
@@ -482,7 +496,7 @@ def make_plot(self, input, output, session, show_code, estimate, ret, pc=None):
     @render.ui
     def plot_container():
         req(estimate(), input.plots())
-        width, height = gen_plot()[1:]
+        _, width, height = gen_plot()
         aspect_ratio = height / width
         # return ui.output_plot("plot", height=f"{height}px", width=f"{width}px")
         return ui.div(

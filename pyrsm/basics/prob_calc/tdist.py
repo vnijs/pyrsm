@@ -1,6 +1,6 @@
 import numpy as np
 from scipy import stats
-from .utils import iround, check, make_colors_continuous
+from .utils import iround, check, plot_continuous
 
 
 def prob_tdist(df, lb=None, ub=None, plb=None, pub=None):
@@ -113,4 +113,4 @@ def plot_prob_tdist(dct, type="values"):
         lb, ub = dct["v_lb"], dct["v_ub"]
     x_range = np.linspace(-3, 3, 1000)
     y_range = stats.t.pdf(x_range, dct["df"])
-    make_colors_continuous(ub, lb, x_range, y_range)
+    return plot_continuous(x_range, y_range, lb, ub, title="t Distribution")

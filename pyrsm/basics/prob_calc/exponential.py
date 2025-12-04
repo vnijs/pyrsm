@@ -1,6 +1,6 @@
 import numpy as np
 from scipy import stats
-from .utils import iround, check, make_colors_continuous
+from .utils import iround, check, plot_continuous
 
 
 def prob_expo(rate, lb=None, ub=None, plb=None, pub=None):
@@ -114,4 +114,4 @@ def plot_prob_expo(dct, type="values"):
     rate = dct["rate"]
     x_range = np.linspace(0, stats.expon.ppf(0.99, scale=1 / rate), 1000)
     y_range = stats.expon.pdf(x_range, scale=1 / rate)
-    make_colors_continuous(ub, lb, x_range, y_range)
+    return plot_continuous(x_range, y_range, lb, ub, title="Exponential Distribution")

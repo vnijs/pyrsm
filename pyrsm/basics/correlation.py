@@ -1,26 +1,22 @@
 from typing import Optional, Union
 
-import matplotlib
-
-matplotlib.use("Agg")  # Use non-interactive backend
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import polars as pl
-import seaborn as sns
 from scipy import stats
 
 from pyrsm.model.model import sig_stars
 from pyrsm.utils import check_dataframe
+import pyrsm.basics.display_utils as du
 
 
 class correlation:
     """
-    Calculate correlations between numeric variables in a Pandas dataframe
+    Calculate correlations between numeric variables in a Polars dataframe
 
     Parameters
     ----------
-    data : Pandas dataframe with numeric variables
+    data : Polars dataframe with numeric variables
 
     Returns
     -------
@@ -31,17 +27,16 @@ class correlation:
 
     Examples
     --------
-    import pandas as pd
     import pyrsm as rsm
     salary, salary_description = rsm.load_data(pkg="basics", name="salary")
-    cr = rsm.correlation(salary[["salary", "yrs.since.phd", "yrs.service"]])
+    cr = rsm.correlation(salary.select(["salary", "yrs.since.phd", "yrs.service"]))
     cr.cr
     """
 
     def __init__(
         self,
-        data: pd.DataFrame | pl.DataFrame | dict[str, pd.DataFrame | pl.DataFrame],
-        vars: Optional[list[str]] = [],
+        data: pl.DataFrame | dict[str, pl.DataFrame],
+        vars: list[str] | None = [],
         method: str = "pearson",
     ) -> None:
         if isinstance(data, dict):
@@ -54,12 +49,9 @@ class correlation:
         self.data = check_dataframe(self.data)
         self.vars = vars
         if len(self.vars) == 0:
-            self.vars = [
-                col
-                for col in self.data.columns
-                if pd.api.types.is_numeric_dtype(self.data[col].dtype)
-            ]
-        self.data = self.data[self.vars].copy()
+            self.vars = [col for col, dtype in self.data.schema.items() if dtype.is_numeric()]
+
+        self.data = self.data.select(self.vars)
         self.method = method
 
         ncol = self.data.shape[1]
@@ -68,21 +60,28 @@ class correlation:
         cv = cr.copy()
         for i in range(ncol - 1):
             for j in range(i + 1, ncol):
-                cdf = self.data.iloc[:, [i, j]]
-                # pairwise deletion
-                cdf = cdf[~np.any(np.isnan(cdf), axis=1)]
-                # convert bool to int to avoid errors in scipy
-                cdf = cdf.astype({col: int for col in cdf.columns if cdf[col].dtype == bool})
+                x = self.data.select(self.vars[i]).to_series().to_numpy()
+                y = self.data.select(self.vars[j]).to_series().to_numpy()
+                mask = ~(np.isnan(x) | np.isnan(y))
+                x = x[mask]
+                y = y[mask]
+                if x.dtype == bool:
+                    x = x.astype(int)
+                if y.dtype == bool:
+                    y = y.astype(int)
                 if self.method == "spearman":
-                    c = stats.spearmanr(cdf.iloc[:, 0], cdf.iloc[:, 1])
+                    c = stats.spearmanr(x, y)
                 elif self.method == "kendall":
-                    c = stats.kendalltau(cdf.iloc[:, 0], cdf.iloc[:, 1])
+                    c = stats.kendalltau(x, y)
                 else:
-                    c = stats.pearsonr(cdf.iloc[:, 0], cdf.iloc[:, 1])
+                    c = stats.pearsonr(x, y)
 
                 cr[j, i] = c[0]
                 cp[j, i] = c[1]
-                cv[j, i] = cdf.iloc[:, [0, 1]].cov().iloc[0, 1]
+                cv[j, i] = np.cov(x, y, ddof=1)[0, 1]
+                cr[i, j] = cr[j, i]
+                cp[i, j] = cp[j, i]
+                cv[i, j] = cv[j, i]
 
         self.cr = cr
         self.cp = cp
@@ -90,7 +89,7 @@ class correlation:
 
     def summary(self, cov=False, cutoff: float = 0, dec: int = 2) -> None:
         """
-        Print correlations between numeric variables in a Pandas dataframe
+        Print correlations between numeric variables in a Polars dataframe
 
         Parameters
         ----------
@@ -103,65 +102,140 @@ class correlation:
 
         Examples
         --------
-        import pandas as pd
         import pyrsm as rsm
-        salary, salary_description = load_data(pkg="basics", name="salary")
-        cr = rsm.correlation(salary[["salary", "yrs.since.phd", "yrs.service"]])
+        salary, salary_description = rsm.load_data(pkg="basics", name="salary")
+        cr = rsm.correlation(salary.select(["salary", "yrs.since.phd", "yrs.service"]))
         cr.summary()
         """
+        self._summary_header()
+        if len(self.vars) < 2:
+            print("\n**Select two or more variables to calculate correlations**")
+            return
+
+        self._print_hypothesis_info(cutoff)
+
+        if du.is_notebook():
+            self._style_tables(cov=cov, cutoff=cutoff, dec=dec)
+        else:
+            self._summary_plain(cov=cov, cutoff=cutoff, dec=dec)
+
+    def _summary_header(self) -> None:
+        """Print the summary header."""
         prn = "Correlation\n"
         prn += f"Data     : {self.name}\n"
         prn += f"Method   : {self.method}"
         print(prn)
-        if len(self.vars) < 2:
-            print("\n**Select two or more variables to calculate correlations**")
+
+    def _print_hypothesis_info(self, cutoff: float) -> None:
+        """Print hypothesis and variable information."""
+        cn = list(self.data.columns)
+        if len(cn) > 2:
+            x, y = "x", "y"
         else:
-            ind = np.triu_indices(self.cr.shape[0])
-            cn = list(self.data.columns)
+            x, y = cn[0], cn[1]
 
-            # correlations
-            crs = pd.DataFrame(self.cr.round(dec).astype(str), columns=cn, index=cn)
-            if cutoff > 0:
-                crs.values[np.abs(self.cr) < cutoff] = ""
-            crs.values[ind] = ""
+        prn = f"Cutoff   : {cutoff}\n"
+        prn += "Variables: " + ", ".join(cn) + "\n"
+        prn += f"Null hyp.: variables {x} and {y} are not correlated\n"
+        prn += f"Alt. hyp.: variables {x} and {y} are correlated\n"
+        print(prn)
 
-            # p.values
-            cps = pd.DataFrame(self.cp.round(dec).astype(str), columns=cn, index=cn)
-            if cutoff > 0:
-                cps.values[np.abs(self.cr) < cutoff] = ""
-            cps.values[ind] = ""
+    def _build_matrix_displays(self, cutoff: float, dec: int):
+        """Build correlation, p-value, and covariance display DataFrames."""
+        ind = np.triu_indices(self.cr.shape[0])
+        cn = list(self.data.columns)
 
-            if len(cn) > 2:
-                x = "x"
-                y = "y"
-            else:
-                x = cn[0]
-                y = cn[1]
+        # Build correlation matrix
+        crs_arr = self.cr.round(dec).astype(str)
+        if cutoff > 0:
+            crs_arr[np.abs(self.cr) < cutoff] = ""
+        crs_arr[ind] = ""
 
-            prn = f"Cutoff   : {cutoff}\n"
-            prn += "Variables: " + ", ".join(cn) + "\n"
-            prn += f"Null hyp.: variables {x} and {y} are not correlated\n"
-            prn += f"Alt. hyp.: variables {x} and {y} are correlated\n"
-            print(prn)
+        # Build p-value matrix
+        cps_arr = self.cp.round(dec).astype(str)
+        if cutoff > 0:
+            cps_arr[np.abs(self.cr) < cutoff] = ""
+        cps_arr[ind] = ""
+
+        # Create polars DataFrames
+        crs_display = pl.DataFrame(
+            {cn[j]: crs_arr[1:, j] for j in range(len(cn) - 1)}
+        ).with_columns(pl.Series("", cn[1:]).alias(""))
+        crs_display = crs_display.select([""] + cn[:-1])
+
+        cps_display = pl.DataFrame(
+            {cn[j]: cps_arr[1:, j] for j in range(len(cn) - 1)}
+        ).with_columns(pl.Series("", cn[1:]).alias(""))
+        cps_display = cps_display.select([""] + cn[:-1])
+
+        # Build covariance matrix
+        cvs_arr = np.round(self.cv, dec)
+        cvs_str = np.array([["{:,}".format(v) for v in row] for row in cvs_arr])
+        if cutoff > 0:
+            cvs_str[np.abs(self.cr) < cutoff] = ""
+        cvs_str[ind[0], ind[1]] = ""
+
+        cvs_display = pl.DataFrame(
+            {cn[j]: cvs_str[1:, j] for j in range(len(cn) - 1)}
+        ).with_columns(pl.Series("", cn[1:]).alias(""))
+        cvs_display = cvs_display.select([""] + cn[:-1])
+
+        return crs_display, cps_display, cvs_display
+
+    def _summary_plain(self, cov: bool = False, cutoff: float = 0, dec: int = 2) -> None:
+        """Print plain text tables."""
+        crs_display, cps_display, cvs_display = self._build_matrix_displays(cutoff, dec)
+
+        with pl.Config(
+            tbl_hide_column_data_types=True,
+            tbl_hide_dataframe_shape=True,
+            fmt_str_lengths=100,
+        ):
             print("Correlation matrix:")
-            print(crs.iloc[1:, :-1])
+            print(crs_display)
             print("\np.values:")
-            print(cps.iloc[1:, :-1])
+            print(cps_display)
 
             if cov:
-                cvs = pd.DataFrame(self.cv.round(dec), columns=cn, index=cn).map(
-                    lambda x: "{:,}".format(x)
-                )
-                if cutoff > 0:
-                    cvs.values[np.abs(self.cr) < cutoff] = ""
-
-                cvs.values[ind[0], ind[1]] = ""
                 print("\nCovariance matrix:")
-                print(cvs.iloc[1:, :-1])
+                print(cvs_display)
+
+    def _style_tables(self, cov: bool = False, cutoff: float = 0, dec: int = 2) -> None:
+        """Display styled tables using great_tables in Jupyter."""
+        from IPython.display import display
+
+        crs_display, cps_display, cvs_display = self._build_matrix_displays(cutoff, dec)
+
+        gt1 = du.style_table(
+            crs_display,
+            title="Correlation Matrix",
+            subtitle=f"Method: {self.method}",
+        )
+        gt2 = du.style_table(
+            cps_display,
+            title="P-values",
+            subtitle="",
+        )
+
+        display(gt1)
+        display(gt2)
+
+        if cov:
+            gt3 = du.style_table(
+                cvs_display,
+                title="Covariance Matrix",
+                subtitle="",
+            )
+            display(gt3)
 
     def plot(self, nobs: int = 1000, dec: int = 2, figsize: tuple[float, float] = None):
         """
-        Plot of correlations between numeric variables in a Pandas dataframe
+        Plot scatter matrix of correlations between numeric variables.
+
+        Displays a matrix with:
+        - Diagonal: variable names
+        - Lower triangle: scatter plots with regression lines
+        - Upper triangle: correlation coefficients with significance stars
 
         Parameters
         ----------
@@ -172,25 +246,26 @@ class correlation:
             Number of decimal places to use in rounding
         figsize : tuple
             A tuple that determines the figure size. If None, size is
-            determined based on the number of numeric variables in the
-            data
+            determined based on the number of numeric variables in the data
+
+        Returns
+        -------
+        tuple
+            (Figure, Axes) matplotlib objects
 
         Examples
         --------
-        import pandas as pd
         import pyrsm as rsm
-        rsm.(pkg="basics", name="salary", dct=globals())
-        cr = rsm.correlation(salary[["salary", "yrs.since.phd", "yrs.service"]])
-        cr.plot(figsize=(7, 3))
+        salary, _ = rsm.load_data(pkg="basics", name="salary")
+        cr = rsm.correlation(salary.select(["salary", "yrs_since_phd", "yrs_service"]))
+        cr.plot(figsize=(7, 7))
         """
-
         if figsize is None:
             figsize = (max(5, self.cr.shape[0]), max(self.cr.shape[0], 5))
 
         def cor_label(label, longest, ax_sub):
             ax_sub.axes.xaxis.set_visible(False)
             ax_sub.axes.yaxis.set_visible(False)
-            # set font size to avoid exceeding boundaries
             fs = min(figsize[0], figsize[1])
             font = (80 * fs) / (len(longest) * self.cr.shape[0])
             ax_sub.text(
@@ -205,7 +280,6 @@ class correlation:
         def cor_text(r, p, ax_sub, dec=2):
             if np.isnan(p):
                 p = 1
-
             p = round(p, dec)
             rt = round(r, dec)
             p_star = sig_stars([p])[0]
@@ -235,40 +309,54 @@ class correlation:
             )
 
         def cor_plot(x_data, y_data, ax_sub, s_size):
-            sns.regplot(
-                x=x_data,
-                y=y_data,
-                ax=ax_sub,
-                scatter_kws={"alpha": 0.3, "color": "black", "s": s_size},
-                line_kws={"color": "blue"},
-            )
+            # Remove NaN values for regression
+            mask = ~(np.isnan(x_data) | np.isnan(y_data))
+            x_clean = x_data[mask]
+            y_clean = y_data[mask]
+
+            # Scatter plot
+            ax_sub.scatter(x_clean, y_clean, alpha=0.3, color="black", s=s_size)
+
+            # Regression line
+            if len(x_clean) > 1:
+                coeffs = np.polyfit(x_clean, y_clean, 1)
+                x_line = np.linspace(x_clean.min(), x_clean.max(), 100)
+                y_line = np.polyval(coeffs, x_line)
+                ax_sub.plot(x_line, y_line, color="blue")
 
             ax_sub.axes.xaxis.set_visible(False)
             ax_sub.axes.yaxis.set_visible(False)
 
-        def cor_mat(data, cmat, pmat, dec=2, nobs=1000, figsize=None):
-            cn = data.columns
-            ncol = len(cn)
-            longest = max(cn, key=len)
-            s_size = 50 / len(self.data.columns)
+        cn = list(self.data.columns)
+        ncol = len(cn)
+        longest = max(cn, key=len)
 
-            fs = min(figsize[0], figsize[1])
-            s_size = (5 * fs) / len(self.data.columns)
+        fs = min(figsize[0], figsize[1])
+        s_size = (5 * fs) / len(self.data.columns)
 
-            _, axes = plt.subplots(ncol, ncol, figsize=figsize)
+        fig, axes = plt.subplots(ncol, ncol, figsize=figsize)
 
-            if nobs < data.shape[0] and nobs != np.inf and nobs != -1:
-                data = data.copy().sample(nobs)
+        # Sample data if needed
+        nrows = self.data.shape[0]
+        if nobs < nrows and nobs != np.inf and nobs != -1:
+            indices = np.random.choice(nrows, size=nobs, replace=False)
+            data_np = {col: self.data[col].to_numpy()[indices] for col in cn}
+        else:
+            data_np = {col: self.data[col].to_numpy() for col in cn}
 
-            for i in range(ncol):
-                for j in range(ncol):
-                    if i == j:
-                        cor_label(cn[i], longest, axes[i, j])
-                    elif i > j:
-                        cor_plot(data[cn[i]], data[cn[j]], axes[i, j], s_size)
-                    else:
-                        cor_text(cmat[j, i], pmat[j, i], axes[i, j], dec=2)
+        for i in range(ncol):
+            for j in range(ncol):
+                if i == j:
+                    cor_label(cn[i], longest, axes[i, j])
+                elif i > j:
+                    cor_plot(
+                        data_np[cn[i]],
+                        data_np[cn[j]],
+                        axes[i, j],
+                        s_size,
+                    )
+                else:
+                    cor_text(self.cr[j, i], self.cp[j, i], axes[i, j], dec=dec)
 
-            plt.subplots_adjust(wspace=0.04, hspace=0.04)
-
-        cor_mat(self.data, self.cr, self.cp, dec=dec, nobs=nobs, figsize=figsize)
+        plt.subplots_adjust(wspace=0.04, hspace=0.04)
+        return fig, axes

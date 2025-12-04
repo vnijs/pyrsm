@@ -127,7 +127,8 @@ def test_single_mean_migration():
 
     def old_plot(ax):
         """Generate old matplotlib plot for comparison."""
-        sm.data[sm.var].plot.hist(ax=ax, color="slateblue", bins=10)
+        # Convert polars to pandas for old-style plotting
+        sm.data.to_pandas()[sm.var].plot.hist(ax=ax, color="slateblue", bins=10)
         ax.set_xlabel("")
         ax.set_ylabel("Frequency")
         ylim = ax.get_ylim()

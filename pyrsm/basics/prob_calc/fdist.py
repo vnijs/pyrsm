@@ -1,6 +1,6 @@
 import numpy as np
 from scipy import stats
-from .utils import iround, check, make_colors_continuous
+from .utils import iround, check, plot_continuous
 
 
 def prob_fdist(df1, df2, lb=None, ub=None, plb=None, pub=None):
@@ -123,4 +123,4 @@ def plot_prob_fdist(dct, type="values"):
     df1, df2 = dct["df1"], dct["df2"]
     x_range = np.linspace(0, stats.f.ppf(0.99, df1, df2), 1000)
     y_range = stats.f.pdf(x_range, df1, df2)
-    make_colors_continuous(ub, lb, x_range, y_range)
+    return plot_continuous(x_range, y_range, lb, ub, title="F Distribution")

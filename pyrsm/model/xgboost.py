@@ -1,20 +1,23 @@
-from typing import Optional, Literal
+from typing import Literal, Optional
+
+import matplotlib.pyplot as plt
 import pandas as pd
 import polars as pl
-import matplotlib.pyplot as plt
 import xgboost as xgb
 from sklearn.inspection import PartialDependenceDisplay as pdp
-from pyrsm.utils import ifelse, check_dataframe, setdiff
+
 from pyrsm.model.model import (
-    sim_prediction,
     check_binary,
-    evalreg,
-    convert_to_list,
     conditional_get_dummies,
-    reg_dashboard,
+    convert_to_list,
+    evalreg,
     nobs_dropped,
+    reg_dashboard,
+    sim_prediction,
 )
 from pyrsm.model.perf import auc
+from pyrsm.utils import check_dataframe, ifelse, setdiff
+
 from .visualize import pred_plot_sk, vimp_plot_sk, vimp_plot_sklearn
 
 
@@ -61,6 +64,8 @@ class xgboost:
         else:
             self.data = data
             self.name = "Not provided"
+
+        # Store as polars internally
         self.data = check_dataframe(self.data)
         self.rvar = rvar
         self.lev = lev
@@ -75,14 +80,23 @@ class xgboost:
         self.random_state = random_state
         self.ml_model = {"model": "xgboost", "mod_type": mod_type}
         self.kwargs = kwargs
-        self.nobs_all = self.data.shape[0]
-        self.data = self.data[[self.rvar] + self.evar].dropna()
-        self.nobs = self.data.shape[0]
-        self.nobs_dropped = self.nobs_all - self.nobs
+        self.nobs_all = self.data.height
 
+        # Apply binary conversion on polars DataFrame
         if self.mod_type == "classification":
             if self.lev is not None and self.rvar is not None:
                 self.data = check_binary(self.data, self.rvar, self.lev)
+
+        # Drop nulls and get training data
+        training_data = self.data.select([self.rvar] + self.evar).drop_nulls()
+        self.nobs = training_data.height
+        self.nobs_dropped = self.nobs_all - self.nobs
+
+        # Convert to pandas for sklearn
+        training_pd = training_data.to_pandas()
+        self._rvar = training_pd[self.rvar]  # Store response for summary
+
+        if self.mod_type == "classification":
             objective = "binary:logistic"
             self.xgb = xgb.XGBClassifier(
                 objective=objective,
@@ -109,10 +123,31 @@ class xgboost:
                 **kwargs,
             )
 
-        self.data_onehot = conditional_get_dummies(self.data[self.evar])
-        self.n_features = [len(evar), self.data_onehot.shape[1]]
+        # Identify categorical columns for one-hot encoding
+        cat_cols = [
+            c
+            for c in self.evar
+            if training_pd[c].dtype == "object" or training_pd[c].dtype.name == "category"
+        ]
+
+        # conditional_get_dummies returns polars DataFrame
+        self.data_onehot = conditional_get_dummies(training_pd[self.evar])
+        self.n_features = [len(evar), self.data_onehot.width]
+
+        # Derive categories from dummy column names (after conditional drop_first)
+        self.categories = {}
+        for col in cat_cols:
+            prefix = f"{col}_"
+            self.categories[col] = [
+                c.replace(prefix, "") for c in self.data_onehot.columns if c.startswith(prefix)
+            ]
+
+        # .to_pandas() at sklearn call site
         self.fitted = self.xgb.fit(
-            self.data_onehot, self.data[self.rvar], eval_set=[(self.data_onehot, self.data[self.rvar])], verbose=False
+            self.data_onehot.to_pandas(),
+            self._rvar,
+            eval_set=[(self.data_onehot.to_pandas(), self._rvar)],
+            verbose=False,
         )
 
     def summary(self, dec=3) -> None:
@@ -145,23 +180,24 @@ class xgboost:
         print(f"colsample_bytree     : {self.colsample_bytree}")
         print(f"random_state         : {self.random_state}")
 
-        # Get predictions
+        # Get predictions (.to_pandas() at sklearn call site)
         if self.mod_type == "classification":
-            pred = self.fitted.predict_proba(self.data_onehot)[:, -1]
-            print(f"AUC                  : {round(auc(self.data[self.rvar], pred), dec)}")
+            pred = self.fitted.predict_proba(self.data_onehot.to_pandas())[:, -1]
+            print(f"AUC                  : {round(auc(self._rvar, pred), dec)}")
         else:
-            pred=self.fitted.predict(self.data_onehot)
+            pred = self.fitted.predict(self.data_onehot.to_pandas())
             print("Model fit            :")
             print(
                 evalreg(
                     pd.DataFrame().assign(
-                        rvar=self.data[[self.rvar]],
+                        rvar=self._rvar,
                         prediction=pred,
                     ),
                     "rvar",
                     "prediction",
                     dec=dec,
                 )
+                .to_pandas()
                 .T[2:]
                 .rename(columns={0: " "})
                 .T.to_string()
@@ -171,38 +207,59 @@ class xgboost:
             kwargs_list = [f"{k}={v}" for k, v in self.kwargs.items()]
             print(f"Extra arguments      : {', '.join(kwargs_list)}")
         print("\nEstimation data      :")
-        print(self.data_onehot.head().to_string(index=False))
+        print(self.data_onehot.head())
 
-    def predict(self, data=None, cmd=None, data_cmd=None) -> pd.DataFrame:
+    def predict(self, data=None, cmd=None, data_cmd=None, dec=None) -> pl.DataFrame:
         """
         Predict probabilities or values for an XGBoost model
-        """
 
+        Parameters
+        ----------
+        dec : int, optional
+            Number of decimal places to round float columns in the output.
+            If None (default), no rounding is applied.
+
+        Returns
+        -------
+        pl.DataFrame
+            DataFrame containing the predictions and the data used to make those predictions.
+        """
         if data is None:
-            data = self.data.loc[:, self.evar].copy()
+            pred_data = self.data.select(self.evar)
         else:
-            data = data.loc[:, self.evar].copy()
+            pred_data = check_dataframe(data).select(self.evar)
 
         if data_cmd is not None and data_cmd != "":
-            for k, v in data_cmd.items():
-                data[k] = v
+            pred_data = pred_data.with_columns([pl.lit(v).alias(k) for k, v in data_cmd.items()])
         elif cmd is not None and cmd != "":
             cmd = {k: ifelse(isinstance(v, str), [v], v) for k, v in cmd.items()}
-            data = sim_prediction(data=data, vary=cmd)
+            pred_data = sim_prediction(data=pred_data, vary=cmd)
 
-        # only dropping the first level for binary categorical variables
-        data_onehot = conditional_get_dummies(data, drop_nonvarying=False)
+        # Convert to pandas for sklearn
+        pred_data_pd = pred_data.to_pandas()
 
-        # adding back levels for categorical variables is they were removed
-        if data_onehot.shape[1] != self.data_onehot.shape[1]:
-            for k in setdiff(self.data_onehot.columns, data_onehot.columns):
-                data_onehot[k] = False
-            data_onehot = data_onehot[self.data_onehot.columns]
+        # Use categories to preserve all levels
+        data_onehot = conditional_get_dummies(
+            pred_data_pd, drop_nonvarying=False, categories=self.categories
+        )
 
+        # .to_pandas() at sklearn call site
         if self.mod_type == "classification":
-            return data.assign(prediction=self.fitted.predict_proba(data_onehot)[:, -1])
+            predictions = self.fitted.predict_proba(data_onehot.to_pandas())[:, -1]
         else:
-            return data.assign(prediction=self.fitted.predict(data_onehot))
+            predictions = self.fitted.predict(data_onehot.to_pandas())
+
+        pred = pred_data.with_columns(pl.lit(predictions).alias("prediction"))
+
+        if dec is not None:
+            pred = pred.with_columns(
+                [
+                    pl.col(c).round(dec)
+                    for c in pred.columns
+                    if pred[c].dtype in [pl.Float64, pl.Float32]
+                ]
+            )
+        return pred
 
     def plot(
         self,
@@ -218,7 +275,6 @@ class xgboost:
         minq=0.025,
         maxq=0.975,
         figsize=None,
-        ax=None,
         ret=None,
     ) -> None:
         """
@@ -248,8 +304,6 @@ class xgboost:
             Maximum quantile of the explanatory variable values to use to calculate and plot predictions.
         figsize : tuple[int, int], default None
             Figure size for the plots in inches (e.g., "(3, 6)"). Relevant for 'corr', 'scatter', 'residual', and 'coef' plots.
-        ax : plt.Axes, optional
-            Axes object to plot on.
         ret : bool, optional
             Whether to return the variable (permutation) importance scores for a "vimp" plot.
         """
@@ -259,16 +313,21 @@ class xgboost:
         incl_int = convert_to_list(incl_int)
 
         if data is None:
-            data = self.data
+            plot_data = self.data
         else:
-            data = check_dataframe(data)
-        if self.rvar in data.columns:
-            data = data[[self.rvar] + self.evar].copy()
+            plot_data = check_dataframe(data)
+
+        # Select relevant columns
+        if self.rvar in plot_data.columns:
+            plot_data = plot_data.select([self.rvar] + self.evar)
         else:
-            data = data[self.evar].copy()
+            plot_data = plot_data.select(self.evar)
+
+        # Convert to pandas for plotting (seaborn/matplotlib)
+        data = plot_data.to_pandas()
 
         if "pred" in plots:
-            pred_plot_sk(
+            return pred_plot_sk(
                 self.fitted,
                 data=data,
                 rvar=self.rvar,
@@ -287,35 +346,42 @@ class xgboost:
                 figsize = (8, len(self.data_onehot.columns) * 2)
             fig, ax = plt.subplots(figsize=figsize)
             ax.set_title("Partial Dependence Plots")
-            fig = pdp.from_estimator(self.fitted, self.data_onehot, self.data_onehot.columns, ax=ax, n_cols=2)
+            pdp.from_estimator(
+                self.fitted, self.data_onehot.to_pandas(), self.data_onehot.columns, ax=ax, n_cols=2
+            )
+            plt.show()
+            plt.close()
 
         if "vimp" in plots or "pimp" in plots:
-            return_vimp = vimp_plot_sk(
+            (p, return_vimp) = vimp_plot_sk(
                 self,
                 rep=5,
-                ax=ax,
                 ret=ret,
             )
 
             if ret:
-                return return_vimp
+                return (p, return_vimp)
+            else:
+                return p
 
         if "vimp_sklearn" in plots or "pimp_sklearn" in plots:
-            return_vimp = vimp_plot_sklearn(
+            (p, return_vimp) = vimp_plot_sklearn(
                 self.fitted,
-                self.data_onehot,
-                self.data[self.rvar],
+                self.data_onehot.to_pandas(),
+                self._rvar,
                 rep=5,
-                ax=ax,
                 ret=ret,
             )
 
             if ret:
-                return return_vimp
+                return (p, return_vimp)
+            else:
+                return p
 
         if "dashboard" in plots and self.mod_type == "regression":
             model = self.fitted
-            model.fittedvalues = self.predict()["prediction"]
-            model.resid = self.data[self.rvar] - model.fittedvalues
-            model.model = pd.DataFrame({"endog": self.data[self.rvar]})
-            reg_dashboard(model, nobs=nobs)
+            pred_df = self.predict()
+            model.fittedvalues = pred_df["prediction"]
+            model.resid = self._rvar.values - model.fittedvalues
+            model.model = pl.DataFrame({"endog": self._rvar})
+            return reg_dashboard(model, nobs=nobs)

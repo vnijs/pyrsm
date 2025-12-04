@@ -1,10 +1,6 @@
 import numpy as np
-import matplotlib
 
-matplotlib.use("Agg")  # Use non-interactive backend
-import matplotlib.pyplot as plt
-
-from .utils import iround, check, make_colors_discrete
+from .utils import iround, check, plot_discrete
 
 
 def prob_disc(v, p, lb=None, ub=None, plb=None, pub=None):
@@ -190,7 +186,4 @@ def plot_prob_disc(dct, type="values"):
     else:
         lb, ub = dct.get("vlb", None), dct.get("vub", None)
     x_range, y_range = dct["v"], dct["p"]
-
-    colors = make_colors_discrete(ub, lb, x_range)
-    fig, ax = plt.subplots()
-    ax.bar(range(len(x_range)), y_range, tick_label=x_range, color=colors, alpha=0.5)
+    return plot_discrete(x_range, y_range, lb, ub, title="Discrete Distribution")

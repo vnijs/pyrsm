@@ -1,6 +1,6 @@
 import numpy as np
 from scipy import stats
-from .utils import iround, check, make_colors_continuous
+from .utils import iround, check, plot_continuous
 
 
 def prob_lnorm(meanlog, sdlog, lb=None, ub=None, plb=None, pub=None):
@@ -122,4 +122,4 @@ def plot_prob_lnorm(dct, type="values"):
 
     x_range = np.linspace(0, (np.exp(meanlog) + scale(lb, ub)) * sdlog, 1000)
     y_range = stats.lognorm.pdf(x_range, sdlog, scale=np.exp(meanlog))
-    make_colors_continuous(ub, lb, x_range, y_range)
+    return plot_continuous(x_range, y_range, lb, ub, title="Log-Normal Distribution")

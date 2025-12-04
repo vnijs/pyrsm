@@ -1,5 +1,5 @@
 import numpy as np
-import pandas as pd
+import polars as pl
 import sys
 
 
@@ -95,9 +95,14 @@ def xtile(x, n=5, rev=False):
 
     x = np.array(x)
     breaks = np.quantile(x[~np.isnan(x)], np.arange(0, n + 1) / n)
-    breaks
     if len(np.unique(breaks)) == len(breaks):
-        bins = pd.cut(x, breaks, include_lowest=True, labels=False) + 1
+        # Use polars cut() - returns a Series with category labels
+        # We need to convert to bin numbers (1-indexed)
+        s = pl.Series("x", x)
+        # Create break points for polars cut (excludes first and last)
+        cut_result = s.cut(breaks[1:-1], labels=[str(i) for i in range(1, n + 1)])
+        # Convert category strings to integers
+        bins = cut_result.cast(pl.Int64).to_numpy()
     else:
         bins = bincode(x, breaks)
 

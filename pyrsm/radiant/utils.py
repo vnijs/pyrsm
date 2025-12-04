@@ -13,6 +13,18 @@ from pyrsm.example_data import load_data
 from pyrsm.utils import check_dataframe, ifelse
 
 
+def _format_dtype(dtype) -> str:
+    """Format polars dtype for display (lowercase, simplified)."""
+    dtype_str = str(dtype).lower()
+    # Handle Categorical(ordering='physical') -> categorical
+    if dtype_str.startswith("categorical"):
+        return "categorical"
+    # Handle String/Utf8
+    if dtype_str in ("utf8", "string"):
+        return "string"
+    return dtype_str
+
+
 def set_host(host):
     if host == "":
         if platform.system() == "Linux":
@@ -191,32 +203,44 @@ def get_data(self, input):
     data_name = input.datasets()
     data = self.datasets[data_name]
     description = self.descriptions[data_name]
-    code = f"import pyrsm as rsm\n# {data_name} = pd.read_parquet('{data_name}.parquet')"
+    code = f"import pyrsm as rsm\n# {data_name} = pl.read_parquet('{data_name}.parquet')"
     if input.show_filter():
         code_sf = ""
         if not is_empty(input.data_filter()):
-            code_sf += f""".query("{escape_quotes(input.data_filter())}")"""
+            code_sf += f""".filter({escape_quotes(input.data_filter())})"""
         if not is_empty(input.data_sort()):
-            code_sf += f""".sort_values({input.data_sort()})"""
+            code_sf += f""".sort({input.data_sort()})"""
         if not is_empty(input.data_slice()):
-            code_sf += f""".iloc[{input.data_slice()}, :]"""
+            slice_expr = input.data_slice()
+            if ":" in slice_expr:
+                parts = slice_expr.split(":")
+                start = int(parts[0]) if parts[0] else 0
+                end = int(parts[1]) if parts[1] else None
+                if end is not None:
+                    code_sf += f""".slice({start}, {end - start})"""
+                else:
+                    code_sf += f""".slice({start})"""
+            else:
+                code_sf += f""".slice({slice_expr})"""
 
         if not is_empty(code_sf):
             data = eval(f"""data{code_sf}""")
             code = f"""{code}\n{data_name} = {data_name}{code_sf}"""
 
-    types = {c: [data[c].dtype, data[c].nunique()] for c in data.columns}
+    types = {c: [data[c].dtype, data[c].n_unique()] for c in data.columns}
     isNum = {
-        c: f"{c} ({t[0].name})" for c, t in types.items() if pd.api.types.is_numeric_dtype(t[0])
-    }
-    isBin = {c: f"{c} ({t[0].name})" for c, t in types.items() if t[1] == 2}
-    isCat = {
-        c: f"{c} ({t[0].name})"
+        c: f"{c} ({_format_dtype(t[0])})"
         for c, t in types.items()
-        if c in isBin or pd.api.types.is_categorical_dtype(t[0]) or t[1] < 10
+        if t[0].is_numeric()
+    }
+    isBin = {c: f"{c} ({_format_dtype(t[0])})" for c, t in types.items() if t[1] == 2}
+    isCat = {
+        c: f"{c} ({_format_dtype(t[0])})"
+        for c, t in types.items()
+        if c in isBin or t[0] == pl.Categorical or t[0] == pl.Utf8 or t[1] < 10
     }
     var_types = {
-        "all": {c: f"{c} ({t[0].name})" for c, t in types.items()},
+        "all": {c: f"{c} ({_format_dtype(t[0])})" for c, t in types.items()},
         "isNum": isNum,
         "isBin": isBin,
         "isCat": isCat,
@@ -367,14 +391,14 @@ def ui_view(self):
                 "Data Filter:",
                 rows=2,
                 value=self.state.get("data_filter", ""),
-                placeholder="Provide a filter (e.g., price > 5000) and press return",
+                placeholder="Provide a filter (e.g., pl.col('price') > 5000) and press return",
             ),
             input_return_text_area(
                 "data_sort",
                 "Data sort:",
                 rows=2,
                 value=self.state.get("data_sort", ""),
-                placeholder="Sort (e.g., ['color', 'price'], ascending=[True, False])) and press return",
+                placeholder="Sort (e.g., 'color', 'price', descending=[False, True]) and press return",
             ),
             input_return_text_area(
                 "data_slice",

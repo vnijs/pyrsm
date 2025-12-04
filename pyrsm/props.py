@@ -1,15 +1,16 @@
-import numpy as np
-import seaborn as sns
+import polars as pl
+from plotnine import aes, geom_col, geom_hline, ggplot, labs, theme_bw
+
 from pyrsm.utils import check_dataframe
 
 
-def prop_calc(df, group, rvar, lev):
+def prop_calc(df: pl.DataFrame, group: str, rvar: str, lev: str) -> pl.DataFrame:
     """
     Calculate proportions by a grouping variable
 
     Parameters
     ----------
-    df : Pandas or Polars dataframe
+    df : Polars dataframe
     group : str
         Name of variable in the dataframe to group by
     rvar : str
@@ -19,27 +20,32 @@ def prop_calc(df, group, rvar, lev):
 
     Returns
     -------
-    A Pandas or Polars dataframe with the grouping variable and the proportion
+    A Polars dataframe with the grouping variable and the proportion
     of level "lev" in "rvar" for each value of the grouping variable
     """
     df = check_dataframe(df)
-    df = df.loc[:, (group, rvar)]
-    df["rvar_int"] = np.where(df[rvar] == lev, 1, 0)
-    df = df.groupby(group, observed=False)
     return (
-        df.agg(prop=("rvar_int", "mean")).reset_index().rename(columns={"prop": rvar})
+        df.select([group, rvar])
+        .with_columns((pl.col(rvar) == lev).cast(pl.Int32).alias("rvar_int"))
+        .group_by(group)
+        .agg(pl.col("rvar_int").mean().alias(rvar))
     )
 
 
 def prop_plot(
-    df, group, rvar, lev, breakeven=None, linewidth=1, color="slateblue", **kwargs
+    df: pl.DataFrame,
+    group: str,
+    rvar: str,
+    lev: str,
+    breakeven: float | None = None,
+    color: str = "slateblue",
 ):
     """
     Plot proportions by a grouping variable
 
     Parameters
     ----------
-    df : Pandas dataframe
+    df : Polars dataframe
     group : str
         Name of variable in the dataframe to group by
     rvar : str
@@ -48,16 +54,23 @@ def prop_plot(
         Name of the 'success' level in rvar
     breakeven : float or None
         If numeric a horizontal line will be added at the specified breakeven point
-    linewidth : float
-        Width to use for the breakeven line in the plot
     color : str
         Color to use for bars
-    **kwargs : Named arguments to be passed to the seaborn barplot function
+
+    Returns
+    -------
+    ggplot object
     """
     dfp = prop_calc(df, group, rvar, lev)
-    cn = dfp.columns
-    fig = sns.barplot(x=cn[0], y=cn[1], color=color, data=dfp, **kwargs)
-    fig.set(ylabel=f"Proportion of {cn[1]} equal to '{lev}'")
+
+    p = (
+        ggplot(dfp, aes(x=group, y=rvar))
+        + geom_col(fill=color)
+        + labs(y=f"Proportion of {rvar} equal to '{lev}'")
+        + theme_bw()
+    )
+
     if breakeven is not None:
-        fig.axhline(breakeven, linestyle="dashed", linewidth=linewidth)
-    return fig
+        p = p + geom_hline(yintercept=breakeven, linetype="dashed")
+
+    return p

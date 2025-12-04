@@ -1,17 +1,24 @@
 from typing import Literal
 
-import matplotlib
-
-matplotlib.use("Agg")  # Use non-interactive backend
-import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import polars as pl
-import seaborn as sns
+from plotnine import (
+    aes,
+    geom_boxplot,
+    geom_col,
+    geom_density,
+    geom_jitter,
+    geom_segment,
+    ggplot,
+    labs,
+    theme_bw,
+)
 from scipy import stats
 from statsmodels.stats import multitest
 
+import pyrsm.basics.plotting_utils as pu
 import pyrsm.basics.utils as bu
+import pyrsm.basics.display_utils as du
 import pyrsm.radiant.utils as ru
 from pyrsm.model.model import sig_stars
 from pyrsm.utils import check_dataframe, ifelse
@@ -19,74 +26,77 @@ from pyrsm.utils import check_dataframe, ifelse
 
 class compare_means:
     """
-    A class to perform comparison of means hypothesis testing. See the notebook
-    linked below for a worked example, including the web UI:
+    Compare group means for polars inputs with paired/independent samples,
+    adjustment options, and quick plotting.
 
-    https://github.com/vnijs/pyrsm/blob/main/examples/basics-compare-means.ipynb
+    Quick start
+    -----------
+    >>> import pyrsm as rsm
+    >>> salary, salary_description = rsm.load_data(pkg="basics", name="salary")
+    >>> cm = rsm.basics.compare_means({"salary": salary}, var1="rank", var2="salary")
+    >>> cm.summary()
+    >>> cm.plot()  # returns (Figure, Axes)
+
+    >>> salary, _ = rsm.load_data(pkg="basics", name="salary")
+    >>> rsm.basics.compare_means(salary, var1="sex", var2="salary", test_type="wilcox")
+
+    See the worked notebook (UI + code) in examples/basics/basics-compare-means.ipynb.
+
+    Parameters
+    ----------
+    data : pl.DataFrame | dict[str, pl.DataFrame]
+        Input data as a DataFrame or a dictionary where the first key becomes the
+        name stored on the result.
+    var1 : str
+        Grouping variable. If numeric and var2 is a list, the data are melted to
+        long form so each numeric column becomes a group level.
+    var2 : str | list[str] | tuple[str, ...]
+        Numeric variable(s) to compare across groups. When var1 is categorical, one
+        numeric column is expected; when var1 is numeric, each entry in the list
+        becomes a group to compare.
+    comb : list[str]
+        Optional custom comparisons (e.g., ["a:b", "a:c"]). Defaults to all pairwise
+        combinations of var1 levels.
+    alt_hyp : Literal["two-sided", "greater", "less"]
+        Alternative hypothesis used for test statistic and confidence labels.
+    conf : float
+        Confidence level for intervals.
+    sample_type : Literal["independent", "paired"]
+        Indicates paired vs independent samples.
+    adjust : Literal[None, "bonferroni"]
+        Adjustment for multiple testing using statsmodels.multitest when set.
+    test_type : Literal["t-test", "wilcox"]
+        Statistical test to run (Welch t-test by default or Wilcoxon paths).
 
     Attributes
     ----------
-    data : pd.DataFrame | pl.DataFrame
-        The input data for the hypothesis test as a Pandas or Polars DataFrame.
+    data : pl.DataFrame
+        Polars version of the provided data.
     var1 : str
-        The first variable/column name to test.
-    var2 : str
-        The second variable/column name to test.
-    alt_hyp : str
-        The alternative hypothesis ('two-sided', 'greater', 'less').
-    conf : float
-        The confidence level for the test.
-    comp_value : float
-        The comparison value for the test.
-    t_val : float
-        The t-statistic value.
-    p_val : float
-        The p-value of the test.
-    ci : tuple
-        The confidence interval of the test.
-    mean1 : float
-        The mean of the first variable.
-    mean2 : float
-        The mean of the second variable.
-    n1 : int
-        The number of observations for the first variable.
-    n2 : int
-        The number of observations for the second variable.
-    sd1 : float
-        The standard deviation of the first variable.
-    sd2 : float
-        The standard deviation of the second variable.
-    se : float
-        The standard error of the difference between the means.
-    me : float
-        The margin of error.
-    diff : float
-        The difference between the means of the two variables.
-    df : int
-        The degrees of freedom.
+        Grouping variable used after any melt operation.
+    var2 : str | list[str]
+        Numeric variable(s) used after any melt operation.
+    comb : list[str]
+        Level combinations evaluated.
+    descriptive_stats : pl.DataFrame
+        Per-group summary with mean, n, n_missing, sd, se, and margin of error.
+    comp_stats : pl.DataFrame
+        Pairwise comparisons with diffs, p-values (optionally adjusted), t values,
+        degrees of freedom, confidence interval bounds, and significance stars.
+    levels : list[str]
+        Category levels for var1 after casting to categorical.
+    name : str
+        Dataset label, taken from the dictionary key when provided.
 
-    Methods
-    -------
-    __init__(data, var1, var2, alt_hyp='two-sided', conf=0.95, comp_value=0)
-        Initializes the compare_means class with the provided data and parameters.
-    summary(dec=3)
-        Prints a summary of the hypothesis test.
-    plot()
-        Plots the results of the hypothesis test.
-
-    Examples
-    --------
-
-    import pandas as pd
-    import pyrsm as rsm
-    salary, salary_description = rsm.load_data(pkg="basics", name="salary")
-    cm = rsm.basics.compare_means({"salary": salary}, var1="rank", var2="salary", alt_hyp="less")
-    cm.summary()
+    Notes
+    -----
+    The `summary` method prints a compact or expanded view (`extra=True`). The
+    `plot` method returns a plotnine ggplot object.
     """
 
     def __init__(
         self,
-        data: pd.DataFrame | pl.DataFrame | dict[str, pd.DataFrame | pl.DataFrame],
+        data: pl.DataFrame | dict[str, pl.DataFrame],
         var1: str,
         var2: str,
         comb: list[str] = [],
@@ -101,8 +111,8 @@ class compare_means:
 
         Parameters
         ----------
-        data : pd.DataFrame | pl.DataFrame
-            The input data for the hypothesis test as a Pandas or Polars DataFrame. If a dictionary is provided, the key should be the name of the dataframe.
+        data : pl.DataFrame | dict[str, pl.DataFrame]
+            The input data for the hypothesis test as a Polars DataFrame. If a dictionary is provided, the key should be the name of the dataframe.
         var1 : str
             The first variable/column name to include in the test. This variable can be numeric or categorical. If it is categorical, the hypothesis test will be performed for each level of the variable.
         var2 : str
@@ -131,28 +141,38 @@ class compare_means:
         self.var1 = var1
         self.var2 = var2
 
-        var1_series = self.data[self.var1]
-        if pd.api.types.is_numeric_dtype(var1_series):
-            var2 = ifelse(
+        var1_series = self.data.get_column(self.var1)
+        if var1_series.dtype.is_numeric():
+            var2_list = ifelse(
                 isinstance(var2, str),
                 [var2],
-                ifelse(isinstance(var2, tuple), list(var2), var2),
+                ifelse(isinstance(var2, tuple), list(var2), list(var2)),
             )
-            for v in var2:
-                if not pd.api.types.is_numeric_dtype(self.data[v]):
+            for v in var2_list:
+                if not self.data.get_column(v).dtype.is_numeric():
                     raise Exception(f"Variable {v} is not numeric.")
 
             if (
-                len(self.var2) > 1
-                or len([v for v in self.comb if self.var1 in v]) > 0
-                or var1_series.nunique() > 10
+                len(var2_list) > 1
+                or len([v for v in comb if self.var1 in v]) > 0
+                or self.data.get_column(self.var1).n_unique() > 10
             ):
-                self.data = self.data.loc[:, [self.var1] + var2].melt()
+                cols = [self.var1] + var2_list
+                self.data = self.data.select(cols).unpivot(
+                    index=[],
+                    on=cols,
+                    variable_name="variable",
+                    value_name="value",
+                )
                 self.var1 = "variable"
                 self.var2 = "value"
+        else:
+            var2_list = ifelse(isinstance(var2, str), [var2], list(var2))
 
-        self.data[self.var1] = self.data[self.var1].astype("category")
-        self.levels = list(self.data[self.var1].cat.categories)
+        self.data = self.data.with_columns(pl.col(self.var1).cast(pl.Categorical))
+        self.levels = (
+            self.data.select(pl.col(self.var1).unique(maintain_order=True)).to_series().to_list()
+        )
 
         if len(comb) == 0:
             self.comb = ru.iterms(self.levels)
@@ -166,35 +186,51 @@ class compare_means:
         self.adjust = adjust
         self.test_type = test_type
 
-        def welch_dof(v1: str, v2: str) -> float:
+        def welch_dof(x_vals: np.ndarray, y_vals: np.ndarray) -> float:
             # stats.ttest_ind uses Welch's t-test when equal_var=False
             # but does not return the degrees of freedom
-            x = self.data.loc[self.data[self.var1] == v1, self.var2]
-            y = self.data.loc[self.data[self.var1] == v2, self.var2]
+            x = x_vals
+            y = y_vals
             if x.size == 0 or y.size == 0:  # address division by zero
                 return np.nan
-            dof = (x.var() / x.size + y.var() / y.size) ** 2 / (
-                (x.var() / x.size) ** 2 / (x.size - 1) + (y.var() / y.size) ** 2 / (y.size - 1)
+            x_var = np.nanvar(x, ddof=1)
+            y_var = np.nanvar(y, ddof=1)
+            dof = (x_var / x.size + y_var / y.size) ** 2 / (
+                (x_var / x.size) ** 2 / (x.size - 1) + (y_var / y.size) ** 2 / (y.size - 1)
             )
 
             return dof
 
-        descriptive_stats = []
-        for lev in self.levels:
-            subset = self.data.loc[self.data[self.var1] == lev, self.var2]
-            mean = np.nanmean(subset)
-            n_missing = subset.isna().sum()
-            n = len(subset) - n_missing
-            sd = subset.std()
-            se = subset.sem()
+        def margin_of_error(n: float, se: float) -> float:
+            if n is None or se is None or np.isnan(n) or np.isnan(se) or n <= 1:
+                return np.nan
             tscore = stats.t.ppf((1 + self.conf) / 2, n - 1)
-            me = (tscore * se).real
-            row = [lev, mean, n, n_missing, sd, se, me]
-            descriptive_stats.append(row)
+            return (tscore * se).real
 
-        self.descriptive_stats = pd.DataFrame(
-            descriptive_stats,
-            columns=[self.var1, "mean", "n", "n_missing", "sd", "se", "me"],
+        descriptive_stats = (
+            self.data.group_by(self.var1, maintain_order=True)
+            .agg(
+                pl.col(self.var2).mean().alias("mean"),
+                pl.len().alias("n_total"),
+                pl.col(self.var2).null_count().alias("n_missing"),
+                pl.col(self.var2).std(ddof=1).alias("sd"),
+            )
+            .with_columns((pl.col("n_total") - pl.col("n_missing")).alias("n"))
+            .with_columns(
+                pl.when(pl.col("n") > 0)
+                .then(pl.col("sd") / pl.col("n").sqrt())
+                .otherwise(pl.lit(np.nan))
+                .alias("se")
+            )
+            .with_columns(
+                pl.struct(["n", "se"])
+                .map_elements(lambda s: margin_of_error(s["n"], s["se"]), return_dtype=pl.Float64)
+                .alias("me")
+            )
+        )
+
+        self.descriptive_stats = descriptive_stats.select(
+            [self.var1, "mean", "n", "n_missing", "sd", "se", "me"]
         )
 
         if self.alt_hyp == "less":
@@ -209,12 +245,14 @@ class compare_means:
             v1, v2 = c.split(":")
             null_hyp = f"{v1} = {v2}"
             alt_hyp = f"{v1} {alt_hyp_sign} {v2}"
-            diff = np.nanmean(self.data[self.data[self.var1] == v1][self.var2]) - np.nanmean(
-                self.data[self.data[self.var1] == v2][self.var2]
-            )
 
-            x = self.data.loc[self.data[self.var1] == v1, self.var2]
-            y = self.data.loc[self.data[self.var1] == v2, self.var2]
+            # Replace NaN with null, then compute the mean (ignoring nulls)
+            x_series = self.data.filter(pl.col(self.var1) == v1).get_column(self.var2).drop_nulls()
+            y_series = self.data.filter(pl.col(self.var1) == v2).get_column(self.var2).drop_nulls()
+            diff = x_series.mean() - y_series.mean()
+            x = x_series.to_numpy()
+            y = y_series.to_numpy()
+
             if x.size != y.size and self.sample_type == "paired":
                 raise ValueError(
                     """The two samples must have the same size for a paired
@@ -239,8 +277,8 @@ class compare_means:
                     result = stats.wilcoxon(x, y, correction=True, alternative=self.alt_hyp)
 
             t_val, p_val = result.statistic, result.pvalue
-            se = diff / t_val
-            df = welch_dof(v1, v2)
+            se = diff / t_val if t_val != 0 else np.inf
+            df = welch_dof(x, y)
 
             if self.alt_hyp == "two-sided":
                 tscore = stats.t.ppf((1 + self.conf) / 2, df)
@@ -271,31 +309,32 @@ class compare_means:
             )
 
         cl = bu.ci_label(self.alt_hyp, self.conf)
-        self.comp_stats = pd.DataFrame(
+        self.comp_stats = pl.DataFrame(
             comp_stats,
-            columns=[
-                "Null hyp.",
-                "Alt. hyp.",
-                "diff",
-                "p.value",
-                "se",
-                "t.value",
-                "df",
-                cl[0],
-                cl[1],
-                "",
+            schema=[
+                ("Null hyp.", pl.Utf8),
+                ("Alt. hyp.", pl.Utf8),
+                ("diff", pl.Float64),
+                ("p.value", pl.Float64),
+                ("se", pl.Float64),
+                ("t.value", pl.Float64),
+                ("df", pl.Float64),
+                (cl[0], pl.Float64),
+                (cl[1], pl.Float64),
+                ("", pl.Utf8),
             ],
+            orient="row",
         )
 
         if self.adjust is not None:
-            if self.alt_hyp == "two-sided":
-                alpha = self.alpha
-            else:
-                alpha = self.alpha * 2
-            self.comp_stats["p.value"] = multitest.multipletests(
-                self.comp_stats["p.value"], method=self.adjust, alpha=alpha
+            alpha = self.alpha if self.alt_hyp == "two-sided" else self.alpha * 2
+            adjusted = multitest.multipletests(
+                self.comp_stats["p.value"].to_numpy(), method=self.adjust, alpha=alpha
             )[1]
-            self.comp_stats[""] = sig_stars(self.comp_stats["p.value"])
+            self.comp_stats = self.comp_stats.with_columns(
+                pl.Series("p.value", adjusted),
+                pl.Series("", sig_stars(list(adjusted))),
+            )
 
     def summary(self, extra=False, dec=3) -> None:
         """
@@ -308,28 +347,118 @@ class compare_means:
         dec : int, optional
             The number of decimal places to display (default is 3).
         """
+        display = du.SummaryDisplay(
+            header_func=self._summary_header,
+            plain_func=self._summary_plain,
+            styled_func=self._style_tables,
+        )
+        display.display(extra=extra, dec=dec)
+
+    def _summary_header(self):
+        """Print the summary header."""
         print(f"Pairwise mean comparisons ({self.test_type})")
         print(f"Data      : {self.name}")
         print(f"Variables : {self.var1}, {self.var2}")
         print(f"Samples   : {self.sample_type}")
         print(f"Confidence: {self.conf}")
-        print(f"Adjustment: {self.adjust}")
+        print(f"Adjustment: {self.adjust}\n")
 
-        print(self.descriptive_stats.round(dec).to_string(index=False))
+    def _summary_plain(self, extra=False, dec=3):
+        """Print plain text tables using polars Config."""
+        desc = self.descriptive_stats.with_columns(pl.col(["mean", "sd", "se", "me"]).round(dec))
 
-        comp_stats = self.comp_stats.copy()
+        comp_stats = self.comp_stats
         if not extra:
-            comp_stats = comp_stats.iloc[:, [0, 1, 2, 3, -1]]
+            comp_stats = comp_stats.select(["Null hyp.", "Alt. hyp.", "diff", "p.value", ""])
 
-        comp_stats["p.value"] = ifelse(
-            comp_stats["p.value"] < 0.001, "< .001", round(comp_stats["p.value"], dec)
+        pvals = comp_stats["p.value"].to_list()
+        formatted = [ifelse(p < 0.001, "< .001", f"{round(p, dec)}") for p in pvals]
+        comp_stats = comp_stats.with_columns(pl.Series("p.value", formatted, dtype=pl.Utf8))
+
+        # Round all numeric columns
+        numeric_cols = [c for c in comp_stats.columns if comp_stats[c].dtype.is_float()]
+        if numeric_cols:
+            comp_stats = comp_stats.with_columns(pl.col(numeric_cols).round(dec))
+
+        with pl.Config(
+            tbl_rows=-1,
+            tbl_cols=-1,
+            fmt_str_lengths=100,
+            tbl_width_chars=200,
+            tbl_hide_dataframe_shape=True,
+            tbl_hide_column_data_types=True,
+            tbl_hide_dtype_separator=True,
+        ):
+            print(desc)
+            print(comp_stats)
+
+    def _style_tables(self, extra=False, dec=3):
+        """Display styled tables using great_tables in Jupyter."""
+        from IPython.display import display, HTML
+
+        desc = self.descriptive_stats
+
+        comp_stats = self.comp_stats
+        if not extra:
+            comp_stats = comp_stats.select(["Null hyp.", "Alt. hyp.", "diff", "p.value", ""])
+
+        pvals = comp_stats["p.value"].to_list()
+        formatted = [ifelse(p < 0.001, "< .001", f"{round(p, dec)}") for p in pvals]
+        comp_stats = comp_stats.with_columns(pl.Series("p.value", formatted, dtype=pl.Utf8))
+
+        desc_gt = (
+            desc.style.tab_header(
+                title="Descriptive Statistics",
+                subtitle=f"Variable: {self.var2} by {self.var1}",
+            )
+            .fmt_number(columns=["mean", "sd", "se", "me"], decimals=dec, use_seps=False)
+            .fmt_integer(columns=["n", "n_missing"], use_seps=False)
+            .tab_options(table_margin_left="0px")
         )
-        print(comp_stats.round(dec).to_string(index=False))
-        print("\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1")
+
+        if extra:
+            ci_cols = [c for c in comp_stats.columns if "%" in c]
+            comp_gt = (
+                comp_stats.style.tab_header(
+                    title=f"Pairwise Comparisons ({self.test_type})",
+                    subtitle=f"Samples: {self.sample_type}, Confidence: {self.conf}",
+                )
+                .fmt_number(
+                    columns=["diff", "se", "t.value", "df"] + ci_cols, decimals=dec, use_seps=False
+                )
+                .tab_options(table_margin_left="0px")
+            )
+        else:
+            comp_gt = (
+                comp_stats.style.tab_header(
+                    title=f"Pairwise Comparisons ({self.test_type})",
+                    subtitle=f"Samples: {self.sample_type}, Confidence: {self.conf}",
+                )
+                .fmt_number(columns=["diff"], decimals=dec, use_seps=False)
+                .tab_options(table_margin_left="0px")
+            )
+
+        display(desc_gt)
+        display(comp_gt)
+
+    def style(self, extra=False, dec=3):
+        """
+        Display styled DataFrames in notebook using great_tables.
+
+        Parameters
+        ----------
+        extra : bool
+            Whether to include additional columns in the output (default is False).
+        dec : int, optional
+            The number of decimal places to display (default is 3).
+        """
+        self._summary_header()
+        self._style_tables(extra=extra, dec=dec)
+        du.print_sig_codes()
 
     def plot(
         self, plots: Literal["scatter", "box", "density", "bar"] = "scatter", nobs: int = None
-    ) -> None:
+    ):
         """
         Plots the results of the hypothesis test.
 
@@ -339,43 +468,65 @@ class compare_means:
             The type of plot to create ('scatter', 'box', 'density', 'bar').
         nobs : int, optional
             The number of observations to plot (default is None in which case all available data points will be used).
+
+        Returns
+        -------
+        plotnine.ggplot
+            A plotnine ggplot object that can be displayed, saved, or composed.
         """
+        data = self.data.drop_nulls(subset=[self.var2])
+        if nobs is not None and nobs != np.inf and nobs != -1 and nobs < data.height:
+            data = data.sample(nobs)
+
         if plots == "scatter":
-            if nobs is not None and nobs < self.data.shape[0] and nobs != np.inf and nobs != -1:
-                data = self.data.copy().sample(nobs)
-            else:
-                data = self.data.copy()
-
-            sns.swarmplot(data=data, x=self.var1, y=self.var2, alpha=0.5)
-
-            # Get the unique categories and their indices
-            categories = data[self.var1].cat.categories
-            category_indices = {category: i for i, category in enumerate(categories)}
-
-            category_means = data.groupby(self.var1, observed=False)[self.var2].mean()
-
-            # Add a horizontal line for each category at the mean of the value for that category
-            for category, mean in category_means.items():
-                plt.hlines(
-                    y=mean,
-                    xmin=category_indices[category] - 0.3,
-                    xmax=category_indices[category] + 0.3,
+            from plotnine import stat_summary
+            p = (
+                ggplot(data, aes(x=self.var1, y=self.var2))
+                + geom_jitter(width=0.2, alpha=0.5, color=pu.PlotConfig.FILL)
+                + stat_summary(
+                    fun_y=np.mean,
+                    fun_ymin=np.mean,
+                    fun_ymax=np.mean,
+                    geom="crossbar",
                     color="blue",
-                    linestyle="--",
-                    linewidth=2,
-                    zorder=2,
+                    linetype="dashed",
+                    width=0.5,
+                    size=0.8,
+                    fatten=0,
                 )
+                + labs(x=self.var1, y=self.var2)
+                + theme_bw()
+            )
 
         elif plots == "box":
-            sns.boxplot(data=self.data, x=self.var1, y=self.var2)
-        elif plots == "density":
-            sns.kdeplot(data=self.data, x=self.var2, hue=self.var1)
-        elif plots == "bar":
-            sns.barplot(
-                data=self.data,
-                y=self.var2,
-                x=self.var1,
-                # yerr=self.descriptive_stats["se"], # shapes don't align for some reason
+            p = (
+                ggplot(data, aes(x=self.var1, y=self.var2))
+                + geom_boxplot(fill=pu.PlotConfig.FILL, alpha=0.7)
+                + labs(x=self.var1, y=self.var2)
+                + theme_bw()
             )
+
+        elif plots == "density":
+            p = (
+                ggplot(data, aes(x=self.var2, color=self.var1, fill=self.var1))
+                + geom_density(alpha=0.3)
+                + labs(x=self.var2, y="Density", color=self.var1, fill=self.var1)
+                + theme_bw()
+            )
+
+        elif plots == "bar":
+            # Calculate means per group
+            means = data.group_by(self.var1).agg(
+                pl.col(self.var2).mean().alias("mean")
+            )
+            p = (
+                ggplot(means, aes(x=self.var1, y="mean"))
+                + geom_col(fill=pu.PlotConfig.FILL, alpha=0.8)
+                + labs(x=self.var1, y=f"Mean {self.var2}")
+                + theme_bw()
+            )
+
         else:
-            print("Invalid plot type")
+            raise ValueError(f"Invalid plot type: {plots}. Choose from 'scatter', 'box', 'density', 'bar'.")
+
+        return p

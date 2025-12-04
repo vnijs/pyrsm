@@ -207,7 +207,7 @@ diamonds["training"] = rsm.model.make_train(diamonds, test_size=0.3, random_stat
 
 ```{python}
 reg_nn = rsm.model.mlp(
-    data={"diamonds (train)": diamonds[diamonds.training == 1]},
+    data={"diamonds (train)": diamonds.filter(pl.col("training") == 1)},
     rvar="price",
     evar=["carat", "clarity", "cut", "color"],
     mod_type="regression",
@@ -276,7 +276,7 @@ cv.best_params_
 
 ```{python}
 reg_nncv = rsm.model.mlp(
-    data={"diamonds (train)": diamonds[diamonds.training == 1]},
+    data={"diamonds (train)": diamonds.filter(pl.col("training") == 1)},
     rvar="price",
     evar=["carat", "clarity", "cut", "color"],
     random_state=1234,
@@ -296,7 +296,7 @@ diamonds["training"] = rsm.model.make_train(diamonds, test_size=0.3, random_stat
 
 ```{python}
 reg_nn = rsm.model.mlp(
-    data={"diamonds (train)": diamonds[diamonds.training == 1]},
+    data={"diamonds (train)": diamonds.filter(pl.col("training") == 1)},
     rvar="price",
     evar=["carat", "clarity", "cut", "color"],
     mod_type="regression",
@@ -380,7 +380,7 @@ cv = rsm.model.cross_validation(reg_nn, "reg-nn", param_grid)
 
 ```{python}
 reg_nncv = rsm.model.mlp(
-    data={"diamonds (train)": diamonds[diamonds.training == 1]},
+    data={"diamonds (train)": diamonds.filter(pl.col("training") == 1)},
     rvar="price",
     evar=["carat", "clarity", "cut", "color"],
     random_state=1234,
@@ -392,7 +392,7 @@ reg_nncv.summary()
 
 ```{python}
 reg_nn = rsm.model.mlp(
-    data={"diamonds (train)": diamonds[diamonds.training == 1]},
+    data={"diamonds (train)": diamonds.filter(pl.col("training") == 1)},
     rvar="price",
     evar=["carat", "clarity", "cut", "color"],
     mod_type="regression",
@@ -468,7 +468,7 @@ cv = rsm.model.cross_validation(reg_nn, "reg-nn", param_grid)
 
 ```{python}
 reg_nncv = rsm.model.mlp(
-    data={"diamonds (train)": diamonds[diamonds.training == 1]},
+    data={"diamonds (train)": diamonds.filter(pl.col("training") == 1)},
     rvar="price",
     evar=["carat", "clarity", "cut", "color"],
     random_state=1234,
@@ -477,4 +477,3 @@ reg_nncv = rsm.model.mlp(
 )
 reg_nncv.summary()
 ```
-

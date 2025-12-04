@@ -1,6 +1,7 @@
-from pyrsm.example_data import load_data
 import pandas as pd
+import polars as pl
 
+from pyrsm.example_data import load_data
 
 def test_all_data():
     data, descriptions = load_data()
@@ -20,11 +21,9 @@ def test_package():
 
 def test_dataset():
     data, description = load_data(pkg="model", name="dvd")
-    assert isinstance(data, pd.DataFrame), "Return value should be a dictionary"
-    assert data.shape == (
-        20_000,
-        5,
-    ), "DVD data doesn't have the right shape?"
+    assert isinstance(data, (pd.DataFrame, pl.DataFrame)), "Unexpected dataset type"
+    pdf = data if isinstance(data, pd.DataFrame) else data.to_pandas()
+    assert pdf.shape == (20_000, 5), "DVD data doesn't have the right shape?"
 
 
 if __name__ == "__main__":

@@ -120,25 +120,25 @@ class prob_calc:
     def plot(self):
         type = "probs" if ("plb" in self.args) or ("pub" in self.args) else "values"
         if self.distribution == "binom":
-            plot_prob_binom(self.dct, type=type)
+            return plot_prob_binom(self.dct, type=type)
         elif self.distribution == "chisq":
-            plot_prob_chisq(self.dct, type=type)
+            return plot_prob_chisq(self.dct, type=type)
         elif self.distribution == "disc":
-            plot_prob_disc(self.dct, type=type)
+            return plot_prob_disc(self.dct, type=type)
         elif self.distribution == "expo":
-            plot_prob_expo(self.dct, type=type)
+            return plot_prob_expo(self.dct, type=type)
         elif self.distribution == "fdist":
-            plot_prob_fdist(self.dct, type=type)
+            return plot_prob_fdist(self.dct, type=type)
         elif self.distribution == "lnorm":
-            plot_prob_lnorm(self.dct, type=type)
+            return plot_prob_lnorm(self.dct, type=type)
         elif self.distribution == "norm":
-            plot_prob_norm(self.dct, type=type)
+            return plot_prob_norm(self.dct, type=type)
         elif self.distribution == "pois":
-            plot_prob_pois(self.dct, type=type)
+            return plot_prob_pois(self.dct, type=type)
         elif self.distribution == "tdist":
-            plot_prob_tdist(self.dct, type=type)
+            return plot_prob_tdist(self.dct, type=type)
         elif self.distribution == "unif":
-            plot_prob_unif(self.dct, type=type)
+            return plot_prob_unif(self.dct, type=type)
 
 
 if __name__ == "__main__":

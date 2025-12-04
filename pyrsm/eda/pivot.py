@@ -2,12 +2,15 @@
 pivot() - Pivot tables and crosstabs.
 
 Examples:
-    import pyrsm_mcp as rsm
+    import pyrsm as rsm
 
     # Frequency table (1 variable)
     rsm.eda.pivot(df, rows='cut')
 
-    # Crosstab (2 variables)
+    # Multiple row variables
+    rsm.eda.pivot(df, rows=['cut', 'color'])
+
+    # Crosstab (rows + cols)
     rsm.eda.pivot(df, rows='cut', cols='color')
 
     # Aggregation
@@ -37,40 +40,50 @@ NORMALIZE_OPTIONS = {"row", "column", "total", "none", None}
 
 def pivot(
     df: Union[pl.DataFrame, pl.LazyFrame],
-    rows: str,
+    rows: Union[str, List[str]],
     cols: Optional[str] = None,
     values: Optional[str] = None,
     agg: str = "count",
     normalize: Optional[str] = None,
     totals: bool = False,
+    fill: Optional[float] = None,
 ) -> pl.DataFrame:
     """
     Create pivot tables and crosstabs.
 
     Args:
         df: Polars DataFrame or LazyFrame
-        rows: Row variable (required)
+        rows: Row variable(s) - string or list of strings
         cols: Column variable for crosstab (optional)
         values: Value column for aggregation (optional, uses count if None)
         agg: Aggregation function. Default: 'count' (or 'mean' if values specified)
              Supported: count, sum, mean, median, min, max, std, var
         normalize: Normalization type: 'row', 'column', 'total', or None
         totals: Whether to include row/column totals
+        fill: Fill value for missing cells (only when no values variable). Default: None
 
     Returns:
         DataFrame with pivot table
 
     Examples:
         >>> rsm.eda.pivot(diamonds, rows='cut')  # Frequency table
+        >>> rsm.eda.pivot(diamonds, rows=['cut', 'color'])  # Multiple rows
         >>> rsm.eda.pivot(diamonds, rows='cut', cols='color')  # Crosstab
         >>> rsm.eda.pivot(diamonds, rows='cut', cols='color', values='price', agg='mean')
         >>> rsm.eda.pivot(diamonds, rows='cut', cols='color', normalize='row', totals=True)
+        >>> rsm.eda.pivot(diamonds, rows='cut', cols='color', fill=0)  # Fill nulls with 0
     """
     # Convert to LazyFrame for consistency
     if isinstance(df, pl.DataFrame):
         lf = df.lazy()
     else:
         lf = df
+
+    # Normalize rows to list
+    if isinstance(rows, str):
+        rows_list = [rows]
+    else:
+        rows_list = list(rows)
 
     # Default agg based on whether values is specified
     if values and agg == "count":
@@ -96,12 +109,12 @@ def pivot(
     else:
         agg_expr = pl.len().alias("value")
 
-    # Frequency table (single variable)
+    # Frequency table (no cols variable)
     if not cols:
-        result = lf.group_by(rows).agg(agg_expr)
+        result = lf.group_by(rows_list).agg(agg_expr)
 
-        # Rename 'value' to more descriptive name
-        value_col = f"{agg}_{values}" if values else "count"
+        # Rename 'value' to more descriptive name (col_agg format, consistent with explore)
+        value_col = f"{values}_{agg}" if values else "count"
         result = result.rename({"value": value_col})
 
         # Collect for further processing
@@ -115,26 +128,31 @@ def pivot(
 
         # Totals for frequency table
         if totals:
-            # Cast row column to string to allow "Total" label
-            pivoted = pivoted.with_columns(pl.col(rows).cast(pl.Utf8))
+            # Cast row columns to string to allow "Total" label
+            for row_col in rows_list:
+                pivoted = pivoted.with_columns(pl.col(row_col).cast(pl.Utf8))
             # Cast numeric columns to Float64
             for col in pivoted.columns:
-                if col != rows:
+                if col not in rows_list:
                     pivoted = pivoted.with_columns(pl.col(col).cast(pl.Float64))
 
             # Compute totals
-            total_vals = {rows: "Total"}
+            total_vals = {row_col: "Total" for row_col in rows_list}
             for col in pivoted.columns:
-                if col != rows:
+                if col not in rows_list:
                     total_vals[col] = float(pivoted[col].sum())
 
             total_row = pl.DataFrame([total_vals])
             pivoted = pl.concat([pivoted, total_row])
 
+        # Fill missing values if specified (only when no values variable)
+        if fill is not None and not values:
+            pivoted = pivoted.fill_null(fill)
+
         return pivoted
 
-    # Crosstab (two variables) - need to collect for pivot
-    group_cols = [rows, cols]
+    # Crosstab (rows + cols) - need to collect for pivot
+    group_cols = rows_list + [cols]
     grouped = lf.group_by(group_cols).agg(agg_expr)
 
     # Polars LazyFrame.pivot requires collect first
@@ -143,17 +161,19 @@ def pivot(
     # Pivot the data
     pivoted = df_grouped.pivot(
         on=cols,
-        index=rows,
+        index=rows_list,
         values="value",
         aggregate_function=None,  # Already aggregated
     )
 
-    # Get the column names (excluding index)
-    data_cols = [c for c in pivoted.columns if c != rows]
+    # Get the column names (excluding index columns)
+    data_cols = [c for c in pivoted.columns if c not in rows_list]
 
-    # Cast row column to string if needed (for totals "Total" label)
-    if totals or pivoted[rows].dtype in (pl.Categorical, pl.Enum):
-        pivoted = pivoted.with_columns(pl.col(rows).cast(pl.Utf8))
+    # Cast row columns to string if needed (for totals "Total" label)
+    if totals:
+        for row_col in rows_list:
+            if pivoted[row_col].dtype in (pl.Categorical, pl.Enum) or totals:
+                pivoted = pivoted.with_columns(pl.col(row_col).cast(pl.Utf8))
 
     # Cast numeric columns to Float64 for consistency with totals
     for col in data_cols:
@@ -168,7 +188,7 @@ def pivot(
         data_cols.append("Total")
 
         # Column totals (as a new row)
-        col_totals = {rows: "Total"}
+        col_totals = {row_col: "Total" for row_col in rows_list}
         for col in data_cols:
             col_totals[col] = float(pivoted[col].sum())
 
@@ -206,5 +226,9 @@ def pivot(
                     pivoted = pivoted.with_columns(
                         (pl.col(col) / grand_total * 100).alias(col)
                     )
+
+    # Fill missing values if specified (only when no values variable)
+    if fill is not None and not values:
+        pivoted = pivoted.fill_null(fill)
 
     return pivoted

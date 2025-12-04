@@ -7,6 +7,7 @@ from sys import modules
 
 import numpy as np
 import pandas as pd
+import polars as pl
 from IPython.display import Markdown, display
 
 
@@ -125,12 +126,12 @@ def format_nr(x, sym="", dec=2, perc=False):
 
 def levels_list(df):
     """
-    Provide a pandas dataframe and get a dictionary back with the unique values for
+    Provide a DataFrame and get a dictionary back with the unique values for
     each column
 
     Parameters
     ----------
-    df: Pandas dataframe
+    df: Pandas or Polars DataFrame
 
     Returns
     -------
@@ -139,75 +140,101 @@ def levels_list(df):
 
     Examples
     --------
-    df = pd.DataFrame({
+    df = pl.DataFrame({
         "var1": ["a", "b", "a"],
         "var2": [1, 2, 1]
     })
     levels_list(df)
     """
-    return {str(col): list(df[col].unique()) for col in df.columns}
+    if isinstance(df, pd.DataFrame):
+        df = pl.from_pandas(df)
+    return {str(col): df[col].unique().to_list() for col in df.columns}
 
 
-def expand_grid(dct, dtypes=None):
+def expand_grid(dct, schema=None):
     """
-    Provide a dictionary and get a pandas dataframe back with all possible
-    value combinations
+    Provide a dictionary and get a polars DataFrame back with all possible
+    value combinations.
 
     Parameters
     ----------
-    dct : Dictionary with value combinations to expand
-    dtypes : Pandas series
-        Pandas column types extracted from a dataframe using df.dtypes
+    dct : dict
+        Dictionary with value combinations to expand
+    schema : dict of polars dtypes, optional
+        Column types to cast the result to (must be polars dtypes)
 
     Returns
     -------
-    Pandas dataframe with all possible value combination
+    pl.DataFrame
+        Polars DataFrame with all possible value combinations
 
     Example
     -------
     expand_grid({"var1": ["a", "b"], "var2": [1, 2]})
     """
-    df = pd.DataFrame([val for val in product(*dct.values())], columns=dct.keys())
-    if dtypes is not None:
-        return df.astype(dtypes)
-    else:
-        return df
+    rows = list(product(*dct.values()))
+    df = pl.DataFrame(rows, schema=list(dct.keys()), orient="row")
+
+    if schema is not None:
+        # Cast columns to match original schema if provided
+        cast_exprs = []
+        for col in df.columns:
+            if col in schema:
+                target_dtype = schema[col]
+                current_dtype = df[col].dtype
+                # Only cast if types differ and target is a valid polars dtype
+                if current_dtype != target_dtype and isinstance(target_dtype, pl.DataType):
+                    cast_exprs.append(pl.col(col).cast(target_dtype))
+                else:
+                    cast_exprs.append(pl.col(col))
+            else:
+                cast_exprs.append(pl.col(col))
+        df = df.select(cast_exprs)
+
+    return df
 
 
 def table2data(df, freq):
     """
-    Provide a pandas dataframe and get dataframe back with all
-    the total number of rows equal to the sum of the frequency
-    variable
+    Provide a DataFrame and get a DataFrame back with the total number of rows
+    equal to the sum of the frequency variable
 
     Parameters
     ----------
-    df: Pandas dataframe
+    df: Pandas or Polars DataFrame
     freq: str
         String with the variable name of the frequency column in df
 
     Returns
     -------
-    Pandas dataframe expanded in size based on the frequencies in selected column
+    pl.DataFrame
+        Polars DataFrame expanded in size based on the frequencies in selected column
 
     Examples
     --------
-    df = pd.DataFrame({"var1": ["a", "b", "a"], "freq": [5, 2, 3]})
+    df = pl.DataFrame({"var1": ["a", "b", "a"], "freq": [5, 2, 3]})
     table2data(df, "freq")
     """
+    if isinstance(df, pd.DataFrame):
+        df = pl.from_pandas(df)
 
-    return df.loc[df.index.repeat(df[freq])]
+    # Get columns excluding the frequency column
+    other_cols = [c for c in df.columns if c != freq]
+
+    # Repeat each row by its frequency value
+    return df.select(other_cols).select(
+        pl.all().repeat_by(df[freq])
+    ).explode(pl.all())
 
 
 def setdiff(x, y, sort=False):
     """
-    Returns a numpy array of unique elements in x that are not in y
+    Returns unique elements in x that are not in y
 
     Parameters
     ----------
-
-    x : List type or that can be converted to a list
-    y : List type or that can be converted to a list
+    x : List or iterable
+    y : List or iterable
     sort : boolean
         Sort the output
 
@@ -220,96 +247,107 @@ def setdiff(x, y, sort=False):
     --------
     setdiff(["a", "b", "c"], ["b", "x"])
     """
-
-    x = np.unique(np.array(x))
-    y = np.unique(np.array(y))
-    return list(np.setdiff1d(x, y, assume_unique=sort))
+    result = list(dict.fromkeys(item for item in x if item not in set(y)))
+    return sorted(result) if sort else result
 
 
 def union(x, y):
     """
-    Return the unique, sorted array of values that are in either of the two input arrays
+    Return the unique, sorted list of values that are in either of the two input lists
 
     Parameters
     ----------
-
-    x : List type or that can be converted to a list
-    y : List type or that can be converted to a list
+    x : List or iterable
+    y : List or iterable
 
     Returns
     -------
     list
-        Unique, sorted array of values that are in either of the two input arrays
+        Unique, sorted list of values that are in either input
 
     Examples
     --------
     union(["a", "b", "c"], ["b", "x"])
     """
-
-    x = np.array(x)
-    y = np.array(y)
-    return list(np.union1d(x, y))
+    return sorted(set(x) | set(y))
 
 
 def intersect(x, y):
     """
-    Return the unique, sorted array of values that are in both input arrays
+    Return the unique, sorted list of values that are in both input lists
 
     Parameters
     ----------
-
-    x : List type or that can be converted to a list
-    y : List type or that can be converted to a list
+    x : List or iterable
+    y : List or iterable
 
     Returns
     -------
     list
-        Unique, sorted array of values that are in both input arrays
+        Unique, sorted list of values that are in both inputs
 
     Examples
     --------
     intersect(["a", "b", "c"], ["b", "x"])
     """
-    x = np.array(x)
-    y = np.array(y)
-    return list(np.intersect1d(x, y))
+    return sorted(set(x) & set(y))
 
 
-def lag(arr, num=1, fill=np.nan):
+def lag(arr, num=1, fill=None):
     """
-    Create a numpy array of time series data, shifted ahead or back a number of periods
+    Shift data by a number of periods (lag)
 
     Parameters
     ----------
-    arr : Numpy array
-        A numpy array shift ahead or back
+    arr : list, pl.Series, or array-like
+        Data to shift
     num : int
-        Number of periods to shift values in arr. For example, num=1 would
-        lag the data by one period, while -1 would create a one period lead
+        Number of periods to shift. Positive values lag (shift forward),
+        negative values lead (shift backward)
     fill : Optional
-        Input to use to replace missing values created by shifting
-        the values in arr forwards of backwards
+        Value to use for missing values created by shifting. Default is None (null)
 
     Returns
     -------
-    Numpy array containing a shifted copy of arr
+    pl.Series
+        Shifted data as a polars Series
 
-    Adapted from https://stackoverflow.com/questions/30399534/shift-elements-in-a-numpy-array
+    Examples
+    --------
+    lag([1, 2, 3, 4], num=1)  # [null, 1, 2, 3]
+    lag([1, 2, 3, 4], num=-1)  # [2, 3, 4, null]
     """
-    result = np.empty_like(arr)
-    if num > 0:
-        result[:num] = fill
-        result[num:] = arr[:-num]
-    elif num < 0:
-        result[num:] = fill
-        result[:num] = arr[-num:]
+    if isinstance(arr, pl.Series):
+        s = arr
     else:
-        result = arr.copy()
+        s = pl.Series(arr)
+
+    result = s.shift(num)
+    if fill is not None:
+        result = result.fill_null(fill)
     return result
 
 
-def lead(arr, num=1, fill=np.nan):
-    """Convenience function for leading periods. Uses the lag function in pyrsm"""
+def lead(arr, num=1, fill=None):
+    """
+    Shift data by a number of periods (lead)
+
+    Convenience function for leading periods. Uses the lag function with negative num.
+
+    Parameters
+    ----------
+    arr : list, pl.Series, or array-like
+        Data to shift
+    num : int
+        Number of periods to lead (shift backward)
+    fill : Optional
+        Value to use for missing values. Default is None (null)
+
+    Returns
+    -------
+    pl.Series
+        Shifted data as a polars Series
+    """
     return lag(arr, num=-num, fill=fill)
 
 
@@ -426,17 +464,20 @@ def odir(obj, private: bool = False) -> dict:
 
 
 def check_dataframe(df):
-    if isinstance(df, pd.core.frame.DataFrame):
-        return df.copy()
-    elif hasattr(df, "to_pandas"):
-        # Handle Polars DataFrames (and any other df with to_pandas method)
-        return df.to_pandas()
+    """Convert input to polars DataFrame."""
+    if isinstance(df, pl.DataFrame):
+        return df
+    elif isinstance(df, pd.DataFrame):
+        return pl.from_pandas(df.copy())
     else:
-        return pd.DataFrame(df)
+        return pl.DataFrame(df)
 
 
 def check_series(s):
-    if not isinstance(s, pd.Series):
-        return pd.Series(s)
+    """Convert input to polars Series."""
+    if isinstance(s, pl.Series):
+        return s
+    elif isinstance(s, pd.Series):
+        return pl.from_pandas(s)
     else:
-        return s.copy()
+        return pl.Series(s)

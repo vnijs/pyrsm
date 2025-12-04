@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import polars as pl
 
 from pyrsm.stats import (
     scale_df,
@@ -28,19 +29,19 @@ df = pd.DataFrame(
         "z": [2, 1, 1, 1, 2, 2, 10],
     }
 )
-wt = np.array([1, 10, 1, 10, 1, 10, 1])
+wt = [1, 10, 1, 10, 1, 10, 1]
 
 
 def test_weighted_mean():
-    assert all(
-        weighted_mean(df, wt).round(5) == np.array([0.61765, 1.73529, 1.617650])
-    ), "Weighted means incorrect"
+    result = weighted_mean(df, wt).round(5)
+    expected = pl.Series([0.61765, 1.73529, 1.61765])
+    assert result.equals(expected), "Weighted means incorrect"
 
 
 def test_weighted_sd():
-    assert all(
-        weighted_sd(df, wt).round(5) == np.array([0.48596, 1.70309, 1.53421])
-    ), "Weighted standard deviations incorrect"
+    result = weighted_sd(df, wt).round(5)
+    expected = pl.Series([0.48596, 1.70309, 1.53421])
+    assert result.equals(expected), "Weighted standard deviations incorrect"
 
 
 def test_scale_df():
