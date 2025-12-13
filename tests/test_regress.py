@@ -153,7 +153,7 @@ class TestRegressSummary:
         )
         captured = io.StringIO()
         sys.stdout = captured
-        reg.summary(main=True, fit=False)
+        reg.summary(plain=True)
         sys.stdout = sys.__stdout__
         output = captured.getvalue()
 
@@ -170,7 +170,7 @@ class TestRegressSummary:
         )
         captured = io.StringIO()
         sys.stdout = captured
-        reg.summary(main=False, fit=True)
+        reg.summary(plain=True)
         sys.stdout = sys.__stdout__
         output = captured.getvalue()
 
@@ -185,7 +185,7 @@ class TestRegressSummary:
         )
         captured = io.StringIO()
         sys.stdout = captured
-        reg.summary(main=False, fit=False, ci=True)
+        reg.summary(ci=True, plain=True)
         sys.stdout = sys.__stdout__
         output = captured.getvalue()
 
@@ -200,7 +200,7 @@ class TestRegressSummary:
         )
         captured = io.StringIO()
         sys.stdout = captured
-        reg.summary(main=False, fit=False, vif=True)
+        reg.summary(vif=True, plain=True)
         sys.stdout = sys.__stdout__
         output = captured.getvalue()
 
@@ -215,7 +215,7 @@ class TestRegressSummary:
         )
         captured = io.StringIO()
         sys.stdout = captured
-        reg.summary(main=False, fit=False, ssq=True)
+        reg.summary(ssq=True, plain=True)
         sys.stdout = sys.__stdout__
         output = captured.getvalue()
 
@@ -230,7 +230,7 @@ class TestRegressSummary:
         )
         captured = io.StringIO()
         sys.stdout = captured
-        reg.summary(main=False, fit=False, rmse=True)
+        reg.summary(rmse=True, plain=True)
         sys.stdout = sys.__stdout__
         output = captured.getvalue()
 

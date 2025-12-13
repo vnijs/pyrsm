@@ -38,12 +38,12 @@ class mlp:
         The names of the columns to be used as explanatory (target) variables.
     hidden_layer_sizes : tuple, default=(5,)
         The number of neurons in the hidden layers. For example, (5,) for 5 neurons in 1 hidden layer, (5, 5) for 5 neurons in 2 hidden layers, etc.
+    alpha : float, default=0.0001
+        L2 penalty (regularization term) parameter.
     activation : {'identity', 'logistic', 'tanh', 'relu'}, default='tanh'
         Activation function to transform the data at each node in the hidden layer.
     solver : {'lbfgs', 'sgd', 'adam'}, default='lbfgs'
         The solver for weight optimization. Note that 'adam' also uses stochastic gradient descent.
-    alpha : float, default=0.0001
-        L2 penalty (regularization term) parameter.
     batch_size : float or str, default='auto'
         Size of minibatches for stochastic optimizers (i.e., 'sgd' or 'adam'). If 'auto', batch_size=min(200, n_samples).
     learning_rate_init : float, default=0.001
@@ -70,9 +70,9 @@ class mlp:
         lev: Optional[str] = None,
         evar: Optional[list[str]] = None,
         hidden_layer_sizes: tuple = (5,),
+        alpha: float = 0.0001,
         activation: Literal["identity", "logistic", "tanh", "relu"] = "tanh",
         solver: Literal["lbfgs", "sgd", "adam"] = "lbfgs",
-        alpha: float = 0.0001,
         batch_size: float | str = "auto",
         learning_rate_init: float = 0.001,
         max_iter: int = 1_000_000,
@@ -93,9 +93,9 @@ class mlp:
         self.lev = lev
         self.evar = convert_to_list(evar)
         self.hidden_layer_sizes = hidden_layer_sizes
+        self.alpha = alpha
         self.activation = activation
         self.solver = solver
-        self.alpha = alpha
         self.batch_size = batch_size
         self.learning_rate_init = learning_rate_init
         self.max_iter = max_iter
@@ -334,19 +334,17 @@ class mlp:
 
     def plot(
         self,
-        plots: Literal["pred", "pdp", "vimp", "vimp_sklearn", "dashboard"] = "pred",
+        plots: Literal["pred", "pdp", "pimp", "vimp_sklearn", "dashboard"] = "pred",
         data=None,
         incl=None,
         excl=None,
         incl_int=None,
         nobs: int = 1000,
         fix=True,
-        hline=False,
-        nnv=40,
+        hline=True,
+        nnv=30,
         minq=0.025,
         maxq=0.975,
-        figsize=None,
-        ax=None,
         ret=None,
     ) -> None:
         """
@@ -355,7 +353,7 @@ class mlp:
         Parameters
         ----------
         plots : {'pred', 'pdp', 'vimp', 'dashboard'}, default='pred'
-            Type of plot to generate. Options are 'pred' for prediction plot, 'pdp' for partial dependence plot, 'vimp' for variable importance plot which uses permutation importance, and 'dashboard' for a regression dashboard.
+            Type of plot to generate. Options are 'pred' for prediction plot, 'pdp' for partial dependence plot, 'pimp' for variable importance plot which uses permutation importance, and 'dashboard' for a regression dashboard.
         data : pd.DataFrame, optional
             Data to use for the plots. If None, uses the training data.
         incl : list of str, optional
@@ -367,17 +365,15 @@ class mlp:
         nobs : int, default=1000
             Number of observations to include in the scatter plots for the dashboard plot.
         fix : bool, default=True
-            Whether to fix the scale of the plots based on the maximum impact range of the include explanatory variables.
+            Whether to fix the scale of the plots based on the maximum impact range of the included explanatory variables.
         hline : bool, default=False
             Whether to include a horizontal line at the mean response rate in the plots.
-        nnv : int, default=40
+        nnv : int, default=30
             Number of values to use for the prediction plot.
         minq : float, default=0.025
             Minimum quantile for the prediction plot.
         maxq : float, default=0.975
             Maximum quantile for the prediction plot.
-        figsize : tuple[int, int], default None
-            Figure size for the plots in inches.
         ret : bool, optional
             Whether to return the variable (permutation) importance scores for a "vimp" plot.
 
@@ -427,8 +423,7 @@ class mlp:
             )
 
         if "pdp" in plots:
-            if figsize is None:
-                figsize = (8, len(self.data_onehot.columns) * 2)
+            figsize = (8, len(self.data_onehot.columns) * 2)
             fig, ax = plt.subplots(figsize=figsize)
             ax.set_title("Partial Dependence Plots")
             pdp.from_estimator(
@@ -437,7 +432,7 @@ class mlp:
             plt.show()
             plt.close()
 
-        if "vimp" in plots or "pimp" in plots:
+        if "pimp" in plots or "vimp" in plots:
             (p, return_vimp) = vimp_plot_sk(
                 self,
                 rep=5,

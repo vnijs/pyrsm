@@ -489,7 +489,7 @@ class compare_means:
                     fun_ymax=np.mean,
                     geom="crossbar",
                     color="blue",
-                    linetype="dashed",
+                    linetype="solid",
                     width=0.5,
                     size=0.8,
                     fatten=0,

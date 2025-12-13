@@ -44,7 +44,7 @@ class regress:
         List of column names of the explanatory variables.
     ivar : list[str]
         List of strings with the names of the columns included as explanatory variables (e.g., ["x1:x2", "x3:x4"])
-    form : str
+    formula : str
         Model specification formula.
     fitted : statsmodels.regression.linear_model.RegressionResultsWrapper
         The fitted model.
@@ -69,7 +69,7 @@ class regress:
         rvar: str | None = None,
         evar: list[str] | None = None,
         ivar: list[str] | None = None,
-        form: str | None = None,
+        formula: str | None = None,
     ) -> None:
         """
         Initialize the regress class to build a linear regression model with the provided data and parameters.
@@ -84,7 +84,7 @@ class regress:
             List of column names in the data to use as explanatory variables.
         ivar : list[str], optional
             List of interactions to add to the model as explanatory variables (e.g., ["x1:x2", "x3:x4])
-        form : str, optional
+        formula : str, optional
             Optional formula to use if rvar and evar are not provided.
         """
         if isinstance(data, dict):
@@ -99,23 +99,23 @@ class regress:
         self.rvar = rvar
         self.evar = convert_to_list(evar)
         self.ivar = convert_to_list(ivar)
-        self.form = form
+        self.formula = formula
 
         # Convert to pandas only for statsmodels fitting
         data_pd = self.data.to_pandas()
 
-        if self.form:
-            self.fitted = smf.ols(formula=self.form, data=data_pd).fit()
+        if self.formula:
+            self.fitted = smf.ols(formula=self.formula, data=data_pd).fit()
             self.evar = extract_evars(self.fitted.model, self.data.columns)
             self.rvar = extract_rvar(self.fitted.model, self.data.columns)
         else:
             if self.evar is None or len(self.evar) == 0:
-                self.form = f"{self.rvar} ~ 1"
+                self.formula = f"{self.rvar} ~ 1"
             else:
-                self.form = f"{self.rvar} ~ {' + '.join(self.evar)}"
+                self.formula = f"{self.rvar} ~ {' + '.join(self.evar)}"
             if self.ivar:
-                self.form += f" + {' + '.join(self.ivar)}"
-            self.fitted = smf.ols(self.form, data=data_pd).fit()
+                self.formula += f" + {' + '.join(self.ivar)}"
+            self.fitted = smf.ols(self.formula, data=data_pd).fit()
 
         self.fitted.nobs_dropped = self.data.height - self.fitted.nobs
 
@@ -458,11 +458,11 @@ class regress:
         else:
             sint = []
 
-        form = f"{self.rvar} ~ "
+        formula = f"{self.rvar} ~ "
         if len(evar) == 0 and len(sint) == 0:
-            form += "1"
+            formula += "1"
         else:
-            form += f"{' + '.join(evar + sint)}"
+            formula += f"{' + '.join(evar + sint)}"
         pattern = r"(\[T\.[^\]]*\])\:"
 
         # ensure constraints are unique
@@ -481,8 +481,8 @@ class regress:
             )
         )
 
-        print(f"\nModel 1: {form}")
-        print(f"Model 2: {self.form}")
+        print(f"\nModel 1: {formula}")
+        print(f"Model 2: {self.formula}")
         out = self.fitted.f_test(hypothesis)
 
         r2_sub = self.fitted.rsquared - (

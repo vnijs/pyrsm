@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Literal, Optional
 
 import numpy as np
 import pandas as pd
@@ -50,7 +50,7 @@ class logistic:
         List of column names of the explanatory variables.
     ivar : list[str]
         List of strings with the names of the columns included as explanatory variables (e.g., ["x1:x2", "x3:x4"])
-    form : str
+    formula : str
         Model specification formula.
     fitted : statsmodels.genmod.generalized_linear_model.GLMResultsWrapper
         The fitted model.
@@ -69,7 +69,7 @@ class logistic:
         lev: Optional[str] = None,
         evar: Optional[list[str]] = None,
         ivar: Optional[list[str]] = None,
-        form: Optional[str] = None,
+        formula: Optional[str] = None,
         weights: Optional[str] = None,
     ) -> None:
         if isinstance(data, dict):
@@ -85,7 +85,7 @@ class logistic:
         self.lev = lev
         self.evar = convert_to_list(evar)
         self.ivar = convert_to_list(ivar)
-        self.form = form
+        self.formula = formula
 
         # Apply binary conversion on polars DataFrame
         if self.lev is not None and self.rvar is not None:
@@ -103,9 +103,9 @@ class logistic:
         else:
             weights = self.weights.to_pandas()
 
-        if self.form:
+        if self.formula:
             self.fitted = smf.glm(
-                formula=self.form,
+                formula=self.formula,
                 data=self.data.to_pandas(),
                 freq_weights=weights,
                 family=Binomial(link=Logit()),
@@ -116,13 +116,13 @@ class logistic:
                 self.lev = self.data[self.rvar][0]
         else:
             if self.evar is None or len(self.evar) == 0:
-                self.form = f"{self.rvar} ~ 1"
+                self.formula = f"{self.rvar} ~ 1"
             else:
-                self.form = f"{self.rvar} ~ {' + '.join(self.evar)}"
+                self.formula = f"{self.rvar} ~ {' + '.join(self.evar)}"
             if self.ivar:
-                self.form += f" + {' + '.join(self.ivar)}"
+                self.formula += f" + {' + '.join(self.ivar)}"
             self.fitted = smf.glm(
-                formula=self.form,
+                formula=self.formula,
                 data=self.data.to_pandas(),
                 freq_weights=weights,
                 family=Binomial(link=Logit()),
@@ -146,7 +146,7 @@ class logistic:
             }
         ).drop_nulls(subset=["coefficient"])
 
-    def summary(self, vif=False, test=None, ci=False, dec=3, plain=False) -> None:
+    def summary(self, vif=False, test=None, ci=False, dec=3, plain=True) -> None:
         """
         Summarize the logistic regression model output
 
@@ -303,21 +303,21 @@ class logistic:
 
     def plot(
         self,
-        plots="or",
+        plots: Literal["pred", "pdp", "pimp", "or"] = "pred",
         data=None,
-        alpha=0.05,
-        nobs: int = 1000,
-        intercept=False,
         incl=None,
         excl=None,
         incl_int=[],
+        nobs: int = 1000,
         fix=True,
-        hline=False,
-        nnv=20,
+        hline=True,
+        nnv=30,
         minq=0.025,
         maxq=0.975,
-        figsize=None,
         ret=None,
+        alpha=0.05,
+        intercept=False,
+        figsize=None
     ) -> None:
         """
         Plots for a logistic regression model
@@ -345,7 +345,7 @@ class logistic:
             return distr_plot(plot_data_pd)
         elif "corr" in plots:
             cr = correlation(plot_data)
-            return cr.plot(nobs=nobs, figsize=figsize)
+            return cr.plot(nobs=nobs)
         elif "or" in plots or "coef" in plots:
             return or_plot(
                 self.fitted,
@@ -368,7 +368,7 @@ class logistic:
                 minq=minq,
                 maxq=maxq,
             )
-        elif "vimp" in plots or "pimp" in plots:
+        elif "pimp" in plots or "vimp" in plots:
             (return_vimp, p) = vimp_plot_sm(
                 self.fitted,
                 data=plot_data_pd,
@@ -396,20 +396,20 @@ class logistic:
         else:
             sint = []
 
-        form = f"{self.rvar} ~ "
+        formula = f"{self.rvar} ~ "
         if len(evar) == 0 and len(sint) == 0:
-            form += "1"
+            formula += "1"
         else:
-            form += f"{' + '.join(evar + sint)}"
+            formula += f"{' + '.join(evar + sint)}"
 
-        print(f"\nModel 1: {form}")
-        print(f"Model 2: {self.form}")
+        print(f"\nModel 1: {formula}")
+        print(f"Model 2: {self.formula}")
 
         # Convert to pandas for statsmodels
         data_pd = self.data.to_pandas()
 
         sub_fitted = smf.glm(
-            formula=form,
+            formula=formula,
             data=data_pd,
             freq_weights=self.weights,
             family=Binomial(link=Logit()),

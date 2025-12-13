@@ -87,7 +87,7 @@ class correlation:
         self.cp = cp
         self.cv = cv
 
-    def summary(self, cov=False, cutoff: float = 0, dec: int = 2) -> None:
+    def summary(self, cov=False, cutoff: float = 0, dec: int = 2, plain: bool = True) -> None:
         """
         Print correlations between numeric variables in a Polars dataframe
 
@@ -99,6 +99,9 @@ class correlation:
             Only show correlations larger than a threshold in absolute value
         dec : int
             Number of decimal places to use in rounding
+        plain : bool
+            If True (default), print plain text output. If False and running
+            in a Jupyter notebook, use styled table output.
 
         Examples
         --------
@@ -114,7 +117,7 @@ class correlation:
 
         self._print_hypothesis_info(cutoff)
 
-        if du.is_notebook():
+        if not plain and du.is_notebook():
             self._style_tables(cov=cov, cutoff=cutoff, dec=dec)
         else:
             self._summary_plain(cov=cov, cutoff=cutoff, dec=dec)

@@ -166,7 +166,7 @@ class TestLogisticSummary:
         )
         captured = io.StringIO()
         sys.stdout = captured
-        lr.summary(main=True, fit=False)
+        lr.summary(plain=True)
         sys.stdout = sys.__stdout__
         output = captured.getvalue()
 
@@ -185,7 +185,7 @@ class TestLogisticSummary:
         )
         captured = io.StringIO()
         sys.stdout = captured
-        lr.summary(main=False, fit=True)
+        lr.summary(plain=True)
         sys.stdout = sys.__stdout__
         output = captured.getvalue()
 
@@ -202,7 +202,7 @@ class TestLogisticSummary:
         )
         captured = io.StringIO()
         sys.stdout = captured
-        lr.summary(main=False, fit=False, ci=True)
+        lr.summary(ci=True, plain=True)
         sys.stdout = sys.__stdout__
         output = captured.getvalue()
 
@@ -218,7 +218,7 @@ class TestLogisticSummary:
         )
         captured = io.StringIO()
         sys.stdout = captured
-        lr.summary(main=False, fit=False, vif=True)
+        lr.summary(vif=True, plain=True)
         sys.stdout = sys.__stdout__
         output = captured.getvalue()
 

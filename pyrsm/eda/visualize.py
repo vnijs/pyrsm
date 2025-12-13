@@ -35,7 +35,7 @@ GEOM_CONFIG = {
     },
     "scatter": {
         "required": ["x", "y"],
-        "defaults": {"alpha": 0.7, "size": 2},
+        "defaults": {"alpha": 0.7, "size": 2, "nobs": 1000},
     },
     "bar": {
         "required": ["x"],
@@ -88,6 +88,8 @@ def visualize(
     facet_row: Optional[str] = None,
     facet_col: Optional[str] = None,
     title: Optional[str] = None,
+    nobs: int = 1000,
+    agg: Optional[str] = None,
 ):
     """
     Create a plot using plotnine.
@@ -113,6 +115,11 @@ def visualize(
         facet_row: Row faceting variable (for facet_grid)
         facet_col: Column faceting variable (for facet_grid)
         title: Plot title
+        nobs: Max observations for scatter plots (default: 1000, -1 for all)
+        agg: Aggregation function for bar/scatter plots with categorical x:
+             "mean", "median", "sum", "min", "max". For bar plots, aggregates y
+             by x. For scatter plots with categorical x, adds a line showing
+             the aggregated value per category.
 
     Returns:
         plotnine ggplot object
@@ -122,12 +129,15 @@ def visualize(
         >>> rsm.eda.visualize(df, x="carat", y="price")  # scatter
         >>> rsm.eda.visualize(df, x="carat", y="price", color="cut")
         >>> rsm.eda.visualize(df, x="carat", y="price", smooth="lm")
+        >>> rsm.eda.visualize(df, x="cut", y="price", geom="bar", agg="mean")  # mean bar
+        >>> rsm.eda.visualize(df, x="cut", y="price", geom="scatter", agg="mean")  # scatter with mean line
     """
     from plotnine import (
         ggplot,
         aes,
         geom_histogram,
         geom_bar,
+        geom_col,
         geom_density,
         geom_point,
         geom_jitter,
@@ -135,11 +145,26 @@ def visualize(
         geom_boxplot,
         geom_violin,
         geom_smooth,
+        stat_summary,
         facet_wrap,
         facet_grid,
         labs,
         theme_bw,
     )
+
+    # Aggregation function mapping using lambdas with Polars
+    AGG_FUNCS = {
+        "mean": lambda x: x.mean(),
+        "median": lambda x: pl.Series(x).median(),
+        "sum": lambda x: pl.Series(x).sum(),
+        "min": lambda x: pl.Series(x).min(),
+        "max": lambda x: pl.Series(x).max(),
+    }
+
+    # Validate agg argument
+    if agg is not None and agg not in AGG_FUNCS:
+        available = ", ".join(sorted(AGG_FUNCS.keys()))
+        raise ValueError(f"Unknown agg: {agg}. Available: {available}")
 
     # Convert LazyFrame to DataFrame
     if isinstance(df, pl.LazyFrame):
@@ -197,6 +222,12 @@ def visualize(
     if fill and fill not in df.columns:
         geom_kwargs["fill"] = fill
 
+    # Sample data for scatter plots if needed
+    nobs_caption = None
+    if geom == "scatter" and nobs != -1 and len(df) > nobs:
+        df = df.sample(n=nobs, seed=1234)
+        nobs_caption = f"nobs={nobs} used"
+
     # Build base plot
     p = ggplot(df, aes(**aes_kwargs))
 
@@ -215,7 +246,7 @@ def visualize(
         p = p + geom_density(**geom_kwargs)
 
     elif geom == "scatter":
-        scatter_kwargs = {k: v for k, v in geom_kwargs.items()}
+        scatter_kwargs = {k: v for k, v in geom_kwargs.items() if k != "nobs"}
         if jitter:
             p = p + geom_jitter(width=0.2, height=0, **scatter_kwargs)
         else:
@@ -230,10 +261,20 @@ def visualize(
             elif smooth in ("true", "True", True):
                 p = p + geom_smooth(se=True, alpha=0.2)
 
+        # Add aggregation line for categorical x
+        if agg and _is_categorical(df, x):
+            agg_func = AGG_FUNCS[agg]
+            p = p + stat_summary(fun_y=agg_func, fun_ymin=agg_func, fun_ymax=agg_func, geom="crossbar", color="blue", size=1)
+
     elif geom == "bar":
         pos = position or "stack"
         bar_kwargs = {k: v for k, v in geom_kwargs.items() if k != "position"}
-        p = p + geom_bar(stat="count", position=pos, **bar_kwargs)
+        if agg and y:
+            # Aggregated bar plot: use stat_summary
+            agg_func = AGG_FUNCS[agg]
+            p = p + geom_bar(stat="summary", fun_y=agg_func, position=pos, **bar_kwargs)
+        else:
+            p = p + geom_bar(stat="count", position=pos, **bar_kwargs)
 
     elif geom == "line":
         # For line plots, group by color if specified
@@ -265,7 +306,9 @@ def visualize(
         y_lab = "Count"
     if geom == "density" and not y:
         y_lab = "Density"
+    if agg and y and geom == "bar":
+        y_lab = f"{agg.capitalize()} of {y}"
 
-    p = p + labs(x=x_lab, y=y_lab, title=title or "") + theme_bw()
+    p = p + labs(x=x_lab, y=y_lab, title=title or "", caption=nobs_caption) + theme_bw()
 
     return p

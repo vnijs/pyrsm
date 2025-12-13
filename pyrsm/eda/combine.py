@@ -1,155 +1,211 @@
 """
 combine() - Combine datasets using joins, binds, or set operations.
 
-Adapted from R's radiant.data::combine_data().
+Uses Polars-native parameter names (on, how) for familiarity.
 
 Examples:
     import pyrsm as rsm
 
-    # Join datasets
-    rsm.eda.combine(orders, customers, by='customer_id', type='inner_join')
-    rsm.eda.combine(orders, customers, by='cust_id:customer_id', type='left_join')
+    # Join datasets (Polars-style)
+    rsm.eda.combine(orders, customers, on='customer_id')  # inner join (default)
+    rsm.eda.combine(orders, customers, on='customer_id', how='left')
+
+    # Different key names
+    rsm.eda.combine(orders, customers, left_on='cust_id', right_on='customer_id')
 
     # Bind operations
-    rsm.eda.combine(df1, df2, type='bind_rows')
-    rsm.eda.combine(df1, df2, type='bind_cols')
+    rsm.eda.combine(df1, df2, how='bind_rows')
+    rsm.eda.combine(df1, df2, how='bind_cols')
 
     # Set operations
-    rsm.eda.combine(df1, df2, type='intersect')
+    rsm.eda.combine(df1, df2, how='intersect')
 """
 
 from typing import List, Optional, Union
 import polars as pl
 
-# Combine types matching Radiant
-JOIN_TYPES = {"inner_join", "left_join", "right_join", "full_join", "semi_join", "anti_join"}
+# All supported combine types
+JOIN_TYPES = {"inner", "left", "right", "full", "semi", "anti"}
 BIND_TYPES = {"bind_rows", "bind_cols"}
 SET_TYPES = {"intersect", "union", "setdiff"}
 ALL_TYPES = JOIN_TYPES | BIND_TYPES | SET_TYPES
 
-# Map Radiant names to Polars how= parameter
-POLARS_JOIN_MAP = {
-    "inner_join": "inner",
-    "left_join": "left",
-    "right_join": "right",
-    "full_join": "full",
-    "semi_join": "semi",
-    "anti_join": "anti",
-}
 
-
-def _parse_by(by: str) -> tuple:
-    """Parse by= string into (left_on, right_on) lists.
-
-    Examples:
-        "customer_id" -> (["customer_id"], ["customer_id"])
-        "cust_id:customer_id" -> (["cust_id"], ["customer_id"])
-        "a,b" -> (["a", "b"], ["a", "b"])
-        "a:x,b:y" -> (["a", "b"], ["x", "y"])
+def _align_join_key_dtypes(
+    x_lf: pl.LazyFrame,
+    y_lf: pl.LazyFrame,
+    left_on: List[str],
+    right_on: List[str],
+) -> tuple:
     """
-    left_on, right_on = [], []
-    for key in by.split(","):
-        key = key.strip()
-        if ":" in key:
-            left, right = key.split(":", 1)
-            left_on.append(left.strip())
-            right_on.append(right.strip())
+    Align join key dtypes between two LazyFrames.
+
+    Smart dtype alignment preserving the "better" type:
+    - Cat vs Str: Cast Str → Cat (preserves categorical benefits)
+    - Int vs Float: Cast Int → Float (lossless upcast)
+    - Other mismatches: Cast to String as fallback
+
+    Returns:
+        Tuple of (x_lf, y_lf) with aligned key dtypes
+    """
+    x_schema = x_lf.collect_schema()
+    y_schema = y_lf.collect_schema()
+
+    x_casts = []
+    y_casts = []
+
+    # Numeric types for Int vs Float detection
+    int_types = {pl.Int8, pl.Int16, pl.Int32, pl.Int64, pl.UInt8, pl.UInt16, pl.UInt32, pl.UInt64}
+    float_types = {pl.Float32, pl.Float64}
+
+    for left_col, right_col in zip(left_on, right_on):
+        left_dtype = x_schema.get(left_col)
+        right_dtype = y_schema.get(right_col)
+
+        if left_dtype is None or right_dtype is None:
+            continue  # Column doesn't exist, let Polars raise the error
+
+        if left_dtype == right_dtype:
+            continue  # Already aligned
+
+        # Case 1: Cat vs Str - cast Str to Cat (preserves categorical benefits)
+        if left_dtype == pl.Categorical and right_dtype in (pl.String, pl.Utf8):
+            y_casts.append(pl.col(right_col).cast(pl.Categorical))
+        elif right_dtype == pl.Categorical and left_dtype in (pl.String, pl.Utf8):
+            x_casts.append(pl.col(left_col).cast(pl.Categorical))
+
+        # Case 2: Int vs Float - cast Int to Float (lossless upcast)
+        elif left_dtype in int_types and right_dtype in float_types:
+            x_casts.append(pl.col(left_col).cast(right_dtype))
+        elif right_dtype in int_types and left_dtype in float_types:
+            y_casts.append(pl.col(right_col).cast(left_dtype))
+
+        # Case 3: Fallback - cast both to String
         else:
-            left_on.append(key)
-            right_on.append(key)
-    return left_on, right_on
+            if left_dtype != pl.String:
+                x_casts.append(pl.col(left_col).cast(pl.String))
+            if right_dtype != pl.String:
+                y_casts.append(pl.col(right_col).cast(pl.String))
+
+    # Apply casts
+    if x_casts:
+        x_lf = x_lf.with_columns(x_casts)
+    if y_casts:
+        y_lf = y_lf.with_columns(y_casts)
+
+    return x_lf, y_lf
 
 
 def combine(
     x: Union[pl.DataFrame, pl.LazyFrame],
     y: Union[pl.DataFrame, pl.LazyFrame],
-    by: Optional[str] = None,
-    type: str = "inner_join",
+    on: Optional[Union[str, List[str]]] = None,
+    how: str = "inner",
+    left_on: Optional[Union[str, List[str]]] = None,
+    right_on: Optional[Union[str, List[str]]] = None,
     add: Optional[List[str]] = None,
     suffix: str = "_right",
 ) -> pl.DataFrame:
     """
     Combine two datasets using joins, binds, or set operations.
 
+    Uses Polars-native parameter names for familiarity.
+
     Args:
         x: Left/first dataset (Polars DataFrame or LazyFrame)
         y: Right/second dataset to combine with x
-        by: Join keys. Format: "col" or "col1,col2" or "left_col:right_col"
-            Required for join operations, ignored for bind/set operations.
-        type: Combine type. Default: 'inner_join'
-              Joins (require by=): inner_join, left_join, right_join, full_join, semi_join, anti_join
-              Binds (no by=): bind_rows, bind_cols
-              Sets (no by=): intersect, union, setdiff
-        add: Columns to select from y (optional, for joins). If None, uses all columns.
-        suffix: Suffix for overlapping column names in y. Default: '_right'
+        on: Join key(s) when same column name on both sides.
+            Can be string ("id") or list (["id", "date"]).
+        how: Combine type. Default: 'inner'
+             Joins: inner, left, right, full, semi, anti
+             Binds: bind_rows, bind_cols
+             Sets: intersect, union, setdiff
+        left_on: Join key(s) from x when names differ from y.
+        right_on: Join key(s) from y when names differ from x.
+        add: Columns to select from y (optional, for joins). If None, uses all.
+        suffix: Suffix for overlapping column names. Default: '_right'
 
     Returns:
         pl.DataFrame: Combined dataset
 
+    Notes:
+        - Join key dtypes are automatically aligned (e.g., Cat cast to Str)
+
     Examples:
-        >>> rsm.eda.combine(orders, customers, by='customer_id')  # Inner join
-        >>> rsm.eda.combine(orders, customers, by='customer_id', type='left_join')
-        >>> rsm.eda.combine(df1, df2, type='bind_rows')  # Stack vertically
-        >>> rsm.eda.combine(df1, df2, type='intersect')  # Common rows
+        >>> rsm.eda.combine(orders, customers, on='customer_id')  # Inner join
+        >>> rsm.eda.combine(orders, customers, on='customer_id', how='left')
+        >>> rsm.eda.combine(orders, customers, left_on='cust_id', right_on='customer_id')
+        >>> rsm.eda.combine(df1, df2, how='bind_rows')  # Stack vertically
+        >>> rsm.eda.combine(df1, df2, how='intersect')  # Common rows
     """
-    # Validate type
-    if type not in ALL_TYPES:
+    # Validate how
+    if how not in ALL_TYPES:
         raise ValueError(
-            f"Unknown combine type: {type}\n"
+            f"Unknown combine type: {how}\n"
             f"Supported: {', '.join(sorted(ALL_TYPES))}"
         )
 
-    is_join = type in JOIN_TYPES
+    is_join = how in JOIN_TYPES
 
-    # Validate by= for joins
-    if is_join and not by:
-        raise ValueError(
-            f"Join type '{type}' requires by= parameter.\n"
-            "Example: rsm.eda.combine(x, y, by='customer_id', type='inner_join')"
-        )
+    # Validate join keys
+    if is_join:
+        if on is None and (left_on is None or right_on is None):
+            raise ValueError(
+                f"Join type '{how}' requires on= or (left_on= and right_on=).\n"
+                "Example: rsm.eda.combine(x, y, on='customer_id', how='left')"
+            )
 
     # Convert to LazyFrame for consistency
     x_lf = x.lazy() if isinstance(x, pl.DataFrame) else x
     y_lf = y.lazy() if isinstance(y, pl.DataFrame) else y
 
+    # Normalize join keys to lists
+    if on is not None:
+        left_keys = [on] if isinstance(on, str) else list(on)
+        right_keys = left_keys
+    elif left_on is not None and right_on is not None:
+        left_keys = [left_on] if isinstance(left_on, str) else list(left_on)
+        right_keys = [right_on] if isinstance(right_on, str) else list(right_on)
+    else:
+        left_keys = []
+        right_keys = []
+
     # Optionally limit columns from y
     if add and is_join:
-        left_on, right_on = _parse_by(by)
-        # Include join keys + add columns
-        keep_cols = list(set(right_on + add))
+        keep_cols = list(set(right_keys + add))
         y_lf = y_lf.select(keep_cols)
 
     # Execute based on type
     if is_join:
-        left_on, right_on = _parse_by(by)
-        how = POLARS_JOIN_MAP[type]
+        # Auto-align join key dtypes
+        x_lf, y_lf = _align_join_key_dtypes(x_lf, y_lf, left_keys, right_keys)
 
-        if left_on == right_on:
-            result = x_lf.join(y_lf, on=left_on, how=how, suffix=suffix)
+        if left_keys == right_keys:
+            result = x_lf.join(y_lf, on=left_keys, how=how, suffix=suffix)
         else:
-            result = x_lf.join(y_lf, left_on=left_on, right_on=right_on,
+            result = x_lf.join(y_lf, left_on=left_keys, right_on=right_keys,
                                how=how, suffix=suffix)
 
-    elif type == "bind_rows":
+    elif how == "bind_rows":
         result = pl.concat([x_lf, y_lf], how="diagonal")
 
-    elif type == "bind_cols":
+    elif how == "bind_cols":
         # Horizontal concat - collect for frame alignment
         x_df = x_lf.collect()
         y_df = y_lf.collect()
         result = pl.concat([x_df, y_df], how="horizontal").lazy()
 
-    elif type == "intersect":
+    elif how == "intersect":
         # Rows present in both datasets
         x_df = x_lf.collect()
         y_df = y_lf.collect()
         result = x_df.join(y_df, on=x_df.columns, how="semi").lazy()
 
-    elif type == "union":
+    elif how == "union":
         # All rows from both, deduplicated
         result = pl.concat([x_lf, y_lf]).unique()
 
-    elif type == "setdiff":
+    elif how == "setdiff":
         # Rows in x but not in y
         x_df = x_lf.collect()
         y_df = y_lf.collect()

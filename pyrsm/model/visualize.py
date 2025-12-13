@@ -27,7 +27,7 @@ from plotnine import (
 from sklearn.inspection import permutation_importance
 
 from pyrsm.stats import scale_df
-from pyrsm.utils import ifelse, intersect, setdiff, expand_grid
+from pyrsm.utils import ifelse, intersect, setdiff, expand_grid, check_dataframe
 
 from .model import (
     extract_evars,
@@ -76,6 +76,43 @@ def _calc_r_squared(y, yhat) -> float:
 
     corr = pl.DataFrame({"y": y_vals, "yhat": yhat_vals}).select(pl.corr("y", "yhat")).item()
     return corr**2 if corr is not None else 0.0
+
+
+def _extract_model_and_scaling(model, data, rvar=None):
+    """Extract fitted model and build scaled data dict if model has scaling info.
+
+    For MLP models, scaling info (means/stds) is needed for correct predictions.
+    This helper detects if a full model object (with .means, .stds, .fitted) was
+    passed and extracts the scaling info into a data dict.
+
+    Returns: (fitted_model, data_or_data_dict, rvar)
+    """
+    # Check if this is an mlp object (has means, stds, fitted attributes)
+    if hasattr(model, 'means') and hasattr(model, 'stds') and hasattr(model, 'fitted'):
+        fitted = model.fitted
+        evar = model.evar if hasattr(model, 'evar') else []
+        model_rvar = model.rvar if hasattr(model, 'rvar') else rvar
+
+        if data is None:
+            # Use training data stored on model
+            cols = evar + ([model_rvar] if model_rvar else [])
+            data_dct = {
+                "data": model.data.select(cols),
+                "means": model.means,
+                "stds": model.stds,
+            }
+        else:
+            # Use provided data
+            data = check_dataframe(data) if not isinstance(data, pl.DataFrame) else data
+            cols = evar + ([model_rvar] if model_rvar and model_rvar in data.columns else [])
+            data_dct = {
+                "data": data.select(cols) if cols else data,
+                "means": model.means,
+                "stds": model.stds,
+            }
+        return fitted, data_dct, model_rvar
+    # Otherwise assume it's already a fitted sklearn model
+    return model, data, rvar
 
 
 def _compose_plots(plot_list: list, ncol: int = 2):
@@ -436,6 +473,9 @@ def pred_plot_sk(
     -------
     plotnine plot composition
     """
+    # Extract scaling info if model object (e.g., mlp) was passed instead of fitted model
+    fitted, data, rvar = _extract_model_and_scaling(fitted, data, rvar)
+
     # features names used in the sklearn model
     if hasattr(fitted, "feature_names_in_"):
         fn = fitted.feature_names_in_
@@ -756,9 +796,21 @@ def pdp_sk(
     """
     start_time = time.time()
 
-    # Convert to polars if needed
-    if isinstance(data, pd.DataFrame):
-        data = pl.from_pandas(data)
+    # Extract scaling info if model object (e.g., mlp) was passed instead of fitted model
+    fitted, data, rvar = _extract_model_and_scaling(fitted, data, rvar)
+
+    # Handle data dict with scaling info (for MLP models)
+    if isinstance(data, dict):
+        means = data["means"]
+        stds = data["stds"]
+        data = data["data"]
+        if isinstance(data, pd.DataFrame):
+            data = pl.from_pandas(data)
+    else:
+        means = None
+        stds = None
+        if isinstance(data, pd.DataFrame):
+            data = pl.from_pandas(data)
 
     # Get feature names from sklearn model
     if hasattr(fitted, "feature_names_in_"):
@@ -831,15 +883,30 @@ def pdp_sk(
         else:
             return data_to_dum
 
+    # Scaling helper for MLP models
+    def scale_for_prediction(data_for_pred):
+        if means is not None and stds is not None:
+            for col in not_transformed:
+                if col in means and col in data_for_pred.columns:
+                    data_for_pred = data_for_pred.with_columns(
+                        ((pl.col(col) - means[col]) / stds[col]).alias(col)
+                    )
+        return data_for_pred
+
     # Prediction function
     def pred_fun(fitted, data_for_pred):
+        data_for_pred = scale_for_prediction(data_for_pred)
         data_pd = (
             data_for_pred.to_pandas() if isinstance(data_for_pred, pl.DataFrame) else data_for_pred
         )
         if sk_type == "classification":
             return fitted.predict_proba(data_pd)[:, 1]
         else:
-            return fitted.predict(data_pd)
+            preds = fitted.predict(data_pd)
+            # Unscale predictions for MLP regression
+            if means is not None and stds is not None and rvar in means:
+                preds = preds * stds[rvar] + means[rvar]
+            return preds
 
     # Get base data for predictions
     base_data = data.select(transformed + not_transformed).drop_nulls()

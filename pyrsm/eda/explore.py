@@ -2,7 +2,7 @@
 explore() - Summary statistics for numeric columns.
 
 Examples:
-    import pyrsm_mcp as rsm
+    import pyrsm as rsm
 
     # All numeric columns, default stats
     rsm.eda.explore(df)
@@ -10,8 +10,8 @@ Examples:
     # Specific columns
     rsm.eda.explore(df, cols=['price', 'carat'])
 
-    # Custom functions
-    rsm.eda.explore(df, cols=['price'], funs=['mean', 'median', 'std'])
+    # Custom aggregation functions
+    rsm.eda.explore(df, cols=['price'], agg=['mean', 'median', 'sd'])
 
     # Grouped
     rsm.eda.explore(df, cols=['price'], by='cut')
@@ -37,7 +37,7 @@ EXPLORE_FUNCTIONS = {
     "null_count": lambda col: pl.col(col).null_count(),
 }
 
-DEFAULT_FUNS = ["mean", "std", "min", "max", "count"]
+DEFAULT_AGG = ["mean", "median", "min", "max", "sd"]
 
 # Numeric dtypes for auto-detection
 NUMERIC_DTYPES = (
@@ -50,7 +50,7 @@ NUMERIC_DTYPES = (
 def explore(
     df: Union[pl.DataFrame, pl.LazyFrame],
     cols: Optional[List[str]] = None,
-    funs: Optional[List[str]] = None,
+    agg: Optional[List[str]] = None,
     by: Optional[str] = None,
 ) -> pl.DataFrame:
     """
@@ -59,17 +59,17 @@ def explore(
     Args:
         df: Polars DataFrame or LazyFrame
         cols: Column names to summarize. If None, uses all numeric columns.
-        funs: Functions to compute. Default: ['mean', 'std', 'min', 'max', 'count']
-              Supported: mean, median, sum, std, var, min, max, count, n_unique, null_count
+        agg: Aggregation functions to compute. Default: ['mean', 'median', 'min', 'max', 'sd']
+             Supported: mean, median, sum, std, sd, var, min, max, count, n, n_unique, n_missing, null_count
         by: Optional column to group by
 
     Returns:
         DataFrame with summary statistics
 
     Examples:
-        >>> rsm.eda.explore(diamonds)  # All numeric, default stats
+        >>> rsm.eda.explore(diamonds)  # All numeric, default agg
         >>> rsm.eda.explore(diamonds, cols=['price', 'carat'])
-        >>> rsm.eda.explore(diamonds, cols=['price'], funs=['mean', 'median'])
+        >>> rsm.eda.explore(diamonds, cols=['price'], agg=['mean', 'median'])
         >>> rsm.eda.explore(diamonds, cols=['price'], by='cut')
     """
     # Convert to LazyFrame for consistency
@@ -78,15 +78,15 @@ def explore(
     else:
         lf = df
 
-    # Default functions
-    if funs is None:
-        funs = DEFAULT_FUNS
+    # Default aggregation functions
+    if agg is None:
+        agg = DEFAULT_AGG
 
-    # Validate functions
-    for fun in funs:
-        if fun not in EXPLORE_FUNCTIONS:
+    # Validate aggregation functions
+    for func in agg:
+        if func not in EXPLORE_FUNCTIONS:
             raise ValueError(
-                f"Unknown function: {fun}\n"
+                f"Unknown aggregation function: {func}\n"
                 f"Supported: {', '.join(EXPLORE_FUNCTIONS.keys())}"
             )
 
@@ -103,8 +103,8 @@ def explore(
     # Build aggregation expressions
     exprs = []
     for col in cols:
-        for fun in funs:
-            expr = EXPLORE_FUNCTIONS[fun](col).alias(f"{col}_{fun}")
+        for func in agg:
+            expr = EXPLORE_FUNCTIONS[func](col).alias(f"{col}_{func}")
             exprs.append(expr)
 
     # Execute with or without grouping
@@ -114,12 +114,12 @@ def explore(
         # Without grouping: transpose to have stats as rows, variables as columns
         wide_result = lf.select(exprs).collect()
 
-        # Build transposed table: rows = stats, columns = variables
+        # Build transposed table: rows = agg functions, columns = variables
         rows = []
-        for fun in funs:
-            row = {"statistic": fun}
+        for func in agg:
+            row = {"statistic": func}
             for col in cols:
-                row[col] = wide_result[f"{col}_{fun}"][0]
+                row[col] = wide_result[f"{col}_{func}"][0]
             rows.append(row)
         result = pl.DataFrame(rows)
 

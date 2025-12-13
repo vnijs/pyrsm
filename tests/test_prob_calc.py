@@ -33,10 +33,10 @@ def test_poisson_basic():
 
 def test_normal_basic():
     mean = 0
-    stdev = 1
-    res = normal.prob_norm(mean=mean, stdev=stdev, lb=-1, ub=1)
-    assert math.isclose(res["p_lb"], stats.norm.cdf(-1, mean, stdev), rel_tol=1e-9)
-    assert math.isclose(res["p_ub"], stats.norm.cdf(1, mean, stdev), rel_tol=1e-9)
+    sd = 1
+    res = normal.prob_norm(mean=mean, sd=sd, lb=-1, ub=1)
+    assert math.isclose(res["p_lb"], stats.norm.cdf(-1, mean, sd), rel_tol=1e-9)
+    assert math.isclose(res["p_ub"], stats.norm.cdf(1, mean, sd), rel_tol=1e-9)
     assert math.isclose(
-        res["p_int"], stats.norm.cdf(1, mean, stdev) - stats.norm.cdf(-1, mean, stdev), rel_tol=1e-9
+        res["p_int"], stats.norm.cdf(1, mean, sd) - stats.norm.cdf(-1, mean, sd), rel_tol=1e-9
     )

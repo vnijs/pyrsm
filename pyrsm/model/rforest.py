@@ -47,8 +47,8 @@ class rforest:
         lev: Optional[str] = None,
         evar: Optional[list[str]] = None,
         n_estimators: int = 100,
-        min_samples_leaf: float | int = 1,
         max_features: float | int | Literal["sqrt", "log2"] = "sqrt",
+        min_samples_leaf: float | int = 1,
         max_samples: float = 1.0,
         sample_weight: Optional[list[float]] = None,
         oob_score: bool = True,
@@ -71,8 +71,8 @@ class rforest:
         self.mod_type = mod_type
         self.oob_score = oob_score
         self.n_estimators = n_estimators
-        self.min_samples_leaf = min_samples_leaf
         self.max_features = max_features
+        self.min_samples_leaf = min_samples_leaf
         self.max_samples = max_samples
         self.random_state = random_state
         self.ml_model = {"model": "rforest", "mod_type": mod_type}

@@ -54,7 +54,7 @@ class TestExplore:
 
     def test_explore_custom_functions(self, sample_data):
         """Test explore with custom functions."""
-        result = explore(sample_data, cols=["price"], funs=["mean", "median", "min", "max"])
+        result = explore(sample_data, cols=["price"], agg=["mean", "median", "min", "max"])
         assert "price" in result.columns
         stats = result["statistic"].to_list()
         assert "mean" in stats
@@ -71,8 +71,8 @@ class TestExplore:
 
     def test_explore_invalid_function(self, sample_data):
         """Test explore with invalid function raises error."""
-        with pytest.raises(ValueError, match="Unknown function"):
-            explore(sample_data, funs=["invalid_func"])
+        with pytest.raises(ValueError, match="Unknown aggregation function"):
+            explore(sample_data, agg=["invalid_func"])
 
     def test_explore_lazyframe(self, sample_data):
         """Test explore with LazyFrame input."""
@@ -81,11 +81,11 @@ class TestExplore:
 
     def test_explore_all_functions(self, sample_data):
         """Test all supported functions."""
-        funs = ["mean", "median", "sum", "std", "var", "min", "max", "count", "n_unique", "null_count"]
-        result = explore(sample_data, cols=["price"], funs=funs)
+        agg = ["mean", "median", "sum", "std", "var", "min", "max", "count", "n_unique", "null_count"]
+        result = explore(sample_data, cols=["price"], agg=agg)
         stats = result["statistic"].to_list()
-        for fun in funs:
-            assert fun in stats
+        for func in agg:
+            assert func in stats
 
 
 class TestPivot:

@@ -4,13 +4,13 @@ from scipy import stats
 from .utils import iround, check, plot_continuous, ceil, floor
 
 
-def prob_norm(mean, stdev, lb=None, ub=None, plb=None, pub=None):
+def prob_norm(mean, sd, lb=None, ub=None, plb=None, pub=None):
     if lb is not None:
-        p_lb = stats.norm.cdf(lb, mean, stdev)
+        p_lb = stats.norm.cdf(lb, mean, sd)
     else:
         p_lb = None
     if ub is not None:
-        p_ub = stats.norm.cdf(ub, mean, stdev)
+        p_ub = stats.norm.cdf(ub, mean, sd)
     else:
         p_ub = None
     if lb is not None and ub is not None:
@@ -18,11 +18,11 @@ def prob_norm(mean, stdev, lb=None, ub=None, plb=None, pub=None):
     else:
         p_int = None
     if plb is not None:
-        v_lb = stats.norm.ppf(plb, mean, stdev)
+        v_lb = stats.norm.ppf(plb, mean, sd)
     else:
         v_lb = None
     if pub is not None:
-        v_ub = stats.norm.ppf(pub, mean, stdev)
+        v_ub = stats.norm.ppf(pub, mean, sd)
     else:
         v_ub = None
     check(lb, ub, plb, pub)
@@ -33,7 +33,7 @@ def prob_norm(mean, stdev, lb=None, ub=None, plb=None, pub=None):
         "v_lb": v_lb,
         "v_ub": v_ub,
         "mean": mean,
-        "stdev": stdev,
+        "sd": sd,
         "lb": lb,
         "ub": ub,
         "plb": plb,
@@ -47,7 +47,7 @@ def plot_prob_norm(dct, type="values"):
     else:
         lb, ub = dct["v_lb"], dct["v_ub"]
     mean = dct["mean"]
-    stdev = dct["stdev"]
+    stdev = dct["sd"]
     x_range = np.linspace(floor(mean - 4 * stdev), ceil(mean + 4 * stdev), 1000)
     y_range = stats.norm.pdf(x_range, mean, stdev)
     return plot_continuous(x_range, y_range, lb, ub, title="Normal Distribution")
@@ -62,7 +62,7 @@ def summary_prob_norm(dct, type="values", dec=3, ret=False):
     summary_dict = {}
     add(summary_dict, "Probability calculator", None)
     add(summary_dict, "Distribution", "Normal")
-    mean, stdev = dct["mean"], dct["stdev"]
+    mean, stdev = dct["mean"], dct["sd"]
     add(summary_dict, "Mean", round(mean, dec))
     add(summary_dict, "St. dev", round(stdev, dec))
     if type == "values":

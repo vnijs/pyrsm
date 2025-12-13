@@ -4,14 +4,14 @@ unpivot() - Convert wide format to long format (reverse of pivot).
 Examples:
     import pyrsm as rsm
 
-    # Basic unpivot - all columns except ID become values
-    rsm.eda.unpivot(df, id_vars='name')
+    # Basic unpivot - specify columns to unpivot
+    rsm.eda.unpivot(df, on=['Q1', 'Q2', 'Q3'])
 
-    # Specify which columns to unpivot
-    rsm.eda.unpivot(df, id_vars='name', value_vars=['Q1', 'Q2', 'Q3'])
+    # With ID columns to keep
+    rsm.eda.unpivot(df, on=['Q1', 'Q2', 'Q3'], id_vars='name')
 
     # Custom column names
-    rsm.eda.unpivot(df, id_vars='name', variable_name='quarter', value_name='sales')
+    rsm.eda.unpivot(df, on=['Q1', 'Q2'], id_vars='name', variable_name='quarter', value_name='sales')
 """
 
 from typing import List, Optional, Union
@@ -20,8 +20,8 @@ import polars as pl
 
 def unpivot(
     df: Union[pl.DataFrame, pl.LazyFrame],
+    on: Optional[Union[str, List[str]]] = None,
     id_vars: Optional[Union[str, List[str]]] = None,
-    value_vars: Optional[Union[str, List[str]]] = None,
     variable_name: str = "variable",
     value_name: str = "value",
 ) -> pl.DataFrame:
@@ -30,8 +30,8 @@ def unpivot(
 
     Args:
         df: Polars DataFrame or LazyFrame
+        on: Column(s) to unpivot. If None, uses all columns not in id_vars
         id_vars: Column(s) to keep as identifier variables
-        value_vars: Column(s) to unpivot. If None, uses all columns not in id_vars
         variable_name: Name for the new variable column. Default: 'variable'
         value_name: Name for the new value column. Default: 'value'
 
@@ -40,11 +40,11 @@ def unpivot(
 
     Examples:
         >>> # Wide format: name, Q1, Q2, Q3, Q4
-        >>> rsm.eda.unpivot(df, id_vars='name')
+        >>> rsm.eda.unpivot(df, on=['Q1', 'Q2', 'Q3', 'Q4'], id_vars='name')
         >>> # Long format: name, variable, value
 
-        >>> rsm.eda.unpivot(df, id_vars='name', value_vars=['Q1', 'Q2'])
-        >>> rsm.eda.unpivot(df, id_vars='name', variable_name='quarter', value_name='sales')
+        >>> rsm.eda.unpivot(df, on=['Q1', 'Q2'], id_vars='name')
+        >>> rsm.eda.unpivot(df, on=['Q1', 'Q2'], id_vars='name', variable_name='quarter', value_name='sales')
     """
     # Convert to DataFrame if LazyFrame
     if isinstance(df, pl.LazyFrame):
@@ -58,13 +58,13 @@ def unpivot(
     else:
         id_vars_list = list(id_vars)
 
-    # Normalize value_vars to list (if specified)
-    if value_vars is None:
+    # Normalize on to list (if specified)
+    if on is None:
         value_vars_list = None
-    elif isinstance(value_vars, str):
-        value_vars_list = [value_vars]
+    elif isinstance(on, str):
+        value_vars_list = [on]
     else:
-        value_vars_list = list(value_vars)
+        value_vars_list = list(on)
 
     # Call Polars unpivot
     result = df.unpivot(
